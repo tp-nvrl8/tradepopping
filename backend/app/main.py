@@ -19,6 +19,12 @@ def health():
     }
 
 
+# NEW: make /api/health return the same thing
+@app.get("/api/health", include_in_schema=False)
+def api_health():
+    return health()
+
+
 if __name__ == "__main__":
     import uvicorn
 

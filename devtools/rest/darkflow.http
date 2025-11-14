@@ -1,0 +1,15 @@
+# -----------------------------
+# DARK FLOW MONITOR
+# -----------------------------
+
+### @name darkflow_latest
+GET {{host}}{{basePath}}/darkflow/latest?symbol=NVDA
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name darkflow_summary_range
+GET {{host}}{{basePath}}/darkflow/summary?symbol=NVDA&lookback_days=5
+Accept: application/json
+Authorization: Bearer {{authToken}}

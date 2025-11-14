@@ -1,0 +1,38 @@
+# -----------------------------
+# USER MANAGEMENT ENDPOINTS
+# -----------------------------
+
+### @name users_list
+GET {{host}}{{basePath}}/users
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name users_create
+POST {{host}}{{basePath}}/users
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "email": "newuser+{{ $timestamp }}@tradepopping.com",
+  "password": "Password123!",
+  "role": "tester"
+}
+
+###
+
+### @name users_get_by_id
+# Replace 123 with a real user ID after you have one
+GET {{host}}{{basePath}}/users/123
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name users_delete
+# Danger: destructive. Only use in non-prod environments.
+DELETE {{host}}{{basePath}}/users/123
+Accept: application/json
+Authorization: Bearer {{authToken}}

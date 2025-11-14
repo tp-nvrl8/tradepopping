@@ -1,0 +1,19 @@
+### Health check – simple
+
+GET {{host}}{{basePath}}/health
+Accept: application/json
+
+###
+
+### Health check – with extra headers (optional)
+
+GET {{host}}{{basePath}}/health
+Accept: application/json
+Cache-Control: no-cache
+
+###
+
+### Ping – new route we just added
+
+GET {{host}}{{basePath}}/ping
+Accept: application/json

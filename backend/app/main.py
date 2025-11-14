@@ -119,6 +119,11 @@ def secret(current_user: dict = Depends(get_current_user)):
     }
 
 
+@app.get("/api/ping")
+async def ping():
+    return {"message": "pong", "env": "local"}
+
+
 if __name__ == "__main__":
     import uvicorn
 

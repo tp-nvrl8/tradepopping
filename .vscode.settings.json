@@ -1,0 +1,11 @@
+{
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "basePath": "/api"
+    },
+    "local": {
+      "host": "http://localhost:8000",
+      "authToken": ""
+    }
+  }
+}

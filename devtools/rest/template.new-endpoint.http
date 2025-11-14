@@ -1,0 +1,64 @@
+# -----------------------------
+# TEMPLATE: NEW ENDPOINT GROUP
+# -----------------------------
+# How to use:
+# 1. Duplicate this file.
+# 2. Rename it to <feature>.http (e.g. positions.http).
+# 3. Replace /feature and /feature/{id} etc with your real paths.
+# 4. Add/remove requests as needed.
+# -----------------------------
+
+
+### @name feature_list
+# GET /<feature>
+
+GET {{host}}{{basePath}}/feature
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name feature_get_by_id
+# GET /<feature>/{id}
+
+GET {{host}}{{basePath}}/feature/123
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name feature_create
+# POST /<feature>
+
+POST {{host}}{{basePath}}/feature
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "example_field": "value",
+  "created_at": "{{$timestamp}}"
+}
+
+###
+
+### @name feature_update
+# PUT /<feature>/{id}
+
+PUT {{host}}{{basePath}}/feature/123
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "example_field": "updated value"
+}
+
+###
+
+### @name feature_delete
+# DELETE /<feature>/{id}
+
+DELETE {{host}}{{basePath}}/feature/123
+Accept: application/json
+Authorization: Bearer {{authToken}}

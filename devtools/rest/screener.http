@@ -1,0 +1,29 @@
+# -----------------------------
+# SCREENER / CANDIDATES
+# -----------------------------
+
+### @name screener_run_basic
+# Example: Run screener with a basic preset
+
+GET {{host}}{{basePath}}/screener/run?preset=basic
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name screener_run_custom
+# Example: Post a filter definition body (when your DSL/JSON format is ready)
+
+POST {{host}}{{basePath}}/screener/run
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Test Filter {{$timestamp}}",
+  "universe": "us_equities",
+  "rules": [
+    { "field": "close", "op": "between", "value": [2.0, 20.0] },
+    { "field": "avg_volume_20d", "op": ">", "value": 250000 }
+  ]
+}

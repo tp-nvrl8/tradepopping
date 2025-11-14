@@ -1,4 +1,4 @@
 ### Health via env
 
-GET {{host}}/api/health
+GET {{host}}/ping
 Accept: application/json

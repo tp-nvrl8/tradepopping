@@ -1,0 +1,50 @@
+# -----------------------------
+# AUTH ENDPOINT TESTS
+# -----------------------------
+
+### @name auth_register
+# Register a new user (if you end up supporting registration)
+
+POST {{host}}/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "test-user+{{$timestamp}}@tradepopping.com",
+  "password": "Password123!",
+  "full_name": "Test User {{$timestamp}}"
+}
+
+###
+
+### @name auth_login
+# Login and get a JWT or session token
+
+POST {{host}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "systems@tradepopping.com",
+  "password": "Tadpole9"
+}
+
+###
+
+### @name auth_me
+# Get current user info using Authorization header with token from environment
+
+GET {{host}}{{basePath}}/auth/me
+Accept: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+### @name auth_me_inline_token
+# Same as /auth/me but with inline token (for quick testing)
+
+@token = {{authToken}}
+
+GET {{host}}{{basePath}}/auth/me
+Accept: application/json
+Authorization: Bearer {{token}}

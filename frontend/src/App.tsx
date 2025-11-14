@@ -1,20 +1,32 @@
-function App() {
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import LoginPage from "./pages/LoginPage";
+import LabHome from "./pages/LabHome";
+
+const App: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
-      <div className="border border-slate-700 rounded-xl px-8 py-6 shadow-lg max-w-md w-full">
-        <h1 className="text-2xl font-semibold mb-2 tracking-wide">
-          TradePopping Lab Console
-        </h1>
-        <p className="text-sm text-slate-300 mb-4">
-          Frontend is online. Next we’ll route this through the reverse proxy and
-          hook it to the backend.
-        </p>
-        <div className="text-xs text-slate-400">
-          status: <span className="text-emerald-400">OK</span> · env: dev
-        </div>
-      </div>
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <LabHome />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Fallback: everything else goes to home (protected) */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
-}
+};
 
 export default App;

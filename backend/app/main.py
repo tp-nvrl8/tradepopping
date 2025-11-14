@@ -1,7 +1,32 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Depends, Request
+from pydantic import BaseModel
 import os
+import secrets
 
 app = FastAPI(title="TradePopping Backend")
+
+# --- Config from environment ---
+ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")
+ENTRY_CODE = os.getenv("TP_ENTRY_CODE")
+
+# In-memory token store (simple for single-user lab)
+ACTIVE_TOKENS: set[str] = set()
+
+
+# --- Models ---
+
+
+class LoginRequest(BaseModel):
+    email: str
+    code: str  # the "entry code" / password
+
+
+class LoginResponse(BaseModel):
+    token: str
+    email: str
+
+
+# --- Basic routes ---
 
 
 @app.get("/")
@@ -19,10 +44,79 @@ def health():
     }
 
 
-# NEW: make /api/health return the same thing
 @app.get("/api/health", include_in_schema=False)
 def api_health():
     return health()
+
+
+# --- Auth helpers ---
+
+
+def get_current_user(request: Request):
+    """
+    Checks Authorization: Bearer <token> against our in-memory token set.
+    Used as a dependency on protected endpoints.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = auth_header.split(" ", 1)[1]
+    if token not in ACTIVE_TOKENS:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # For now we only support a single user based on env config
+    return {"email": ALLOWED_EMAIL}
+
+
+# --- Auth endpoints ---
+
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest):
+    """
+    Single-user login:
+    - email must match TP_ALLOWED_EMAIL (if set)
+    - code must match TP_ENTRY_CODE (if set)
+    Returns a random token to be used as Bearer token.
+    """
+    if ALLOWED_EMAIL and payload.email.lower() != ALLOWED_EMAIL.lower():
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if ENTRY_CODE and payload.code != ENTRY_CODE:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = secrets.token_urlsafe(32)
+    ACTIVE_TOKENS.add(token)
+
+    return LoginResponse(token=token, email=payload.email)
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request):
+    """
+    Logs out the current token by removing it from ACTIVE_TOKENS.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return {"detail": "Already logged out"}
+
+    token = auth_header.split(" ", 1)[1]
+    ACTIVE_TOKENS.discard(token)
+    return {"detail": "Logged out"}
+
+
+# Example protected endpoint
+@app.get("/api/secret")
+def secret(current_user: dict = Depends(get_current_user)):
+    """
+    Example protected endpoint.
+    Requires a valid Bearer token from /api/auth/login.
+    """
+    return {
+        "message": "Top secret TradePopping lab data",
+        "user": current_user,
+    }
 
 
 if __name__ == "__main__":

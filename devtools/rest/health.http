@@ -1,4 +1,4 @@
-### Health via env vars
+### Health via env
 
-GET {{host}}{{basePath}}/health
+GET {{host}}/api/health
 Accept: application/json

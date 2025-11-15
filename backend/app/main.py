@@ -27,6 +27,16 @@ class LoginResponse(BaseModel):
     email: str
 
 
+class UserSettings(BaseModel):
+    theme: str = "dark"
+    default_app: str = "lab"  # or "scanner", "dashboard", etc.
+    show_experimental_features: bool = False
+
+
+# In-memory settings store keyed by email
+USER_SETTINGS_STORE: dict[str, UserSettings] = {}
+
+
 # --- Basic routes ---
 
 
@@ -141,6 +151,41 @@ def auth_me(current_user: dict = Depends(get_current_user)):
         "environment": CONFIG.app_env,
         "version": CONFIG.app_version,
     }
+
+
+@app.get("/api/user/settings", response_model=UserSettings)
+def get_user_settings(current_user: dict = Depends(get_current_user)):
+    """
+    Return settings for the current user.
+    If none stored yet, return defaults.
+    """
+    email = current_user.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="User email not found")
+
+    existing = USER_SETTINGS_STORE.get(email)
+    if existing:
+        return existing
+
+    # If no settings yet, return default instance (not stored until updated)
+    return UserSettings()
+
+
+@app.put("/api/user/settings", response_model=UserSettings)
+def update_user_settings(
+    settings: UserSettings,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Update settings for the current user.
+    Stores them in an in-memory dict for now.
+    """
+    email = current_user.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="User email not found")
+
+    USER_SETTINGS_STORE[email] = settings
+    return settings
 
 
 if __name__ == "__main__":

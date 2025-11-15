@@ -51,6 +51,18 @@ class DataIngestStatus(BaseModel):
     last_error: Optional[str] = None
 
 
+class DataSourceTestRequest(BaseModel):
+    source_id: str
+
+
+class DataSourceTestResponse(BaseModel):
+    id: str
+    name: str
+    status: str  # "ok" or "error"
+    has_api_key: bool
+    message: str
+
+
 # In-memory settings store keyed by email
 USER_SETTINGS_STORE: dict[str, UserSettings] = {}
 
@@ -245,6 +257,42 @@ def get_data_ingest_status(current_user: dict = Depends(get_current_user)):
     Currently stubbed: all sources are 'idle' with no timestamps.
     """
     return build_data_ingest_status() 
+
+
+@app.post("/api/data/sources/test", response_model=DataSourceTestResponse)
+def test_data_source(
+    payload: DataSourceTestRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Simple test of a single data source.
+
+    For now this only checks:
+      - is the source known?
+      - is an API key env var set?
+    """
+    # Find the source definition
+    src = next((s for s in DATA_SOURCES if s["id"] == payload.source_id), None)
+    if not src:
+        raise HTTPException(status_code=404, detail=f"Unknown data source id: {payload.source_id}")
+
+    env_val = os.getenv(src["env_key"], "").strip()
+    has_key = bool(env_val)
+
+    if not has_key:
+        status = "error"
+        message = f"No API key configured in env var {src['env_key']}."
+    else:
+        status = "ok"
+        message = "API key is present. Connectivity test not yet implemented."
+
+    return DataSourceTestResponse(
+        id=src["id"],
+        name=src["name"],
+        status=status,
+        has_api_key=has_key,
+        message=message,
+    )
 
 
 @app.put("/api/user/settings", response_model=UserSettings)

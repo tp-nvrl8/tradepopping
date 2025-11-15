@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 import os
 import secrets
+from datetime import datetime
+from typing import Optional, List
 from .config import CONFIG
 
 app = FastAPI(title="TradePopping Backend")
@@ -31,6 +33,15 @@ class UserSettings(BaseModel):
     theme: str = "dark"
     default_app: str = "lab"  # or "scanner", "dashboard", etc.
     show_experimental_features: bool = False
+
+
+class DataSourceStatus(BaseModel):
+    id: str
+    name: str
+    enabled: bool
+    has_api_key: bool
+    last_success: Optional[datetime] = None
+    last_error: Optional[str] = None
 
 
 # In-memory settings store keyed by email
@@ -78,6 +89,26 @@ def get_current_user(request: Request):
 
     # For now we only support a single user based on env config
     return {"email": ALLOWED_EMAIL}
+
+
+def build_data_source_status() -> List[DataSourceStatus]:
+    statuses: List[DataSourceStatus] = []
+
+    for src in DATA_SOURCES:
+        env_val = os.getenv(src["env_key"], "").strip()
+        has_key = bool(env_val)
+
+        statuses.append(
+            DataSourceStatus(
+                id=src["id"],
+                name=src["name"],
+                enabled=has_key,  # for now: enabled if key is present
+                has_api_key=has_key,
+                last_success=None,
+                last_error=None,
+            )
+        )
+    return statuses
 
 
 # --- Auth endpoints ---
@@ -171,6 +202,15 @@ def get_user_settings(current_user: dict = Depends(get_current_user)):
     return UserSettings()
 
 
+@app.get("/api/data/sources", response_model=List[DataSourceStatus])
+def get_data_sources(current_user: dict = Depends(get_current_user)):
+    """
+    Return status for configured data sources (Polygon, FMP, Finnhub, Fintel).
+    For now, this checks only whether an API key env var is set.
+    """
+    return build_data_source_status()
+
+
 @app.put("/api/user/settings", response_model=UserSettings)
 def update_user_settings(
     settings: UserSettings,
@@ -186,6 +226,13 @@ def update_user_settings(
 
     USER_SETTINGS_STORE[email] = settings
     return settings
+
+DATA_SOURCES = [
+    {"id": "polygon", "name": "Polygon.io", "env_key": "POLYGON_API_KEY"},
+    {"id": "fmp", "name": "Financial Modeling Prep", "env_key": "FMP_API_KEY"},
+    {"id": "finnhub", "name": "Finnhub", "env_key": "FINNHUB_API_KEY"},
+    {"id": "fintel", "name": "Fintel", "env_key": "FINTEL_API_KEY"},
+]
 
 
 if __name__ == "__main__":

@@ -44,6 +44,13 @@ class DataSourceStatus(BaseModel):
     last_error: Optional[str] = None
 
 
+class DataIngestStatus(BaseModel):
+    id: str
+    state: str  # e.g. "idle", "running", "error"
+    last_run: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+
 # In-memory settings store keyed by email
 USER_SETTINGS_STORE: dict[str, UserSettings] = {}
 
@@ -108,6 +115,26 @@ def build_data_source_status() -> List[DataSourceStatus]:
                 last_error=None,
             )
         )
+    return statuses
+
+
+def build_data_ingest_status() -> List[DataIngestStatus]:
+    """
+    For now, return stub ingest status for each data source.
+    Later, this will read from a real ingest log / database.
+    """
+    statuses: List[DataIngestStatus] = []
+
+    for src in DATA_SOURCES:
+        statuses.append(
+            DataIngestStatus(
+                id=src["id"],
+                state="idle",       # stub: nothing running yet
+                last_run=None,      # stub: unknown
+                last_error=None,    # stub: no error
+            )
+        )
+
     return statuses
 
 
@@ -209,6 +236,15 @@ def get_data_sources(current_user: dict = Depends(get_current_user)):
     For now, this checks only whether an API key env var is set.
     """
     return build_data_source_status()
+
+
+@app.get("/api/data/ingest/status", response_model=List[DataIngestStatus])
+def get_data_ingest_status(current_user: dict = Depends(get_current_user)):
+    """
+    Return ingest status for each data source.
+    Currently stubbed: all sources are 'idle' with no timestamps.
+    """
+    return build_data_ingest_status() 
 
 
 @app.put("/api/user/settings", response_model=UserSettings)

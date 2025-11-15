@@ -129,6 +129,20 @@ def secret(current_user: dict = Depends(get_current_user)):
     }
 
 
+@app.get("/api/auth/me")
+def auth_me(current_user: dict = Depends(get_current_user)):
+    """
+    Return info about the currently authenticated user.
+    Requires a valid Bearer token.
+    """
+    return {
+        "email": current_user.get("email"),
+        "auth_mode": "single-user",
+        "environment": CONFIG.app_env,
+        "version": CONFIG.app_version,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

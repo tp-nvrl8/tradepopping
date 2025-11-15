@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 import os
 import secrets
+from .config import CONFIG
 
 app = FastAPI(title="TradePopping Backend")
 
@@ -104,6 +105,15 @@ def logout(request: Request):
     token = auth_header.split(" ", 1)[1]
     ACTIVE_TOKENS.discard(token)
     return {"detail": "Logged out"}
+
+
+@app.get("/api/config")
+def get_config():
+    """
+    Public, non-sensitive config for the frontend.
+    Safe to call without auth.
+    """
+    return CONFIG.public_dict()
 
 
 # Example protected endpoint

@@ -1,5 +1,6 @@
 import React from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useConfig } from "../config/ConfigContext";
 
 const LabHome: React.FC = () => {
   const { email, logout } = useAuth();

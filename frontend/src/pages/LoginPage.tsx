@@ -35,7 +35,7 @@ const LoginPage: React.FC = () => {
           TradePopping Login
         </h1>
         <p className="text-xs text-slate-400 mb-4">
-          Private lab access · Single user
+          Private Access - No Entry Without Hardware Key
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

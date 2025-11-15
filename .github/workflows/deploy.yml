@@ -1,0 +1,39 @@
+name: Deploy to Droplet
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}  # allows manual "Run workflow" button
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DO_HOST }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy to droplet
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "${{ secrets.DO_USER }}"@"${{ secrets.DO_HOST }}" << 'EOF'
+            set -e
+
+            cd "${{ secrets.DO_APP_DIR }}"
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Rebuilding and restarting stack..."
+            docker compose -f docker-compose.prod.yml up -d --build
+
+            echo "Deployment complete. Current containers:"
+            docker ps
+          EOF

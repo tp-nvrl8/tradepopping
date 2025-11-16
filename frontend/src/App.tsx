@@ -6,12 +6,12 @@ import LoginPage from "./pages/LoginPage";
 import LabHome from "./pages/LabHome";
 import { ConfigProvider } from "./config/ConfigContext";
 
-// New pages
 import LabPage from "./pages/LabPage";
 import CandidatesPage from "./pages/CandidatesPage";
 import TestStandPage from "./pages/TestStandPage";
 import DataHubPage from "./pages/DataHubPage";
 import SettingsPage from "./pages/SettingsPage";
+import AppShell from "./layout/AppShell";
 
 const App: React.FC = () => {
   return (
@@ -22,12 +22,14 @@ const App: React.FC = () => {
             {/* Public route */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected routes */}
+            {/* Protected routes with shared shell */}
             <Route
               path="/"
               element={
                 <ProtectedRoute>
-                  <LabHome />
+                  <AppShell>
+                    <LabHome />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -36,7 +38,9 @@ const App: React.FC = () => {
               path="/lab"
               element={
                 <ProtectedRoute>
-                  <LabPage />
+                  <AppShell>
+                    <LabPage />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -45,7 +49,9 @@ const App: React.FC = () => {
               path="/candidates"
               element={
                 <ProtectedRoute>
-                  <CandidatesPage />
+                  <AppShell>
+                    <CandidatesPage />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -54,7 +60,9 @@ const App: React.FC = () => {
               path="/test-stand"
               element={
                 <ProtectedRoute>
-                  <TestStandPage />
+                  <AppShell>
+                    <TestStandPage />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -63,7 +71,9 @@ const App: React.FC = () => {
               path="/datahub"
               element={
                 <ProtectedRoute>
-                  <DataHubPage />
+                  <AppShell>
+                    <DataHubPage />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -72,7 +82,9 @@ const App: React.FC = () => {
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <SettingsPage />
+                  <AppShell>
+                    <SettingsPage />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />

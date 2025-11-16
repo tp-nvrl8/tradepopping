@@ -1,48 +1,85 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 
 type AuthContextType = {
   token: string | null;
   email: string | null;
-  login: (token: string, email: string) => void;
+  isAuthenticated: boolean;
+  login: (email: string, token: string) => void;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = "tp_token";
-const EMAIL_KEY = "tp_email";
+const STORAGE_KEY = "tp_auth";
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+type StoredAuth = {
+  email: string;
+  token: string;
+};
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
 
-  // Load from localStorage on first render
+  // On first mount, try to restore auth from localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-    const storedEmail = localStorage.getItem(EMAIL_KEY);
-    if (storedToken) setToken(storedToken);
-    if (storedEmail) setEmail(storedEmail);
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as StoredAuth;
+        if (parsed.token && parsed.email) {
+          setToken(parsed.token);
+          setEmail(parsed.email);
+        }
+      }
+    } catch {
+      // ignore parse errors and start clean
+    } finally {
+      setBooting(false);
+    }
   }, []);
 
-  const login = (newToken: string, newEmail: string) => {
-    setToken(newToken);
-    setEmail(newEmail);
-    localStorage.setItem(TOKEN_KEY, newToken);
-    localStorage.setItem(EMAIL_KEY, newEmail);
+  const login = (email: string, token: string) => {
+    setToken(token);
+    setEmail(email);
+
+    const payload: StoredAuth = { email, token };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   };
 
   const logout = () => {
     setToken(null);
     setEmail(null);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(EMAIL_KEY);
+    window.localStorage.removeItem(STORAGE_KEY);
   };
 
-  return (
-    <AuthContext.Provider value={{ token, email, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    token,
+    email,
+    isAuthenticated: !!token,
+    login,
+    logout,
+  };
+
+  // While we are checking localStorage, avoid flashing the login page
+  if (booting) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <div className="text-sm text-slate-400">Booting session…</div>
+      </div>
+    );
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

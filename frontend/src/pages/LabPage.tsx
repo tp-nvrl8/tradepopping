@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { LabIdea, IdeaStatus } from "../lab/types";
+import { fetchLabIdeas, saveLabIdea } from "../api/lab";
 
 type LabTab = "scan" | "backtests" | "candidates";
 
@@ -9,8 +10,8 @@ const statusBadgeClasses: Record<IdeaStatus, string> = {
   retired: "bg-slate-500/10 text-slate-300 border-slate-500/40",
 };
 
-// Some richer mock ideas using the new LabIdea structure
-const mockIdeas: LabIdea[] = [
+// Default ideas used if backend is empty or unreachable
+const defaultIdeas: LabIdea[] = [
   {
     meta: {
       id: "idea-1",
@@ -143,17 +144,116 @@ function formatRange(label: string, r?: { min?: number; max?: number }) {
 }
 
 const LabPage: React.FC = () => {
-  const [selectedIdeaId, setSelectedIdeaId] = useState<string>(
-    mockIdeas[0]?.meta.id
-  );
+  const [ideas, setIdeas] = useState<LabIdea[]>([]);
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LabTab>("scan");
 
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [bottomOpen, setBottomOpen] = useState(true);
 
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [newCounter, setNewCounter] = useState(1);
+
+  // Load ideas from backend on first mount
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadIdeas = async () => {
+      try {
+        setLoading(true);
+        setLoadError(null);
+
+        const remote = await fetchLabIdeas();
+
+        if (cancelled) return;
+
+        if (remote.length > 0) {
+          setIdeas(remote);
+          setSelectedIdeaId(remote[0].meta.id ?? null);
+        } else {
+          // backend empty -> use defaults locally for now
+          setIdeas(defaultIdeas);
+          setSelectedIdeaId(defaultIdeas[0]?.meta.id ?? null);
+        }
+      } catch (err) {
+        console.error("Failed to load ideas", err);
+        if (!cancelled) {
+          setLoadError("Could not load ideas from server. Using defaults.");
+          setIdeas(defaultIdeas);
+          setSelectedIdeaId(defaultIdeas[0]?.meta.id ?? null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadIdeas();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const selectedIdea =
-    mockIdeas.find((i) => i.meta.id === selectedIdeaId) ?? null;
+    ideas.find((i) => i.meta.id === selectedIdeaId) ?? ideas[0] ?? null;
+
+  const handleSaveIdea = async () => {
+    if (!selectedIdea) return;
+    try {
+      setSaving(true);
+      const saved = await saveLabIdea(selectedIdea);
+
+      // Update local list: replace by id if exists, else append
+      setIdeas((prev) => {
+        const idx = prev.findIndex((i) => i.meta.id === saved.meta.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = saved;
+          return copy;
+        }
+        return [...prev, saved];
+      });
+    } catch (err) {
+      console.error("Failed to save idea", err);
+      window.alert("Failed to save idea to backend. Check logs.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleNewIdea = () => {
+    const id = `new-${Date.now()}-${newCounter}`;
+    const newIdea: LabIdea = {
+      meta: {
+        id,
+        name: `New Idea ${newCounter}`,
+        status: "draft",
+        description: "",
+        family: undefined,
+        tags: [],
+      },
+      priceLiquidity: {
+        // Start as "open" price range; you can later tighten it.
+        price: {},
+      },
+      volatility: {
+        // Start as regime-agnostic; you'll choose later.
+        regime: "any",
+      },
+      structure: {},
+      indicators: {
+        indicators: [],
+      },
+    };
+
+    setIdeas((prev) => [...prev, newIdea]);
+    setSelectedIdeaId(id);
+    setNewCounter((c) => c + 1);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -167,6 +267,9 @@ const LabPage: React.FC = () => {
             Design, test, and refine trading ideas. This cockpit will feed
             candidates and the test stand later.
           </p>
+          {loadError && (
+            <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
+          )}
         </div>
 
         {/* Panel toggles */}
@@ -201,45 +304,54 @@ const LabPage: React.FC = () => {
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Ideas
               </span>
-              <button className="text-xs text-sky-300 hover:text-sky-200">
+              <button
+                className="text-xs text-sky-300 hover:text-sky-200"
+                onClick={handleNewIdea}
+              >
                 + New
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {mockIdeas.map((idea) => {
-                const isActive = idea.meta.id === selectedIdeaId;
-                return (
-                  <button
-                    key={idea.meta.id}
-                    onClick={() => setSelectedIdeaId(idea.meta.id)}
-                    className={`w-full text-left px-3 py-2 border-b border-slate-900/60 text-xs hover:bg-slate-900/80 transition ${
-                      isActive ? "bg-slate-900/90" : ""
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`truncate ${
-                          isActive ? "text-sky-100" : "text-slate-100"
-                        }`}
-                      >
-                        {idea.meta.name}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between">
-                      <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] ${statusBadgeClasses[idea.meta.status]}`}
-                      >
-                        {idea.meta.status.toUpperCase()}
-                      </span>
-                      {idea.meta.family && (
-                        <span className="text-[10px] text-slate-400 ml-2 truncate">
-                          {idea.meta.family}
+              {ideas.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-slate-500">
+                  No ideas loaded yet.
+                </div>
+              ) : (
+                ideas.map((idea) => {
+                  const isActive = idea.meta.id === selectedIdeaId;
+                  return (
+                    <button
+                      key={idea.meta.id}
+                      onClick={() => setSelectedIdeaId(idea.meta.id ?? null)}
+                      className={`w-full text-left px-3 py-2 border-b border-slate-900/60 text-xs hover:bg-slate-900/80 transition ${
+                        isActive ? "bg-slate-900/90" : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`truncate ${
+                            isActive ? "text-sky-100" : "text-slate-100"
+                          }`}
+                        >
+                          {idea.meta.name}
                         </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] ${statusBadgeClasses[idea.meta.status]}`}
+                        >
+                          {idea.meta.status.toUpperCase()}
+                        </span>
+                        {idea.meta.family && (
+                          <span className="text-[10px] text-slate-400 ml-2 truncate">
+                            {idea.meta.family}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </aside>
         )}
@@ -247,7 +359,11 @@ const LabPage: React.FC = () => {
         {/* Center: Idea builder */}
         <main className="flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto px-4 py-3">
-            {selectedIdea ? (
+            {loading && ideas.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                Loading ideas…
+              </div>
+            ) : selectedIdea ? (
               <div className="max-w-3xl">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -392,9 +508,13 @@ const LabPage: React.FC = () => {
                   </section>
                 </div>
 
-                <div className="mt-4 flex gap-2">
-                  <button className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 text-xs font-semibold">
-                    Save Idea (stub)
+                <div className="mt-4 flex gap-2 items-center">
+                  <button
+                    onClick={handleSaveIdea}
+                    disabled={saving}
+                    className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
+                  >
+                    {saving ? "Saving…" : "Save Idea"}
                   </button>
                   <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
                     Duplicate (stub)

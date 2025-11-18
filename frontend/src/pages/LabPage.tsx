@@ -362,9 +362,11 @@ const LabPage: React.FC = () => {
           />
         )}
 
-        {/* Center: builder */}
+        {/* Center: builde
+                {/* Center: builder */}
         <main className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto px-4 py-3">
+          {/* Top content: meta + filters */}
+          <div className="overflow-y-auto px-4 py-3">
             {loading && ideas.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-500">
                 Loading ideas…
@@ -531,13 +533,15 @@ const LabPage: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom panel */}
-          <LabBottomPanel
-            open={bottomOpen}
-            activeTab={activeTab}
-            onChangeTab={setActiveTab}
-            ideaName={selectedIdea?.meta.name}
-          />
+          {/* Bottom panel in its own flex area */}
+          <div className="flex-1 min-h-[10rem]">
+            <LabBottomPanel
+              open={bottomOpen}
+              activeTab={activeTab}
+              onChangeTab={setActiveTab}
+              ideaName={selectedIdea?.meta.name}
+            />
+          </div>
         </main>
 
         {/* Right: notes & meta */}

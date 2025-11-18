@@ -60,7 +60,7 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
         </span>
       </div>
 
-      <div className="h-40 px-4 py-2 text-xs overflow-y-auto">
+      <div className="h-full min-h-[10rem] px-4 py-2 text-xs overflow-y-auto">
         {activeTab === "scan" && (
           <div>
             <p className="text-slate-300 mb-2">

@@ -39,7 +39,7 @@ export type VolatilityRegime =
   | "quiet"
   | "normal"
   | "expanding"
-  | "explosive";
+  | "crisis";
 
 export interface VolatilityFilters {
   regime: VolatilityRegime;   // e.g. only trade in "quiet" regimes

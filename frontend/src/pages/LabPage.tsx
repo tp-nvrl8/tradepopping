@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { LabIdea, IdeaStatus } from "../lab/types";
+import {
+  LabIdea,
+  IdeaStatus,
+  VolatilityRegime,
+} from "../lab/types";
 import { fetchLabIdeas, saveLabIdea } from "../api/lab";
 
 type LabTab = "scan" | "backtests" | "candidates";
+
+const PANEL_STORAGE_KEY = "tp_lab_panel_layout_v1";
 
 const statusBadgeClasses: Record<IdeaStatus, string> = {
   active: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
@@ -10,7 +16,21 @@ const statusBadgeClasses: Record<IdeaStatus, string> = {
   retired: "bg-slate-500/10 text-slate-300 border-slate-500/40",
 };
 
-// Default ideas used if backend is empty or unreachable
+const statusOptions: { id: IdeaStatus; label: string }[] = [
+  { id: "draft", label: "Draft" },
+  { id: "active", label: "Active" },
+  { id: "retired", label: "Retired" },
+];
+
+const regimeChipClasses: Record<VolatilityRegime, string> = {
+  any: "border-purple-400 text-purple-200 bg-purple-500/10",
+  quiet: "border-sky-400 text-sky-200 bg-sky-500/10",
+  normal: "border-slate-400 text-slate-200 bg-slate-600/10",
+  expanding: "border-amber-400 text-amber-200 bg-amber-500/10",
+  crisis: "border-red-500 text-red-200 bg-red-600/20",
+};
+
+// --- Default mock ideas if backend is empty ---
 const defaultIdeas: LabIdea[] = [
   {
     meta: {
@@ -135,12 +155,18 @@ const defaultIdeas: LabIdea[] = [
   },
 ];
 
-function formatRange(label: string, r?: { min?: number; max?: number }) {
-  if (!r || (r.min === undefined && r.max === undefined)) return null;
-  const parts: string[] = [];
-  if (r.min !== undefined) parts.push(`≥ ${r.min}`);
-  if (r.max !== undefined) parts.push(`≤ ${r.max}`);
-  return `${label}: ${parts.join(" and ")}`;
+// --- Helpers ---
+function computeNextNewCounter(existing: LabIdea[]): number {
+  let max = 0;
+  const re = /^New Idea (\d+)$/;
+  for (const idea of existing) {
+    const m = idea.meta.name.match(re);
+    if (m) {
+      const num = parseInt(m[1], 10);
+      if (!isNaN(num) && num > max) max = num;
+    }
+  }
+  return max + 1;
 }
 
 const LabPage: React.FC = () => {
@@ -158,41 +184,126 @@ const LabPage: React.FC = () => {
 
   const [newCounter, setNewCounter] = useState(1);
 
-  // Load ideas from backend on first mount
+  const allPanelsClosed = !leftOpen && !rightOpen && !bottomOpen;
+
+  type FilterSection = "priceLiquidity" | "volatility" | "structure";
+
+const [filterSectionsOpen, setFilterSectionsOpen] = useState<
+  Record<FilterSection, boolean>
+>({
+  priceLiquidity: true,
+  volatility: true,
+  structure: true,
+});
+
+
+  // Helper: update idea by id
+  const updateIdeaById = (
+    id: string | undefined,
+    updater: (idea: LabIdea) => LabIdea
+  ) => {
+    if (!id) return;
+    setIdeas((prev) =>
+      prev.map((idea) => (idea.meta.id === id ? updater(idea) : idea))
+    );
+  };
+
+  // Helper: numeric range field
+  const updateRangeField = (
+    ideaId: string | undefined,
+    section: "priceLiquidity" | "volatility" | "structure",
+    field: string,
+    bound: "min" | "max",
+    raw: string
+  ) => {
+    if (!ideaId) return;
+    const value = raw === "" ? undefined : Number(raw);
+    if (raw !== "" && Number.isNaN(value)) return;
+
+    setIdeas((prev) =>
+      prev.map((idea) => {
+        if (idea.meta.id !== ideaId) return idea;
+
+        const sectionObj: any = (idea as any)[section] || {};
+        const currentRange: any = sectionObj[field] || {};
+        const updatedRange = { ...currentRange, [bound]: value };
+        const updatedSection = { ...sectionObj, [field]: updatedRange };
+
+        return {
+          ...idea,
+          [section]: updatedSection,
+        } as LabIdea;
+      })
+    );
+  };
+
+  //helper for toggle filter cards show hide
+  const toggleFilterSection = (key: FilterSection) => {
+  setFilterSectionsOpen((prev) => ({
+    ...prev,
+    [key]: !prev[key],
+  }));
+};
+
+  // Load panel layout from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PANEL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.leftOpen === "boolean") setLeftOpen(parsed.leftOpen);
+        if (typeof parsed.rightOpen === "boolean")
+          setRightOpen(parsed.rightOpen);
+        if (typeof parsed.bottomOpen === "boolean")
+          setBottomOpen(parsed.bottomOpen);
+      }
+    } catch (e) {
+      console.warn("Failed to load panel layout", e);
+    }
+  }, []);
+
+  // Persist panel layout
+  useEffect(() => {
+    try {
+      const payload = { leftOpen, rightOpen, bottomOpen };
+      localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("Failed to save panel layout", e);
+    }
+  }, [leftOpen, rightOpen, bottomOpen]);
+
+  // Load ideas from backend on mount
   useEffect(() => {
     let cancelled = false;
 
-    const loadIdeas = async () => {
+    const load = async () => {
       try {
         setLoading(true);
         setLoadError(null);
 
         const remote = await fetchLabIdeas();
-
         if (cancelled) return;
 
-        if (remote.length > 0) {
-          setIdeas(remote);
-          setSelectedIdeaId(remote[0].meta.id ?? null);
-        } else {
-          // backend empty -> use defaults locally for now
-          setIdeas(defaultIdeas);
-          setSelectedIdeaId(defaultIdeas[0]?.meta.id ?? null);
-        }
+        const finalIdeas = remote.length > 0 ? remote : defaultIdeas;
+
+        setIdeas(finalIdeas);
+        setSelectedIdeaId(finalIdeas[0]?.meta.id ?? null);
+        setNewCounter(computeNextNewCounter(finalIdeas));
       } catch (err) {
         console.error("Failed to load ideas", err);
         if (!cancelled) {
           setLoadError("Could not load ideas from server. Using defaults.");
-          setIdeas(defaultIdeas);
-          setSelectedIdeaId(defaultIdeas[0]?.meta.id ?? null);
+          const finalIdeas = defaultIdeas;
+          setIdeas(finalIdeas);
+          setSelectedIdeaId(finalIdeas[0]?.meta.id ?? null);
+          setNewCounter(computeNextNewCounter(finalIdeas));
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    loadIdeas();
-
+    load();
     return () => {
       cancelled = true;
     };
@@ -206,8 +317,6 @@ const LabPage: React.FC = () => {
     try {
       setSaving(true);
       const saved = await saveLabIdea(selectedIdea);
-
-      // Update local list: replace by id if exists, else append
       setIdeas((prev) => {
         const idx = prev.findIndex((i) => i.meta.id === saved.meta.id);
         if (idx >= 0) {
@@ -237,11 +346,9 @@ const LabPage: React.FC = () => {
         tags: [],
       },
       priceLiquidity: {
-        // Start as "open" price range; you can later tighten it.
         price: {},
       },
       volatility: {
-        // Start as regime-agnostic; you'll choose later.
         regime: "any",
       },
       structure: {},
@@ -257,7 +364,7 @@ const LabPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top bar / header */}
+      {/* Header */}
       <header className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">
@@ -271,23 +378,21 @@ const LabPage: React.FC = () => {
             <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
           )}
         </div>
-
-        {/* Panel toggles */}
         <div className="flex items-center gap-2 text-xs">
           <button
-            onClick={() => setLeftOpen((prev) => !prev)}
+            onClick={() => setLeftOpen((p) => !p)}
             className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
           >
             {leftOpen ? "◀ Hide Ideas" : "▶ Show Ideas"}
           </button>
           <button
-            onClick={() => setBottomOpen((prev) => !prev)}
+            onClick={() => setBottomOpen((p) => !p)}
             className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
           >
             {bottomOpen ? "▼ Hide Bottom Panel" : "▲ Show Bottom Panel"}
           </button>
           <button
-            onClick={() => setRightOpen((prev) => !prev)}
+            onClick={() => setRightOpen((p) => !p)}
             className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
           >
             {rightOpen ? "▶ Hide Notes" : "◀ Show Notes"}
@@ -295,9 +400,13 @@ const LabPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Middle row: left sidebar + center builder + right panel */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Ideas list (accordion) */}
+      {/* Main row */}
+      <div
+        className={`flex-1 flex overflow-hidden ${
+          allPanelsClosed ? "justify-center" : ""
+        }`}
+      >
+        {/* Left: ideas list */}
         {leftOpen && (
           <aside className="w-64 border-r border-slate-800 bg-slate-950/80 flex flex-col">
             <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
@@ -356,7 +465,7 @@ const LabPage: React.FC = () => {
           </aside>
         )}
 
-        {/* Center: Idea builder */}
+        {/* Center: builder */}
         <main className="flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto px-4 py-3">
             {loading && ideas.length === 0 ? (
@@ -364,151 +473,552 @@ const LabPage: React.FC = () => {
                 Loading ideas…
               </div>
             ) : selectedIdea ? (
-              <div className="max-w-3xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h2 className="text-base font-semibold">
-                      {selectedIdea.meta.name}
-                    </h2>
-                    <p className="text-xs text-slate-400">
-                      {selectedIdea.meta.description ||
-                        "No description yet. Describe what this idea is trying to capture."}
-                    </p>
-                    {selectedIdea.meta.tags && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {selectedIdea.meta.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+              <div className="max-w-3xl mx-auto space-y-4">
+                {/* Meta + status + regime */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
+                      value={selectedIdea.meta.name}
+                      onChange={(e) =>
+                        updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                          ...idea,
+                          meta: { ...idea.meta, name: e.target.value },
+                        }))
+                      }
+                    />
+                    <textarea
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
+                      placeholder="Describe what this idea is trying to capture…"
+                      value={selectedIdea.meta.description ?? ""}
+                      onChange={(e) =>
+                        updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                          ...idea,
+                          meta: { ...idea.meta, description: e.target.value },
+                        }))
+                      }
+                    />
+                    {selectedIdea.meta.tags &&
+                      selectedIdea.meta.tags.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {selectedIdea.meta.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                   </div>
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded-full border text-[11px] ${statusBadgeClasses[selectedIdea.meta.status]}`}
-                  >
-                    {selectedIdea.meta.status === "active"
-                      ? "Active Idea"
-                      : selectedIdea.meta.status === "draft"
-                      ? "Draft Idea"
-                      : "Retired Idea"}
-                  </span>
-                </div>
 
-                <div className="space-y-4">
-                  {/* Price & Liquidity */}
-                  <section className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
-                    <h3 className="text-xs font-semibold text-slate-200 mb-2 uppercase tracking-wide">
-                      Price & Liquidity Filters
-                    </h3>
-                    <ul className="text-xs text-slate-300 space-y-1">
-                      <li>
-                        {formatRange(
-                          "Price",
-                          selectedIdea.priceLiquidity.price
-                        ) || "Price: (not set yet)"}
-                      </li>
-                      <li>
-                        {formatRange(
-                          "Avg $ Volume",
-                          selectedIdea.priceLiquidity.averageDailyDollarVolume
-                        ) || "Avg $ Volume: (not set yet)"}
-                      </li>
-                      <li>
-                        {formatRange(
-                          "Avg Share Volume",
-                          selectedIdea.priceLiquidity.averageDailyShareVolume
-                        ) || "Avg Share Volume: (not set yet)"}
-                      </li>
-                      <li>
-                        {formatRange(
-                          "Float Shares",
-                          selectedIdea.priceLiquidity.floatShares
-                        ) || "Float Shares: (not set yet)"}
-                      </li>
-                    </ul>
-                  </section>
-
-                  {/* Volatility & Regime */}
-                  <section className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
-                    <h3 className="text-xs font-semibold text-slate-200 mb-2 uppercase tracking-wide">
-                      Volatility & Regime Filters
-                    </h3>
-                    <p className="text-xs text-slate-300 mb-1">
-                      Regime:{" "}
-                      <span className="font-semibold">
-                        {selectedIdea.volatility.regime.toUpperCase()}
-                      </span>
-                    </p>
-                    <ul className="text-xs text-slate-300 space-y-1">
-                      <li>
-                        {formatRange(
-                          "ATR %",
-                          selectedIdea.volatility.atrPercent
-                        ) || "ATR %: (not set yet)"}
-                      </li>
-                      <li>
-                        {formatRange(
-                          "HV %",
-                          selectedIdea.volatility.hvPercent
-                        ) || "HV %: (not set yet)"}
-                      </li>
-                    </ul>
-                  </section>
-
-                  {/* Structure & Overlays */}
-                  <section className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
-                    <h3 className="text-xs font-semibold text-slate-200 mb-2 uppercase tracking-wide">
-                      Structural Constraints & Overlays
-                    </h3>
-                    <ul className="text-xs text-slate-300 space-y-1 mb-2">
-                      <li>
-                        {formatRange(
-                          "Short % of Float",
-                          selectedIdea.structure.shortInterestPercentFloat
-                        ) || "Short % of Float: (not set yet)"}
-                      </li>
-                      <li>
-                        {formatRange(
-                          "Days to Cover",
-                          selectedIdea.structure.daysToCover
-                        ) || "Days to Cover: (not set yet)"}
-                      </li>
-                      <li>
-                        {formatRange(
-                          "Vanishing Float Score",
-                          selectedIdea.structure.vanishingFloatScore
-                        ) || "Vanishing Float Score: (not set yet)"}
-                      </li>
-                    </ul>
-
-                    <div>
-                      <p className="text-[11px] text-slate-400 mb-1">
-                        Indicators & overlays selected for this idea:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedIdea.indicators.indicators.map((ind) => (
-                          <span
-                            key={ind.id + (ind.variant || "")}
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
-                              ind.enabled
-                                ? "border-sky-500 text-sky-200 bg-sky-500/10"
-                                : "border-slate-700 text-slate-400 bg-slate-900"
+                  <div className="flex flex-col items-end gap-2">
+                    {/* Status segmented control */}
+                    <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
+                      {statusOptions.map((opt) => {
+                        const active = selectedIdea.meta.status === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() =>
+                              updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                                ...idea,
+                                meta: { ...idea.meta, status: opt.id },
+                              }))
+                            }
+                            className={`px-2 py-0.5 text-[10px] rounded-full transition ${
+                              active
+                                ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
+                                : "text-slate-300 hover:bg-slate-800"
                             }`}
                           >
-                            {ind.id}
-                            {ind.variant ? ` (${ind.variant})` : ""}
-                          </span>
-                        ))}
-                      </div>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                  </section>
+
+                    {/* Regime chip + selector */}
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase tracking-wide text-[10px] ${
+                          regimeChipClasses[selectedIdea.volatility.regime]
+                        }`}
+                      >
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
+                        {selectedIdea.volatility.regime.toUpperCase()}
+                      </span>
+                      <select
+                        className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        value={selectedIdea.volatility.regime}
+                        onChange={(e) =>
+                          updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                            ...idea,
+                            volatility: {
+                              ...idea.volatility,
+                              regime: e.target.value as VolatilityRegime,
+                            },
+                          }))
+                        }
+                      >
+                        <option value="any">Any</option>
+                        <option value="quiet">Quiet</option>
+                        <option value="normal">Normal</option>
+                        <option value="expanding">Expanding</option>
+                        <option value="crisis">Crisis</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-4 flex gap-2 items-center">
+                {/* Price & Liquidity */}
+                <section className="border border-slate-800 rounded-lg bg-slate-900/40">
+  <button
+    type="button"
+    onClick={() => toggleFilterSection("priceLiquidity")}
+    className="w-full flex items-center justify-between px-3 py-2 text-xs uppercase tracking-wide border-b border-slate-800 bg-slate-900/70 hover:bg-slate-800/80"
+  >
+    <span className="font-semibold text-slate-200">
+      Price &amp; Liquidity Filters
+    </span>
+    <span className="text-slate-400 text-sm">
+      {filterSectionsOpen.priceLiquidity ? "▾" : "▸"}
+    </span>
+  </button>
+
+  {filterSectionsOpen.priceLiquidity && (
+    <div className="p-3">
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        {/* Price */}
+        {/* keep your existing inner content from here down… */}
+                    <div>
+                      <p className="text-slate-400 mb-1">Price ($)</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.priceLiquidity.price?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "priceLiquidity",
+                              "price",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.priceLiquidity.price?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "priceLiquidity",
+                              "price",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Avg $ Volume */}
+                    <div>
+                      <p className="text-slate-400 mb-1">
+                        Avg $ Volume (daily)
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.priceLiquidity
+                              .averageDailyDollarVolume?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "priceLiquidity",
+                              "averageDailyDollarVolume",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.priceLiquidity
+                              .averageDailyDollarVolume?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "priceLiquidity",
+                              "averageDailyDollarVolume",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Avg Share Volume */}
+<div>
+  <p className="text-slate-400 mb-1">
+    Avg Share Volume (daily)
+  </p>
+  <div className="flex gap-2">
+    <input
+      type="number"
+      className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+      placeholder="Min"
+      value={
+        selectedIdea.priceLiquidity
+          .averageDailyShareVolume?.min ?? ""
+      }
+      onChange={(e) =>
+        updateRangeField(
+          selectedIdea.meta.id,
+          "priceLiquidity",
+          "averageDailyShareVolume",
+          "min",
+          e.target.value
+        )
+      }
+    />
+    <input
+      type="number"
+      className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+      placeholder="Max"
+      value={
+        selectedIdea.priceLiquidity
+          .averageDailyShareVolume?.max ?? ""
+      }
+      onChange={(e) =>
+        updateRangeField(
+          selectedIdea.meta.id,
+          "priceLiquidity",
+          "averageDailyShareVolume",
+          "max",
+          e.target.value
+        )
+      }
+    />
+  </div>
+</div>
+
+                    {/* Float Shares */}
+                    <div>
+                      <p className="text-slate-400 mb-1">
+                        Float Shares (millions)
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.priceLiquidity.floatShares?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "priceLiquidity",
+                              "floatShares",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.priceLiquidity.floatShares?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "priceLiquidity",
+                              "floatShares",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+                  
+
+                {/* Volatility */}
+                <section className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
+                  <h3 className="text-xs font-semibold text-slate-200 mb-2 uppercase tracking-wide">
+                    Volatility Filters
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    {/* ATR % */}
+                    <div>
+                      <p className="text-slate-400 mb-1">ATR %</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.volatility.atrPercent?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "volatility",
+                              "atrPercent",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.volatility.atrPercent?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "volatility",
+                              "atrPercent",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* HV % */}
+                    <div>
+                      <p className="text-slate-400 mb-1">HV %</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.volatility.hvPercent?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "volatility",
+                              "hvPercent",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.volatility.hvPercent?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "volatility",
+                              "hvPercent",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Structure */}
+                <section className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
+                  <h3 className="text-xs font-semibold text-slate-200 mb-2 uppercase tracking-wide">
+                    Structural Constraints
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    {/* Short % of Float */}
+                    <div>
+                      <p className="text-slate-400 mb-1">Short % of Float</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.structure
+                              .shortInterestPercentFloat?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "structure",
+                              "shortInterestPercentFloat",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.structure
+                              .shortInterestPercentFloat?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "structure",
+                              "shortInterestPercentFloat",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* DTC */}
+                    <div>
+                      <p className="text-slate-400 mb-1">Days to Cover</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.structure.daysToCover?.min ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "structure",
+                              "daysToCover",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.structure.daysToCover?.max ?? ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "structure",
+                              "daysToCover",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Vanishing Float */}
+                    <div>
+                      <p className="text-slate-400 mb-1">
+                        Vanishing Float Score
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Min"
+                          value={
+                            selectedIdea.structure.vanishingFloatScore?.min ??
+                            ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "structure",
+                              "vanishingFloatScore",
+                              "min",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="number"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+                          placeholder="Max"
+                          value={
+                            selectedIdea.structure.vanishingFloatScore?.max ??
+                            ""
+                          }
+                          onChange={(e) =>
+                            updateRangeField(
+                              selectedIdea.meta.id,
+                              "structure",
+                              "vanishingFloatScore",
+                              "max",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <p className="text-[11px] text-slate-400 mb-1">
+                      Indicators & overlays selected for this idea:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedIdea.indicators.indicators.map((ind) => (
+                        <span
+                          key={ind.id + (ind.variant || "")}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                            ind.enabled
+                              ? "border-sky-500 text-sky-200 bg-sky-500/10"
+                              : "border-slate-700 text-slate-400 bg-slate-900"
+                          }`}
+                        >
+                          {ind.id}
+                          {ind.variant ? ` (${ind.variant})` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                <div className="mt-2 flex gap-2 items-center">
                   <button
                     onClick={handleSaveIdea}
                     disabled={saving}
@@ -529,10 +1039,9 @@ const LabPage: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom panel (accordion) */}
+          {/* Bottom panel */}
           {bottomOpen && (
             <section className="border-t border-slate-800 bg-slate-950/90">
-              {/* Tabs */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800">
                 <div className="flex gap-2 text-xs">
                   <button
@@ -567,12 +1076,11 @@ const LabPage: React.FC = () => {
                   </button>
                 </div>
                 <span className="text-[10px] text-slate-500">
-                  Bottom panel is mock-only for now. We&apos;ll wire scans & backtests
-                  later.
+                  Bottom panel is mock-only for now. We&apos;ll wire scans &
+                  backtests later.
                 </span>
               </div>
 
-              {/* Content area */}
               <div className="h-40 px-4 py-2 text-xs overflow-y-auto">
                 {activeTab === "scan" && (
                   <div>
@@ -626,7 +1134,7 @@ const LabPage: React.FC = () => {
           )}
         </main>
 
-        {/* Right: Notes / meta (accordion) */}
+        {/* Right: notes */}
         {rightOpen && (
           <aside className="w-72 border-l border-slate-800 bg-slate-950/80 flex flex-col">
             <div className="px-3 py-2 border-b border-slate-800">
@@ -660,8 +1168,8 @@ const LabPage: React.FC = () => {
                 </h3>
                 <p className="text-slate-400">
                   This section will show or edit status (draft / active /
-                  retired), strategy family, and tags like &quot;VCP&quot; or &quot;Vanishing
-                  Float&quot; for the selected idea.
+                  retired), strategy family, and tags like &quot;VCP&quot; or
+                  &quot;Vanishing Float&quot; for the selected idea.
                 </p>
               </section>
             </div>

@@ -20,7 +20,14 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
   const name = ideaName ?? "no idea selected";
 
   return (
+
     <section className="border-t border-slate-800 bg-slate-950/90">
+          {/* Named header */}
+      <div className="px-3 py-2 border-b border-slate-800 bg-slate-900/70">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Analysis Panel
+        </span>
+      </div>
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800">
         <div className="flex gap-2 text-xs">
           <button

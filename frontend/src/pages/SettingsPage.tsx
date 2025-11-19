@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { useTheme, ThemeId } from "../config/ThemeContext";
+import {
+  useTheme,
+  ThemeId,
+  DEFAULT_CUSTOM_PALETTE,
+  CustomPalette,
+} from "../config/ThemeContext";
 
 type SettingsTab = "ui" | "data" | "security";
 
@@ -22,21 +27,36 @@ const themeOptions: { id: ThemeId; label: string; description: string }[] = [
   {
     id: "custom",
     label: "Custom",
-    description: "Reserved for your own palette (coming later).",
+    description: "Use your own colors for the Lab panels.",
   },
 ];
 
 const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("ui");
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, customPalette, setCustomPalette } = useTheme();
+
+  const effectivePalette: CustomPalette =
+    customPalette ?? DEFAULT_CUSTOM_PALETTE;
+
+  const updateCustomColor = (key: keyof CustomPalette, value: string) => {
+    // Basic normalize: trim spaces
+    const cleaned = value.trim();
+    const next: CustomPalette = {
+      ...effectivePalette,
+      [key]: cleaned || effectivePalette[key],
+    };
+    setCustomPalette(next);
+  };
+
+  const resetCustomPalette = () => {
+    setCustomPalette(DEFAULT_CUSTOM_PALETTE);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="max-w-5xl mx-auto px-4 py-6">
         <header className="mb-4 border-b border-slate-800 pb-3">
-          <h1 className="text-lg font-semibold tracking-tight">
-            Settings
-          </h1>
+          <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
           <p className="text-xs text-slate-400">
             Tune TradePopping&apos;s environment: UI, data, and security.
           </p>
@@ -93,10 +113,7 @@ const SettingsPage: React.FC = () => {
                 <span className="text-[11px] text-slate-500">
                   Active:{" "}
                   <span className="font-semibold text-slate-200">
-                    {
-                      themeOptions.find((t) => t.id === theme)?.label ??
-                      theme
-                    }
+                    {themeOptions.find((t) => t.id === theme)?.label ?? theme}
                   </span>
                 </span>
               </header>
@@ -122,8 +139,8 @@ const SettingsPage: React.FC = () => {
                   })}
                 </div>
 
-                {/* Description + helper text */}
-                <div className="text-[11px] text-slate-300 space-y-1 pb-4">
+                {/* Description */}
+                <div className="text-[11px] text-slate-300 space-y-1 pb-3">
                   <p>
                     {
                       themeOptions.find((t) => t.id === theme)
@@ -132,10 +149,179 @@ const SettingsPage: React.FC = () => {
                   </p>
                   <p className="text-slate-500">
                     Theme changes apply instantly and persist per device
-                    (stored in your browser). We&apos;ll add full custom
-                    color editing under the Custom theme later.
+                    (stored in your browser).
                   </p>
                 </div>
+
+                {/* Custom theme editor (only when Custom is active) */}
+                {theme === "custom" && (
+                  <div className="border-t border-slate-800 pt-3 mt-1 pb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h3 className="text-xs font-semibold">
+                          Custom Theme Palette
+                        </h3>
+                        <p className="text-[10px] text-slate-400">
+                          Edit the core Lab panel colors. Values should be
+                          CSS-valid colors (e.g. <code>#0f172a</code>).
+                        </p>
+                      </div>
+                      <button
+                        onClick={resetCustomPalette}
+                        className="px-2 py-1 text-[10px] rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800"
+                      >
+                        Reset to Default
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                      {/* Idea Builder group */}
+                      <div className="border border-slate-800 rounded-md px-3 py-2 bg-slate-950/60">
+                        <p className="font-semibold text-slate-200 mb-1">
+                          Idea Builder Panel
+                        </p>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Body Background
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.builderBg}
+                              onChange={(e) =>
+                                updateCustomColor("builderBg", e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Body Border
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.builderBorder}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "builderBorder",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Header Background
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.builderHeaderBg}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "builderHeaderBg",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Header Border
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.builderHeaderBorder}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "builderHeaderBorder",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Analysis Panel group */}
+                      <div className="border border-slate-800 rounded-md px-3 py-2 bg-slate-950/60">
+                        <p className="font-semibold text-slate-200 mb-1">
+                          Analysis Panel
+                        </p>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Body Background
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.analysisBg}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "analysisBg",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Body Border
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.analysisBorder}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "analysisBorder",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Header Background
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.analysisHeaderBg}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "analysisHeaderBg",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] text-slate-400">
+                              Header Border
+                            </label>
+                            <input
+                              type="text"
+                              className="w-32 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]"
+                              value={effectivePalette.analysisHeaderBorder}
+                              onChange={(e) =>
+                                updateCustomColor(
+                                  "analysisHeaderBorder",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

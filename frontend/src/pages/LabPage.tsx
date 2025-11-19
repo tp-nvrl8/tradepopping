@@ -348,18 +348,8 @@ const LabPage: React.FC = () => {
           )}
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <button
-            onClick={() => setLeftOpen((p) => !p)}
-            className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
-          >
-            {leftOpen ? "◀ Hide Ideas" : "▶ Show Ideas"}
-          </button>
-          <button
-            onClick={() => setBottomOpen((p) => !p)}
-            className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
-          >
-            {bottomOpen ? "▼ Hide Bottom Panel" : "▲ Show Bottom Panel"}
-          </button>
+         
+          
         </div>
       </header>
 
@@ -370,14 +360,48 @@ const LabPage: React.FC = () => {
         }`}
       >
         {/* Left: idea list */}
-        {leftOpen && (
-          <IdeaListSidebar
-            ideas={ideas}
-            selectedIdeaId={selectedIdeaId}
-            onSelectIdea={setSelectedIdeaId}
-            onNewIdea={handleNewIdea}
-          />
-        )}
+                {/* Left: idea list with collapsible width */}
+        <aside
+          className={`border-r border-slate-800 bg-slate-950/80 flex flex-col transition-all duration-200 ${
+            leftOpen ? "w-72" : "w-8"
+          }`}
+        >
+          {leftOpen ? (
+            <>
+              {/* Left panel header – click to collapse */}
+              <div
+                className="px-3 py-2 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between cursor-pointer"
+                onClick={() => setLeftOpen(false)}
+              >
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Ideas
+                </span>
+                <span className="text-slate-400 text-sm">▾</span>
+              </div>
+
+              {/* Actual idea list content */}
+              <div className="flex-1 overflow-y-auto">
+                <IdeaListSidebar
+                  ideas={ideas}
+                  selectedIdeaId={selectedIdeaId}
+                  onSelectIdea={setSelectedIdeaId}
+                  onNewIdea={handleNewIdea}
+                />
+              </div>
+            </>
+          ) : (
+            // Collapsed skinny handle
+            <button
+              className="flex-1 flex items-center justify-center cursor-pointer hover:bg-slate-900/80"
+              onClick={() => setLeftOpen(true)}
+              title="Show Ideas"
+            >
+              <span className="text-slate-400 text-xs" aria-hidden="true">
+                ▶
+              </span>
+            </button>
+          )}
+        </aside>
 
         {/* Center: builder + analysis in unified width container */}
         <main className="flex-1 flex flex-col overflow-y-auto items-center">

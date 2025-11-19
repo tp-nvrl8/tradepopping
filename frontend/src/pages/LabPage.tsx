@@ -338,12 +338,6 @@ const LabPage: React.FC = () => {
           >
             {bottomOpen ? "▼ Hide Bottom Panel" : "▲ Show Bottom Panel"}
           </button>
-          <button
-            onClick={() => setRightOpen((p) => !p)}
-            className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
-          >
-            {rightOpen ? "▶ Hide Notes" : "◀ Show Notes"}
-          </button>
         </div>
       </header>
 
@@ -560,11 +554,13 @@ const LabPage: React.FC = () => {
           </div>
         </main>
 
-        {/* Right: notes & meta */}
-        <LabRightPanel open={rightOpen} />
+                {/* Right: notes & meta */}
+        <LabRightPanel
+          open={rightOpen}
+          onToggle={() => setRightOpen((p) => !p)}
+        />
       </div>
     </div>
   );
 };
-
 export default LabPage;

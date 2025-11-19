@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   useTheme,
   ThemeId,
@@ -31,9 +31,24 @@ const themeOptions: { id: ThemeId; label: string; description: string }[] = [
   },
 ];
 
+// Shared with LabPage via localStorage
+const CENTER_PANEL_STORAGE_KEY = "tp_lab_center_panels_v1";
+type CenterPanelId = "builder" | "analysis";
+
+const centerPanelLabels: Record<CenterPanelId, string> = {
+  builder: "Idea Builder",
+  analysis: "Analysis Panel",
+};
+
 const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("ui");
   const [newProfileName, setNewProfileName] = useState<string>("");
+
+  // Lab panel order state for Settings UI
+  const [panelOrder, setPanelOrder] = useState<CenterPanelId[]>([
+    "builder",
+    "analysis",
+  ]);
 
   const {
     theme,
@@ -49,6 +64,54 @@ const SettingsPage: React.FC = () => {
 
   const effectivePalette: CustomPalette =
     customPalette ?? DEFAULT_CUSTOM_PALETTE;
+
+  // Load center panel order from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CENTER_PANEL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter((p: unknown): p is CenterPanelId =>
+            p === "builder" || p === "analysis"
+          );
+          if (valid.length) {
+            setPanelOrder(valid);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Persist panel order whenever it changes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CENTER_PANEL_STORAGE_KEY,
+        JSON.stringify(panelOrder)
+      );
+    } catch {
+      // ignore
+    }
+  }, [panelOrder]);
+
+  const movePanel = (index: number, direction: "up" | "down") => {
+    setPanelOrder((prev) => {
+      const arr = [...prev];
+      if (direction === "up" && index > 0) {
+        const tmp = arr[index - 1];
+        arr[index - 1] = arr[index];
+        arr[index] = tmp;
+      } else if (direction === "down" && index < arr.length - 1) {
+        const tmp = arr[index + 1];
+        arr[index + 1] = arr[index];
+        arr[index] = tmp;
+      }
+      return arr;
+    });
+  };
 
   const updateCustomColor = (key: keyof CustomPalette, value: string) => {
     const cleaned = value.trim();
@@ -436,6 +499,51 @@ const SettingsPage: React.FC = () => {
                   </>
                 )}
               </div>
+            </div>
+
+            {/* NEW: Lab center panel order */}
+            <div className="border border-slate-800 rounded-lg bg-slate-900/40 px-4 py-3">
+              <h2 className="text-sm font-semibold mb-1">
+                Lab Center Panel Order
+              </h2>
+              <p className="text-[11px] text-slate-400 mb-2">
+                Reorder the main Lab panels. This controls the vertical order of
+                sections in the Strategy Lab center console.
+              </p>
+
+              <div className="space-y-1.5 text-[11px]">
+                {panelOrder.map((id, index) => (
+                  <div
+                    key={id}
+                    className="flex items-center justify-between px-2 py-1 rounded border border-slate-800 bg-slate-950/60"
+                  >
+                    <span className="text-slate-200">
+                      {centerPanelLabels[id]}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => movePanel(index, "up")}
+                        disabled={index === 0}
+                        className="px-2 py-0.5 rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => movePanel(index, "down")}
+                        disabled={index === panelOrder.length - 1}
+                        className="px-2 py-0.5 rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-2 text-[10px] text-slate-500">
+                Changes are saved automatically. Reload the Lab page to see the
+                updated order if it&apos;s already open.
+              </p>
             </div>
 
             {/* Placeholder for future UI options */}

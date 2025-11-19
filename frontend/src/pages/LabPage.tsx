@@ -9,10 +9,20 @@ import PriceLiquidityFilters from "../lab-components/PriceLiquidityFilters";
 import VolatilityFilters from "../lab-components/VolatilityFilters";
 import StructureFilters from "../lab-components/StructureFilters";
 
+import IndicatorBuilderPanel from "../lab-components/IndicatorBuilderPanel";
+import FilterComposerPanel from "../lab-components/FilterComposerPanel";
+
 type LabTab = "scan" | "backtests" | "candidates";
 
 // Center panel IDs for the Lab page
-type CenterPanelId = "builder" | "analysis";
+type CenterPanelId = "builder" | "indicator" | "filters" | "analysis";
+
+const defaultCenterOrder: CenterPanelId[] = [
+  "builder",
+  "indicator",
+  "filters",
+  "analysis",
+];
 
 const PANEL_STORAGE_KEY = "tp_lab_panel_layout_v1";
 const CENTER_PANEL_STORAGE_KEY = "tp_lab_center_panels_v1";
@@ -184,10 +194,8 @@ const LabPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [newCounter, setNewCounter] = useState(1);
 
-  const [centerPanelsOrder, setCenterPanelsOrder] = useState<CenterPanelId[]>([
-    "builder",
-    "analysis",
-  ]);
+  const [centerPanelsOrder, setCenterPanelsOrder] =
+    useState<CenterPanelId[]>(defaultCenterOrder);
 
   const allPanelsClosed = !leftOpen && !rightOpen && !bottomOpen;
 
@@ -256,18 +264,33 @@ const LabPage: React.FC = () => {
     }
   }, [leftOpen, rightOpen, bottomOpen, builderOpen]);
 
-  // Load center panel order from localStorage
+  // Load center panel order from localStorage and merge with defaults
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CENTER_PANEL_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const valid = parsed.filter((p: unknown): p is CenterPanelId =>
-            p === "builder" || p === "analysis"
+          const allowed: CenterPanelId[] = [
+            "builder",
+            "indicator",
+            "filters",
+            "analysis",
+          ];
+
+          const valid = parsed.filter(
+            (p: unknown): p is CenterPanelId =>
+              typeof p === "string" && (allowed as string[]).includes(p)
           );
+
           if (valid.length) {
-            setCenterPanelsOrder(valid);
+            const merged: CenterPanelId[] = [...valid];
+            for (const id of defaultCenterOrder) {
+              if (!merged.includes(id)) {
+                merged.push(id);
+              }
+            }
+            setCenterPanelsOrder(merged);
           }
         }
       }
@@ -397,7 +420,7 @@ const LabPage: React.FC = () => {
                 {builderOpen ? "▾" : "▸"}
               </span>
             </div>
-              
+
             {builderOpen && (
               <div className="px-3 py-3 space-y-4 rounded-b-md">
                 {loading && ideas.length === 0 ? (
@@ -447,7 +470,7 @@ const LabPage: React.FC = () => {
                             </div>
                           )}
                       </div>
-                        
+
                       <div className="flex flex-col items-end gap-2">
                         {/* Status control */}
                         <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
@@ -457,10 +480,13 @@ const LabPage: React.FC = () => {
                               <button
                                 key={opt.id}
                                 onClick={() =>
-                                  updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                                    ...idea,
-                                    meta: { ...idea.meta, status: opt.id },
-                                  }))
+                                  updateIdeaById(
+                                    selectedIdea.meta.id,
+                                    (idea) => ({
+                                      ...idea,
+                                      meta: { ...idea.meta, status: opt.id },
+                                    })
+                                  )
                                 }
                                 className={`px-2 py-0.5 text-[10px] rounded-full transition ${
                                   active
@@ -473,7 +499,7 @@ const LabPage: React.FC = () => {
                             );
                           })}
                         </div>
-                        
+
                         {/* Regime chip + selector */}
                         <div className="flex items-center gap-2 text-[11px] text-slate-400">
                           <span
@@ -488,13 +514,17 @@ const LabPage: React.FC = () => {
                             className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
                             value={selectedIdea.volatility.regime}
                             onChange={(e) =>
-                              updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                                ...idea,
-                                volatility: {
-                                  ...idea.volatility,
-                                  regime: e.target.value as VolatilityRegime,
-                                },
-                              }))
+                              updateIdeaById(
+                                selectedIdea.meta.id,
+                                (idea) => ({
+                                  ...idea,
+                                  volatility: {
+                                    ...idea.volatility,
+                                    regime:
+                                      e.target.value as VolatilityRegime,
+                                  },
+                                })
+                              )
                             }
                           >
                             <option value="any">Any</option>
@@ -506,7 +536,7 @@ const LabPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                          
+
                     {/* Filters */}
                     <PriceLiquidityFilters
                       idea={selectedIdea}
@@ -520,7 +550,7 @@ const LabPage: React.FC = () => {
                         )
                       }
                     />
-      
+
                     <VolatilityFilters
                       idea={selectedIdea}
                       onChangeRange={(field, bound, raw) =>
@@ -533,7 +563,7 @@ const LabPage: React.FC = () => {
                         )
                       }
                     />
-      
+
                     <StructureFilters
                       idea={selectedIdea}
                       onChangeRange={(field, bound, raw) =>
@@ -546,7 +576,7 @@ const LabPage: React.FC = () => {
                         )
                       }
                     />
-      
+
                     {/* Save / Duplicate */}
                     <div className="mt-2 flex gap-2 items-center">
                       <button
@@ -563,13 +593,31 @@ const LabPage: React.FC = () => {
                   </>
                 ) : (
                   <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                    No idea selected. Choose an idea on the left or create a new one.
+                    No idea selected. Choose an idea on the left or create a new
+                    one.
                   </div>
                 )}
               </div>
             )}
           </section>
-  );
+        );
+
+      case "indicator":
+        return (
+          <IndicatorBuilderPanel
+            key="indicator"
+            ideaName={selectedIdea?.meta.name}
+          />
+        );
+
+      case "filters":
+        return (
+          <FilterComposerPanel
+            key="filters"
+            ideaName={selectedIdea?.meta.name}
+          />
+        );
+
       case "analysis":
         return (
           <section key="analysis">
@@ -656,7 +704,7 @@ const LabPage: React.FC = () => {
           )}
         </aside>
 
-        {/* Center: builder + analysis in unified width container */}
+        {/* Center: all panels in unified width container */}
         <main className="flex-1 flex flex-col overflow-y-auto items-center">
           <div className="w-full max-w-5xl px-4 py-3 space-y-4">
             {centerPanelsOrder.map((panelId) => renderCenterPanel(panelId))}

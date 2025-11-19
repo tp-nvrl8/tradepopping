@@ -8,6 +8,7 @@ import LabRightPanel from "../lab-components/LabRightPanel";
 import PriceLiquidityFilters from "../lab-components/PriceLiquidityFilters";
 import VolatilityFilters from "../lab-components/VolatilityFilters";
 import StructureFilters from "../lab-components/StructureFilters";
+import { useTheme } from "../config/ThemeContext";
 
 type LabTab = "scan" | "backtests" | "candidates";
 
@@ -165,6 +166,8 @@ function computeNextNewCounter(existing: LabIdea[]): number {
 }
 
 const LabPage: React.FC = () => {
+  const { theme } = useTheme(); // we’re not using it directly yet, but this ensures provider runs
+
   const [ideas, setIdeas] = useState<LabIdea[]>([]);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
 
@@ -219,28 +222,26 @@ const LabPage: React.FC = () => {
   };
 
   // Load panel layout from localStorage
-  // Load panel layout from localStorage
-useEffect(() => {
-  try {
-    const raw = localStorage.getItem(PANEL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PANEL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
 
-      if (typeof parsed.leftOpen === "boolean") setLeftOpen(parsed.leftOpen);
-      if (typeof parsed.rightOpen === "boolean") setRightOpen(parsed.rightOpen);
-      if (typeof parsed.bottomOpen === "boolean") setBottomOpen(parsed.bottomOpen);
-
-      // ✅ NEW: restore Idea Builder panel state
-      if (typeof parsed.builderOpen === "boolean") {
-        setBuilderOpen(parsed.builderOpen);
+        if (typeof parsed.leftOpen === "boolean") setLeftOpen(parsed.leftOpen);
+        if (typeof parsed.rightOpen === "boolean")
+          setRightOpen(parsed.rightOpen);
+        if (typeof parsed.bottomOpen === "boolean")
+          setBottomOpen(parsed.bottomOpen);
+        if (typeof parsed.builderOpen === "boolean")
+          setBuilderOpen(parsed.builderOpen);
       }
+    } catch (e) {
+      console.warn("Failed to load panel layout", e);
     }
-  } catch (e) {
-    console.warn("Failed to load panel layout", e);
-  }
-}, []);
+  }, []);
 
-  // Persist panel layout
+  // Persist panel layout (including builderOpen)
   useEffect(() => {
     try {
       const payload = { leftOpen, rightOpen, bottomOpen, builderOpen };
@@ -352,10 +353,7 @@ useEffect(() => {
             <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs">
-         
-          
-        </div>
+        {/* We removed header buttons for panels for now; side panels collapse via their own handles */}
       </header>
 
       {/* Main row */}
@@ -364,8 +362,7 @@ useEffect(() => {
           allPanelsClosed ? "justify-center" : ""
         }`}
       >
-        {/* Left: idea list */}
-                {/* Left: idea list with collapsible width */}
+        {/* Left: idea list with collapsible width */}
         <aside
           className={`border-r border-slate-800 bg-slate-950/80 flex flex-col transition-all duration-200 ${
             leftOpen ? "w-72" : "w-8"
@@ -411,204 +408,208 @@ useEffect(() => {
         {/* Center: builder + analysis in unified width container */}
         <main className="flex-1 flex flex-col overflow-y-auto items-center">
           <div className="w-full max-w-5xl px-4 py-3 space-y-4">
-            {/* Center panel header (collapsible) */}
-            <div
-              className="px-3 py-2 mb-1 border-b border-slate-800 bg-slate-900/70 rounded flex items-center justify-between cursor-pointer"
-              onClick={() => setBuilderOpen((open) => !open)}
-            >
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Idea Builder
-              </span>
-              <span className="text-slate-400 text-sm">
-                {builderOpen ? "▾" : "▸"}
-              </span>
-            </div>
+            {/* Idea Builder shell */}
+            <section className="rounded-md shadow-[0_0_0_1px_rgba(15,23,42,0.5)] border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]">
+              {/* Center panel header (collapsible) */}
+              <div
+                className="px-3 py-2 border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md flex items-center justify-between cursor-pointer"
+                onClick={() => setBuilderOpen((open) => !open)}
+              >
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+                  Idea Builder
+                </span>
+                <span className="text-slate-400 text-sm">
+                  {builderOpen ? "▾" : "▸"}
+                </span>
+              </div>
 
-            {/* Idea builder content */}
-            {builderOpen && (
-              <>
-                {loading && ideas.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                    Loading ideas…
-                  </div>
-                ) : selectedIdea ? (
-                  <div className="space-y-4">
-                    {/* Meta, status, regime */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <input
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
-                          value={selectedIdea.meta.name}
-                          onChange={(e) =>
-                            updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                              ...idea,
-                              meta: { ...idea.meta, name: e.target.value },
-                            }))
-                          }
-                        />
-                        <textarea
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
-                          placeholder="Describe what this idea is trying to capture…"
-                          value={selectedIdea.meta.description ?? ""}
-                          onChange={(e) =>
-                            updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                              ...idea,
-                              meta: {
-                                ...idea.meta,
-                                description: e.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        {selectedIdea.meta.tags &&
-                          selectedIdea.meta.tags.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {selectedIdea.meta.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2">
-                        {/* Status control */}
-                        <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
-                          {statusOptions.map((opt) => {
-                            const active =
-                              selectedIdea.meta.status === opt.id;
-                            return (
-                              <button
-                                key={opt.id}
-                                onClick={() =>
-                                  updateIdeaById(
-                                    selectedIdea.meta.id,
-                                    (idea) => ({
-                                      ...idea,
-                                      meta: {
-                                        ...idea.meta,
-                                        status: opt.id,
-                                      },
-                                    })
-                                  )
-                                }
-                                className={`px-2 py-0.5 text-[10px] rounded-full transition ${
-                                  active
-                                    ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
-                                    : "text-slate-300 hover:bg-slate-800"
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Regime chip + selector */}
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase tracking-wide text-[10px] ${
-                              regimeChipClasses[
-                                selectedIdea.volatility.regime
-                              ]
-                            }`}
-                          >
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
-                            {selectedIdea.volatility.regime.toUpperCase()}
-                          </span>
-                          <select
-                            className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                            value={selectedIdea.volatility.regime}
+              {/* Idea builder content */}
+              {builderOpen && (
+                <div className="px-3 pb-3 pt-2">
+                  {loading && ideas.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                      Loading ideas…
+                    </div>
+                  ) : selectedIdea ? (
+                    <div className="space-y-4">
+                      {/* Meta, status, regime */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <input
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
+                            value={selectedIdea.meta.name}
                             onChange={(e) =>
-                              updateIdeaById(
-                                selectedIdea.meta.id,
-                                (idea) => ({
-                                  ...idea,
-                                  volatility: {
-                                    ...idea.volatility,
-                                    regime:
-                                      e.target.value as VolatilityRegime,
-                                  },
-                                })
-                              )
+                              updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                                ...idea,
+                                meta: { ...idea.meta, name: e.target.value },
+                              }))
                             }
-                          >
-                            <option value="any">Any</option>
-                            <option value="quiet">Quiet</option>
-                            <option value="normal">Normal</option>
-                            <option value="expanding">Expanding</option>
-                            <option value="crisis">Crisis</option>
-                          </select>
+                          />
+                          <textarea
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
+                            placeholder="Describe what this idea is trying to capture…"
+                            value={selectedIdea.meta.description ?? ""}
+                            onChange={(e) =>
+                              updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                                ...idea,
+                                meta: {
+                                  ...idea.meta,
+                                  description: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          {selectedIdea.meta.tags &&
+                            selectedIdea.meta.tags.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {selectedIdea.meta.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          {/* Status control */}
+                          <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
+                            {statusOptions.map((opt) => {
+                              const active =
+                                selectedIdea.meta.status === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  onClick={() =>
+                                    updateIdeaById(
+                                      selectedIdea.meta.id,
+                                      (idea) => ({
+                                        ...idea,
+                                        meta: {
+                                          ...idea.meta,
+                                          status: opt.id,
+                                        },
+                                      })
+                                    )
+                                  }
+                                  className={`px-2 py-0.5 text-[10px] rounded-full transition ${
+                                    active
+                                      ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
+                                      : "text-slate-300 hover:bg-slate-800"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Regime chip + selector */}
+                          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase tracking-wide text-[10px] ${
+                                regimeChipClasses[
+                                  selectedIdea.volatility.regime
+                                ]
+                              }`}
+                            >
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
+                              {selectedIdea.volatility.regime.toUpperCase()}
+                            </span>
+                            <select
+                              className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                              value={selectedIdea.volatility.regime}
+                              onChange={(e) =>
+                                updateIdeaById(
+                                  selectedIdea.meta.id,
+                                  (idea) => ({
+                                    ...idea,
+                                    volatility: {
+                                      ...idea.volatility,
+                                      regime:
+                                        e.target
+                                          .value as VolatilityRegime,
+                                    },
+                                  })
+                                )
+                              }
+                            >
+                              <option value="any">Any</option>
+                              <option value="quiet">Quiet</option>
+                              <option value="normal">Normal</option>
+                              <option value="expanding">Expanding</option>
+                              <option value="crisis">Crisis</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Filters */}
+                      <PriceLiquidityFilters
+                        idea={selectedIdea}
+                        onChangeRange={(field, bound, raw) =>
+                          updateRangeField(
+                            selectedIdea.meta.id,
+                            "priceLiquidity",
+                            field,
+                            bound,
+                            raw
+                          )
+                        }
+                      />
+
+                      <VolatilityFilters
+                        idea={selectedIdea}
+                        onChangeRange={(field, bound, raw) =>
+                          updateRangeField(
+                            selectedIdea.meta.id,
+                            "volatility",
+                            field,
+                            bound,
+                            raw
+                          )
+                        }
+                      />
+
+                      <StructureFilters
+                        idea={selectedIdea}
+                        onChangeRange={(field, bound, raw) =>
+                          updateRangeField(
+                            selectedIdea.meta.id,
+                            "structure",
+                            field,
+                            bound,
+                            raw
+                          )
+                        }
+                      />
+
+                      {/* Save / Duplicate */}
+                      <div className="mt-2 flex gap-2 items-center">
+                        <button
+                          onClick={handleSaveIdea}
+                          disabled={saving}
+                          className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
+                        >
+                          {saving ? "Saving…" : "Save Idea"}
+                        </button>
+                        <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
+                          Duplicate (stub)
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Filters */}
-                    <PriceLiquidityFilters
-                      idea={selectedIdea}
-                      onChangeRange={(field, bound, raw) =>
-                        updateRangeField(
-                          selectedIdea.meta.id,
-                          "priceLiquidity",
-                          field,
-                          bound,
-                          raw
-                        )
-                      }
-                    />
-
-                    <VolatilityFilters
-                      idea={selectedIdea}
-                      onChangeRange={(field, bound, raw) =>
-                        updateRangeField(
-                          selectedIdea.meta.id,
-                          "volatility",
-                          field,
-                          bound,
-                          raw
-                        )
-                      }
-                    />
-
-                    <StructureFilters
-                      idea={selectedIdea}
-                      onChangeRange={(field, bound, raw) =>
-                        updateRangeField(
-                          selectedIdea.meta.id,
-                          "structure",
-                          field,
-                          bound,
-                          raw
-                        )
-                      }
-                    />
-
-                    {/* Save / Duplicate */}
-                    <div className="mt-2 flex gap-2 items-center">
-                      <button
-                        onClick={handleSaveIdea}
-                        disabled={saving}
-                        className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
-                      >
-                        {saving ? "Saving…" : "Save Idea"}
-                      </button>
-                      <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
-                        Duplicate (stub)
-                      </button>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                      No idea selected. Choose an idea on the left or create a
+                      new one.
                     </div>
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                    No idea selected. Choose an idea on the left or create a
-                    new one.
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </div>
+              )}
+            </section>
 
             {/* Bottom Analysis Panel — same width as builder */}
             <LabBottomPanel

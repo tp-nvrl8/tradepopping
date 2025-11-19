@@ -1,3 +1,87 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =========================================================== */
+/*  Default variables (Slate baseline)                         */
+/* =========================================================== */
+
+:root {
+  --tp-lab-builder-bg: #020617;
+  --tp-lab-builder-border: #1e293b;
+  --tp-lab-builder-header-bg: #020617;
+  --tp-lab-builder-header-border: #334155;
+
+  --tp-lab-analysis-bg: #020617;
+  --tp-lab-analysis-border: #1e293b;
+  --tp-lab-analysis-header-bg: #020617;
+  --tp-lab-analysis-header-border: #334155;
+}
+
+/* =========================================================== */
+/*  SLATE THEME (Baseline)                                     */
+/* =========================================================== */
+
+:root[data-tp-theme="slate"] {
+  --tp-lab-builder-bg: #020617;
+  --tp-lab-builder-border: #1e293b;
+  --tp-lab-builder-header-bg: #020617;
+  --tp-lab-builder-header-border: #334155;
+
+  --tp-lab-analysis-bg: #020617;
+  --tp-lab-analysis-border: #1e293b;
+  --tp-lab-analysis-header-bg: #020617;
+  --tp-lab-analysis-header-border: #334155;
+}
+
+/* =========================================================== */
+/*  TREK INDUSTRIAL (Engineering LCARS)                        */
+/* =========================================================== */
+/*  Warm bronze, amber, steel-black                           */
+/* =========================================================== */
+
+:root[data-tp-theme="trek-industrial"] {
+  --tp-lab-builder-bg: #0a0d12;                 /* deep iron-dark */
+  --tp-lab-builder-border: #a78b6a;             /* warm bronze */
+  --tp-lab-builder-header-bg: #111418;          /* steel black */
+  --tp-lab-builder-header-border: #f5d0a3;      /* muted amber */
+
+  --tp-lab-analysis-bg: #0a0d12;
+  --tp-lab-analysis-border: #a78b6a;
+  --tp-lab-analysis-header-bg: #111418;
+  --tp-lab-analysis-header-border: #f5d0a3;
+}
+
+/* =========================================================== */
+/*  DELTA FLYER (Sleek Cool Shuttle UI)                        */
+/* =========================================================== */
+/*  Cool navy, icy cyan, electric-blue                         */
+/* =========================================================== */
+
+:root[data-tp-theme="delta-flyer"] {
+  --tp-lab-builder-bg: #030b18;                 /* deep cold navy */
+  --tp-lab-builder-border: #7dd3fc;             /* icy cyan */
+  --tp-lab-builder-header-bg: #07121f;          /* cold metal blue */
+  --tp-lab-builder-header-border: #93c5fd;      /* soft electric blue */
+
+  --tp-lab-analysis-bg: #030b18;
+  --tp-lab-analysis-border: #7dd3fc;
+  --tp-lab-analysis-header-bg: #07121f;
+  --tp-lab-analysis-header-border: #93c5fd;
+}
+
+/* =========================================================== */
+/*  CUSTOM THEME (Stub - matches slate for now)                */
+/* =========================================================== */
+
+:root[data-tp-theme="custom"] {
+  --tp-lab-builder-bg: #020617;
+  --tp-lab-builder-border: #1e293b;
+  --tp-lab-builder-header-bg: #020617;
+  --tp-lab-builder-header-border: #334155;
+
+  --tp-lab-analysis-bg: #020617;
+  --tp-lab-analysis-border: #1e293b;
+  --tp-lab-analysis-header-bg: #020617;
+  --tp-lab-analysis-header-border: #334155;
+}

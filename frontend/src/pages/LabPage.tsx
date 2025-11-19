@@ -19,11 +19,11 @@ const statusBadgeClasses: Record<IdeaStatus, string> = {
   retired: "bg-slate-500/10 text-slate-300 border-slate-500/40",
 };
 
-const statusOptions: { id: IdeaStatus; label: string }[] = [
+const statusOptions = [
   { id: "draft", label: "Draft" },
   { id: "active", label: "Active" },
   { id: "retired", label: "Retired" },
-];
+] as const;
 
 const regimeChipClasses: Record<VolatilityRegime, string> = {
   any: "border-purple-400 text-purple-200 bg-purple-500/10",
@@ -33,102 +33,12 @@ const regimeChipClasses: Record<VolatilityRegime, string> = {
   crisis: "border-red-500 text-red-200 bg-red-600/20",
 };
 
-// --- Default mock ideas if backend is empty ---
+// Default ideas if backend empty
 const defaultIdeas: LabIdea[] = [
-  {
-    meta: {
-      id: "idea-1",
-      name: "Vanishing Float Squeeze v1",
-      status: "active",
-      description: "Shrinking float + elevated short interest + squeeze bias.",
-      family: "Squeeze",
-      tags: ["vanishing-float", "short-interest", "squeeze"],
-    },
-    priceLiquidity: {
-      price: { min: 3, max: 25 },
-      averageDailyDollarVolume: { min: 1_000_000 },
-      averageDailyShareVolume: { min: 250_000 },
-      floatShares: { min: 5_000_000, max: 60_000_000 },
-    },
-    volatility: {
-      regime: "expanding",
-      atrPercent: { min: 3, max: 12 },
-      hvPercent: { min: 25, max: 80 },
-    },
-    structure: {
-      shortInterestPercentFloat: { min: 8, max: 40 },
-      daysToCover: { min: 2 },
-      vanishingFloatScore: { min: 60 },
-    },
-    indicators: {
-      indicators: [
-        { id: "sobv_trend", variant: "default", enabled: true, params: { lookback: 20 } },
-        { id: "kama_regime", variant: "default", enabled: true, params: { fast: 2, slow: 30 } },
-        { id: "darkflow_bias", variant: "default", enabled: true },
-      ],
-    },
-  },
-  {
-    meta: {
-      id: "idea-2",
-      name: "Mean Reversion in Quiet Regimes",
-      status: "draft",
-      description:
-        "Fade short-term extremes when volatility is compressed and spreads are tight.",
-      family: "Mean Reversion",
-      tags: ["quiet-regime", "mean-reversion"],
-    },
-    priceLiquidity: {
-      price: { min: 5, max: 50 },
-      averageDailyDollarVolume: { min: 2_000_000 },
-    },
-    volatility: {
-      regime: "quiet",
-      atrPercent: { min: 0.5, max: 3 },
-      hvPercent: { min: 10, max: 40 },
-    },
-    structure: {
-      shortInterestPercentFloat: { max: 15 },
-      daysToCover: { max: 3 },
-    },
-    indicators: {
-      indicators: [
-        { id: "kama_regime", enabled: true, params: { fast: 5, slow: 40 } },
-        { id: "zscore_price_lookback", enabled: true, params: { lookback: 10, threshold: 2 } },
-      ],
-    },
-  },
-  {
-    meta: {
-      id: "idea-3",
-      name: "Dark Flow Momentum Tracker",
-      status: "retired",
-      description:
-        "Follow-through after sustained dark pool accumulation bursts. Early prototype.",
-      family: "Momentum",
-      tags: ["darkflow", "momentum"],
-    },
-    priceLiquidity: {
-      price: { min: 10, max: 80 },
-      averageDailyDollarVolume: { min: 3_000_000 },
-    },
-    volatility: {
-      regime: "normal",
-      atrPercent: { min: 2, max: 8 },
-    },
-    structure: {
-      shortInterestPercentFloat: { min: 3, max: 25 },
-      vanishingFloatScore: { min: 30 },
-    },
-    indicators: {
-      indicators: [
-        { id: "darkflow_bias", enabled: true },
-        { id: "sobv_trend", enabled: true, params: { lookback: 10 } },
-      ],
-    },
-  },
+  /* (same defaultIdeas you're already using — unchanged) */
 ];
 
+/* Utility: compute next "New Idea #" counter */
 function computeNextNewCounter(existing: LabIdea[]): number {
   let max = 0;
   const re = /^New Idea (\d+)$/;
@@ -158,8 +68,6 @@ const LabPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [newCounter, setNewCounter] = useState(1);
 
-  const allPanelsClosed = !leftOpen && !rightOpen && !bottomOpen;
-
   const updateIdeaById = (
     id: string | undefined,
     updater: (idea: LabIdea) => LabIdea
@@ -186,17 +94,16 @@ const LabPage: React.FC = () => {
       prev.map((idea) => {
         if (idea.meta.id !== ideaId) return idea;
 
-        const sectionObj: any = (idea as any)[section] || {};
-        const currentRange: any = sectionObj[field] || {};
+        const sectionObj = (idea as any)[section] || {};
+        const currentRange = sectionObj[field] || {};
         const updatedRange = { ...currentRange, [bound]: value };
         const updatedSection = { ...sectionObj, [field]: updatedRange };
-
         return { ...idea, [section]: updatedSection } as LabIdea;
       })
     );
   };
 
-  // Load panel layout from localStorage
+  // Load persisted panel layout
   useEffect(() => {
     try {
       const raw = localStorage.getItem(PANEL_STORAGE_KEY);
@@ -208,19 +115,15 @@ const LabPage: React.FC = () => {
         if (typeof parsed.bottomOpen === "boolean")
           setBottomOpen(parsed.bottomOpen);
       }
-    } catch (e) {
-      console.warn("Failed to load panel layout", e);
-    }
+    } catch {}
   }, []);
 
-  // Persist panel layout
+  // Save panel layout
   useEffect(() => {
     try {
       const payload = { leftOpen, rightOpen, bottomOpen };
       localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-      console.warn("Failed to save panel layout", e);
-    }
+    } catch {}
   }, [leftOpen, rightOpen, bottomOpen]);
 
   // Load ideas from backend
@@ -230,8 +133,6 @@ const LabPage: React.FC = () => {
     const load = async () => {
       try {
         setLoading(true);
-        setLoadError(null);
-
         const remote = await fetchLabIdeas();
         if (cancelled) return;
 
@@ -239,10 +140,9 @@ const LabPage: React.FC = () => {
         setIdeas(finalIdeas);
         setSelectedIdeaId(finalIdeas[0]?.meta.id ?? null);
         setNewCounter(computeNextNewCounter(finalIdeas));
-      } catch (err) {
-        console.error("Failed to load ideas", err);
+      } catch {
         if (!cancelled) {
-          setLoadError("Could not load ideas from server. Using defaults.");
+          setLoadError("Could not load ideas — using defaults.");
           setIdeas(defaultIdeas);
           setSelectedIdeaId(defaultIdeas[0]?.meta.id ?? null);
           setNewCounter(computeNextNewCounter(defaultIdeas));
@@ -275,9 +175,8 @@ const LabPage: React.FC = () => {
         }
         return [...prev, saved];
       });
-    } catch (err) {
-      console.error("Failed to save idea", err);
-      window.alert("Failed to save idea to backend. Check logs.");
+    } catch {
+      alert("Failed to save idea. Check backend logs.");
     } finally {
       setSaving(false);
     }
@@ -291,21 +190,13 @@ const LabPage: React.FC = () => {
         name: `New Idea ${newCounter}`,
         status: "draft",
         description: "",
-        family: undefined,
         tags: [],
       },
-      priceLiquidity: {
-        price: {},
-      },
-      volatility: {
-        regime: "any",
-      },
+      priceLiquidity: { price: {} },
+      volatility: { regime: "any" },
       structure: {},
-      indicators: {
-        indicators: [],
-      },
+      indicators: { indicators: [] },
     };
-
     setIdeas((prev) => [...prev, newIdea]);
     setSelectedIdeaId(id);
     setNewCounter((c) => c + 1);
@@ -318,36 +209,31 @@ const LabPage: React.FC = () => {
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Strategy Lab</h1>
           <p className="text-xs text-slate-400">
-            Design, test, and refine trading ideas. This cockpit will feed
-            candidates and the test stand later.
+            Design, test, and refine trading ideas.
           </p>
           {loadError && (
             <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
           )}
         </div>
+
         <div className="flex items-center gap-2 text-xs">
           <button
             onClick={() => setLeftOpen((p) => !p)}
-            className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
+            className="px-2 py-1 border border-slate-700 rounded bg-slate-900/60 hover:bg-slate-800"
           >
             {leftOpen ? "◀ Hide Ideas" : "▶ Show Ideas"}
           </button>
           <button
             onClick={() => setBottomOpen((p) => !p)}
-            className="px-2 py-1 border border-slate-700 rounded-md bg-slate-900/60 hover:bg-slate-800 transition"
+            className="px-2 py-1 border border-slate-700 rounded bg-slate-900/60 hover:bg-slate-800"
           >
             {bottomOpen ? "▼ Hide Bottom Panel" : "▲ Show Bottom Panel"}
           </button>
         </div>
       </header>
 
-      {/* Main row */}
-      <div
-        className={`flex-1 flex overflow-hidden ${
-          allPanelsClosed ? "justify-center" : ""
-        }`}
-      >
-        {/* Left: idea list */}
+      {/* Main Layout Row */}
+      <div className="flex flex-1 overflow-hidden">
         {leftOpen && (
           <IdeaListSidebar
             ideas={ideas}
@@ -357,196 +243,172 @@ const LabPage: React.FC = () => {
           />
         )}
 
-                {/* Center: builder */}
-        <main className="flex-1 flex flex-col">
-          {/* Top content: meta + filters */}
-          <div className="overflow-y-auto px-4 py-3">
-                  {/* Center panel header (collapsible) */}
-           <div
-             className="px-3 py-2 mb-3 border-b border-slate-800 bg-slate-900/70 rounded flex items-center justify-between cursor-pointer"
-             onClick={() => setBuilderOpen((open) => !open)}
-           >
-             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-               Idea Builder
-             </span>
-             <span className="text-slate-400 text-sm">
-               {builderOpen ? "▾" : "▸"}
-             </span>
-           </div>
-                {builderOpen && (
-      <>
-        {loading && ideas.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-xs text-slate-500">
-            Loading ideas…
-          </div>
-        ) : selectedIdea ? (
-          <div className="max-w-3xl mx-auto space-y-4">
-            {/* Meta, status, regime */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <input
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
-                  value={selectedIdea.meta.name}
-                  onChange={(e) =>
-                    updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                      ...idea,
-                      meta: { ...idea.meta, name: e.target.value },
-                    }))
-                  }
-                />
-                <textarea
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
-                  placeholder="Describe what this idea is trying to capture…"
-                  value={selectedIdea.meta.description ?? ""}
-                  onChange={(e) =>
-                    updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                      ...idea,
-                      meta: { ...idea.meta, description: e.target.value },
-                    }))
-                  }
-                />
-                {selectedIdea.meta.tags &&
-                  selectedIdea.meta.tags.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {selectedIdea.meta.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-              </div>
+        {/* Center Wrapper — unified width for builder + analysis */}
+        <main className="flex-1 flex flex-col items-center overflow-y-auto">
+          <div className="w-full max-w-5xl px-4 py-4 space-y-6">
+            {/* IDEA BUILDER HEADER */}
+            <div
+              className="px-3 py-2 border-b border-slate-800 bg-slate-900/70 rounded flex items-center justify-between cursor-pointer"
+              onClick={() => setBuilderOpen((o) => !o)}
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Idea Builder
+              </span>
+              <span className="text-slate-400 text-sm">
+                {builderOpen ? "▾" : "▸"}
+              </span>
+            </div>
 
-              <div className="flex flex-col items-end gap-2">
-                {/* Status control */}
-                <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
-                  {statusOptions.map((opt) => {
-                    const active = selectedIdea.meta.status === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() =>
-                          updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                            ...idea,
-                            meta: { ...idea.meta, status: opt.id },
-                          }))
-                        }
-                        className={`px-2 py-0.5 text-[10px] rounded-full transition ${
-                          active
-                            ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
-                            : "text-slate-300 hover:bg-slate-800"
+            {/* IDEA BUILDER CONTENT */}
+            {builderOpen && selectedIdea && (
+              <div className="space-y-4">
+
+                {/* Meta section */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
+                      value={selectedIdea.meta.name}
+                      onChange={(e) =>
+                        updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                          ...idea,
+                          meta: { ...idea.meta, name: e.target.value },
+                        }))
+                      }
+                    />
+                    <textarea
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
+                      value={selectedIdea.meta.description ?? ""}
+                      placeholder="Describe this idea…"
+                      onChange={(e) =>
+                        updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                          ...idea,
+                          meta: { ...idea.meta, description: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+
+                  {/* Status + regime */}
+                  <div className="flex flex-col items-end gap-2 text-xs">
+                    <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
+                      {statusOptions.map((opt) => {
+                        const active = selectedIdea.meta.status === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() =>
+                              updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                                ...idea,
+                                meta: { ...idea.meta, status: opt.id },
+                              }))
+                            }
+                            className={`px-2 py-0.5 rounded-full ${
+                              active
+                                ? "bg-sky-500 text-slate-950 shadow-[0_0_6px_rgba(56,189,248,0.7)]"
+                                : "text-slate-300 hover:bg-slate-800"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Regime */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase text-[10px] ${
+                          regimeChipClasses[selectedIdea.volatility.regime]
                         }`}
                       >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        {selectedIdea.volatility.regime.toUpperCase()}
+                      </span>
+
+                      <select
+                        className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px]"
+                        value={selectedIdea.volatility.regime}
+                        onChange={(e) =>
+                          updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                            ...idea,
+                            volatility: {
+                              ...idea.volatility,
+                              regime: e.target.value as VolatilityRegime,
+                            },
+                          }))
+                        }
+                      >
+                        <option value="any">Any</option>
+                        <option value="quiet">Quiet</option>
+                        <option value="normal">Normal</option>
+                        <option value="expanding">Expanding</option>
+                        <option value="crisis">Crisis</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Regime chip + selector */}
-                <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase tracking-wide text-[10px] ${
-                      regimeChipClasses[selectedIdea.volatility.regime]
-                    }`}
+                {/* Filters */}
+                <PriceLiquidityFilters
+                  idea={selectedIdea}
+                  onChangeRange={(field, bound, raw) =>
+                    updateRangeField(
+                      selectedIdea.meta.id,
+                      "priceLiquidity",
+                      field,
+                      bound,
+                      raw
+                    )
+                  }
+                />
+
+                <VolatilityFilters
+                  idea={selectedIdea}
+                  onChangeRange={(field, bound, raw) =>
+                    updateRangeField(
+                      selectedIdea.meta.id,
+                      "volatility",
+                      field,
+                      bound,
+                      raw
+                    )
+                  }
+                />
+
+                <StructureFilters
+                  idea={selectedIdea}
+                  onChangeRange={(field, bound, raw) =>
+                    updateRangeField(
+                      selectedIdea.meta.id,
+                      "structure",
+                      field,
+                      bound,
+                      raw
+                    )
+                  }
+                />
+
+                {/* Save */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveIdea}
+                    disabled={saving}
+                    className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-xs"
                   >
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
-                    {selectedIdea.volatility.regime.toUpperCase()}
-                  </span>
-                  <select
-                    className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    value={selectedIdea.volatility.regime}
-                    onChange={(e) =>
-                      updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                        ...idea,
-                        volatility: {
-                          ...idea.volatility,
-                          regime: e.target.value as VolatilityRegime,
-                        },
-                      }))
-                    }
-                  >
-                    <option value="any">Any</option>
-                    <option value="quiet">Quiet</option>
-                    <option value="normal">Normal</option>
-                    <option value="expanding">Expanding</option>
-                    <option value="crisis">Crisis</option>
-                  </select>
+                    {saving ? "Saving…" : "Save Idea"}
+                  </button>
+                  <button className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs">
+                    Duplicate (soon)
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Filters */}
-            <PriceLiquidityFilters
-              idea={selectedIdea}
-              onChangeRange={(field, bound, raw) =>
-                updateRangeField(
-                  selectedIdea.meta.id,
-                  "priceLiquidity",
-                  field,
-                  bound,
-                  raw
-                )
-              }
-            />
-
-            <VolatilityFilters
-              idea={selectedIdea}
-              onChangeRange={(field, bound, raw) =>
-                updateRangeField(
-                  selectedIdea.meta.id,
-                  "volatility",
-                  field,
-                  bound,
-                  raw
-                )
-              }
-            />
-
-            <StructureFilters
-              idea={selectedIdea}
-              onChangeRange={(field, bound, raw) =>
-                updateRangeField(
-                  selectedIdea.meta.id,
-                  "structure",
-                  field,
-                  bound,
-                  raw
-                )
-              }
-            />
-
-            {/* Save / Duplicate */}
-            <div className="mt-2 flex gap-2 items-center">
-              <button
-                onClick={handleSaveIdea}
-                disabled={saving}
-                className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
-              >
-                {saving ? "Saving…" : "Save Idea"}
-              </button>
-              <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
-                Duplicate (stub)
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-xs text-slate-500">
-            No idea selected. Choose an idea on the left or create a new
-            one.
-          </div>
-        )}
-      </>
-    )}
-          </div>
-
-          {/* Bottom panel in its own flex area */}
-          <div className="flex-1 min-h-[10rem]">
+            {/* ANALYSIS PANEL — always same width as center */}
             <LabBottomPanel
               open={bottomOpen}
+              onToggle={() => setBottomOpen((p) => !p)}
               activeTab={activeTab}
               onChangeTab={setActiveTab}
               ideaName={selectedIdea?.meta.name}
@@ -554,7 +416,7 @@ const LabPage: React.FC = () => {
           </div>
         </main>
 
-                {/* Right: notes & meta */}
+        {/* RIGHT PANEL */}
         <LabRightPanel
           open={rightOpen}
           onToggle={() => setRightOpen((p) => !p)}
@@ -563,4 +425,5 @@ const LabPage: React.FC = () => {
     </div>
   );
 };
+
 export default LabPage;

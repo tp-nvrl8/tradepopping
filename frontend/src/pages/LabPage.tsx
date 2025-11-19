@@ -219,31 +219,36 @@ const LabPage: React.FC = () => {
   };
 
   // Load panel layout from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(PANEL_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed.leftOpen === "boolean") setLeftOpen(parsed.leftOpen);
-        if (typeof parsed.rightOpen === "boolean")
-          setRightOpen(parsed.rightOpen);
-        if (typeof parsed.bottomOpen === "boolean")
-          setBottomOpen(parsed.bottomOpen);
+  // Load panel layout from localStorage
+useEffect(() => {
+  try {
+    const raw = localStorage.getItem(PANEL_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+
+      if (typeof parsed.leftOpen === "boolean") setLeftOpen(parsed.leftOpen);
+      if (typeof parsed.rightOpen === "boolean") setRightOpen(parsed.rightOpen);
+      if (typeof parsed.bottomOpen === "boolean") setBottomOpen(parsed.bottomOpen);
+
+      // ✅ NEW: restore Idea Builder panel state
+      if (typeof parsed.builderOpen === "boolean") {
+        setBuilderOpen(parsed.builderOpen);
       }
-    } catch (e) {
-      console.warn("Failed to load panel layout", e);
     }
-  }, []);
+  } catch (e) {
+    console.warn("Failed to load panel layout", e);
+  }
+}, []);
 
   // Persist panel layout
   useEffect(() => {
     try {
-      const payload = { leftOpen, rightOpen, bottomOpen };
+      const payload = { leftOpen, rightOpen, bottomOpen, builderOpen };
       localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.warn("Failed to save panel layout", e);
     }
-  }, [leftOpen, rightOpen, bottomOpen]);
+  }, [leftOpen, rightOpen, bottomOpen, builderOpen]);
 
   // Load ideas from backend
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { LabIdea } from "../lab/types";
 
 interface PriceLiquidityFiltersProps {
@@ -6,12 +6,35 @@ interface PriceLiquidityFiltersProps {
   onChangeRange: (field: string, bound: "min" | "max", raw: string) => void;
 }
 
+const STORAGE_KEY = "tp_lab_filter_priceLiquidity_open";
+
 const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
   idea,
   onChangeRange,
 }) => {
   const [open, setOpen] = useState(true);
   const cfg = idea.priceLiquidity;
+
+  // Load persisted open/closed state on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw !== null) {
+        setOpen(raw === "1"); // "1" = open, "0" = closed
+      }
+    } catch {
+      // ignore if localStorage not available (SSR, private mode, etc.)
+    }
+  }, []);
+
+  // Save state whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, open ? "1" : "0");
+    } catch {
+      // ignore write errors
+    }
+  }, [open]);
 
   return (
     <section className="border border-slate-800 rounded-lg bg-slate-900/40">

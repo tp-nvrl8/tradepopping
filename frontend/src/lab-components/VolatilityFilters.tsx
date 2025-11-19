@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { LabIdea } from "../lab/types";
 
 interface VolatilityFiltersProps {
@@ -6,12 +6,35 @@ interface VolatilityFiltersProps {
   onChangeRange: (field: string, bound: "min" | "max", raw: string) => void;
 }
 
+const STORAGE_KEY = "tp_lab_filter_volatility_open";
+
 const VolatilityFilters: React.FC<VolatilityFiltersProps> = ({
   idea,
   onChangeRange,
 }) => {
   const [open, setOpen] = useState(true);
-  const cfg = idea.volatility;
+  const cfg = idea.volatility ?? {};
+
+  // Load persisted open/closed state
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw !== null) {
+        setOpen(raw === "1"); // "1" = open, "0" = closed
+      }
+    } catch {
+      // ignore errors
+    }
+  }, []);
+
+  // Save whenever `open` changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, open ? "1" : "0");
+    } catch {
+      // ignore errors
+    }
+  }, [open]);
 
   return (
     <section className="border border-slate-800 rounded-lg bg-slate-900/40">
@@ -31,7 +54,7 @@ const VolatilityFilters: React.FC<VolatilityFiltersProps> = ({
           <div className="grid grid-cols-2 gap-3 text-xs">
             {/* ATR % */}
             <div>
-              <p className="text-slate-400 mb-1">ATR %</p>
+              <p className="text-slate-400 mb-1">ATR % (daily)</p>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -54,9 +77,9 @@ const VolatilityFilters: React.FC<VolatilityFiltersProps> = ({
               </div>
             </div>
 
-            {/* HV % */}
+            {/* Historical Volatility % */}
             <div>
-              <p className="text-slate-400 mb-1">HV %</p>
+              <p className="text-slate-400 mb-1">HV % (lookback)</p>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -78,6 +101,8 @@ const VolatilityFilters: React.FC<VolatilityFiltersProps> = ({
                 />
               </div>
             </div>
+
+            {/* You can add more volatility-related fields here later */}
           </div>
         </div>
       )}

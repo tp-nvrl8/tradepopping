@@ -3,10 +3,24 @@
 @tailwind utilities;
 
 /* =========================================================== */
-/*  Default variables (Slate baseline)                         */
+/*  Global semantic variables (defaults to Slate)              */
 /* =========================================================== */
 
 :root {
+  --tp-surface: #0b1220;
+  --tp-surface-muted: #111827;
+  --tp-border: #1f2937;
+  --tp-text-primary: #e2e8f0;
+  --tp-text-secondary: #94a3b8;
+  --tp-accent: #38bdf8;
+  --tp-accent-muted: #0ea5e9;
+  --tp-success: #22c55e;
+  --tp-warning: #eab308;
+  --tp-danger: #f43f5e;
+
+  --tp-settings-card-bg: var(--tp-surface-muted);
+  --tp-settings-card-border: var(--tp-border);
+
   --tp-lab-builder-bg: #020617;
   --tp-lab-builder-border: #1e293b;
   --tp-lab-builder-header-bg: #020617;
@@ -23,6 +37,20 @@
 /* =========================================================== */
 
 :root[data-tp-theme="slate"] {
+  --tp-surface: #0b1220;
+  --tp-surface-muted: #111827;
+  --tp-border: #1f2937;
+  --tp-text-primary: #e2e8f0;
+  --tp-text-secondary: #94a3b8;
+  --tp-accent: #38bdf8;
+  --tp-accent-muted: #0ea5e9;
+  --tp-success: #22c55e;
+  --tp-warning: #eab308;
+  --tp-danger: #f43f5e;
+
+  --tp-settings-card-bg: var(--tp-surface-muted);
+  --tp-settings-card-border: var(--tp-border);
+
   --tp-lab-builder-bg: #020617;
   --tp-lab-builder-border: #1e293b;
   --tp-lab-builder-header-bg: #020617;
@@ -37,14 +65,26 @@
 /* =========================================================== */
 /*  TREK INDUSTRIAL (Engineering LCARS)                        */
 /* =========================================================== */
-/*  Warm bronze, amber, steel-black                           */
-/* =========================================================== */
 
 :root[data-tp-theme="trek-industrial"] {
-  --tp-lab-builder-bg: #0a0d12;                 /* deep iron-dark */
-  --tp-lab-builder-border: #a78b6a;             /* warm bronze */
-  --tp-lab-builder-header-bg: #111418;          /* steel black */
-  --tp-lab-builder-header-border: #f5d0a3;      /* muted amber */
+  --tp-surface: #0a0d12;
+  --tp-surface-muted: #12171f;
+  --tp-border: #a78b6a;
+  --tp-text-primary: #f8fafc;
+  --tp-text-secondary: #e2e8f0;
+  --tp-accent: #f5d0a3;
+  --tp-accent-muted: #a78b6a;
+  --tp-success: #22c55e;
+  --tp-warning: #fbbf24;
+  --tp-danger: #f87171;
+
+  --tp-settings-card-bg: var(--tp-surface-muted);
+  --tp-settings-card-border: var(--tp-border);
+
+  --tp-lab-builder-bg: #0a0d12;
+  --tp-lab-builder-border: #a78b6a;
+  --tp-lab-builder-header-bg: #111418;
+  --tp-lab-builder-header-border: #f5d0a3;
 
   --tp-lab-analysis-bg: #0a0d12;
   --tp-lab-analysis-border: #a78b6a;
@@ -55,14 +95,26 @@
 /* =========================================================== */
 /*  DELTA FLYER (Sleek Cool Shuttle UI)                        */
 /* =========================================================== */
-/*  Cool navy, icy cyan, electric-blue                         */
-/* =========================================================== */
 
 :root[data-tp-theme="delta-flyer"] {
-  --tp-lab-builder-bg: #030b18;                 /* deep cold navy */
-  --tp-lab-builder-border: #7dd3fc;             /* icy cyan */
-  --tp-lab-builder-header-bg: #07121f;          /* cold metal blue */
-  --tp-lab-builder-header-border: #93c5fd;      /* soft electric blue */
+  --tp-surface: #030b18;
+  --tp-surface-muted: #0b1726;
+  --tp-border: #7dd3fc;
+  --tp-text-primary: #e2e8f0;
+  --tp-text-secondary: #cbd5e1;
+  --tp-accent: #93c5fd;
+  --tp-accent-muted: #7dd3fc;
+  --tp-success: #4ade80;
+  --tp-warning: #facc15;
+  --tp-danger: #fb7185;
+
+  --tp-settings-card-bg: var(--tp-surface-muted);
+  --tp-settings-card-border: var(--tp-border);
+
+  --tp-lab-builder-bg: #030b18;
+  --tp-lab-builder-border: #7dd3fc;
+  --tp-lab-builder-header-bg: #07121f;
+  --tp-lab-builder-header-border: #93c5fd;
 
   --tp-lab-analysis-bg: #030b18;
   --tp-lab-analysis-border: #7dd3fc;
@@ -71,10 +123,13 @@
 }
 
 /* =========================================================== */
-/*  CUSTOM THEME (Stub - matches slate for now)                */
+/*  CUSTOM THEME (fallback matches slate until overridden)     */
 /* =========================================================== */
 
 :root[data-tp-theme="custom"] {
+  --tp-settings-card-bg: var(--tp-surface-muted);
+  --tp-settings-card-border: var(--tp-border);
+
   --tp-lab-builder-bg: #020617;
   --tp-lab-builder-border: #1e293b;
   --tp-lab-builder-header-bg: #020617;
@@ -84,31 +139,4 @@
   --tp-lab-analysis-border: #1e293b;
   --tp-lab-analysis-header-bg: #020617;
   --tp-lab-analysis-header-border: #334155;
-}
-
-/* ---------- Settings cards ---------- */
-:root {
-  --tp-settings-card-bg: #020617;
-  --tp-settings-card-border: #1e293b;
-}
-
-/* You can vary these per theme if you want later */
-:root[data-tp-theme="slate"] {
-  --tp-settings-card-bg: #020617;
-  --tp-settings-card-border: #1e293b;
-}
-
-:root[data-tp-theme="trek-industrial"] {
-  --tp-settings-card-bg: #020617;
-  --tp-settings-card-border: #334155;
-}
-
-:root[data-tp-theme="delta-flyer"] {
-  --tp-settings-card-bg: #020617;
-  --tp-settings-card-border: #4b5563;
-}
-
-:root[data-tp-theme="custom"] {
-  --tp-settings-card-bg: #020617;
-  --tp-settings-card-border: #1e293b;
 }

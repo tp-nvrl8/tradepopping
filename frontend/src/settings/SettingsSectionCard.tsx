@@ -20,11 +20,13 @@ const SettingsSectionCard: React.FC<SettingsSectionCardProps> = ({
     >
       <header className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--tp-text-primary)]">
             {title}
           </h2>
           {description && (
-            <p className="text-[11px] text-slate-400 mt-0.5">{description}</p>
+            <p className="text-[11px] text-[var(--tp-text-secondary)] mt-0.5">
+              {description}
+            </p>
           )}
         </div>
       </header>

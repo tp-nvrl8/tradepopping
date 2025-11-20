@@ -85,3 +85,30 @@
   --tp-lab-analysis-header-bg: #020617;
   --tp-lab-analysis-header-border: #334155;
 }
+
+/* ---------- Settings cards ---------- */
+:root {
+  --tp-settings-card-bg: #020617;
+  --tp-settings-card-border: #1e293b;
+}
+
+/* You can vary these per theme if you want later */
+:root[data-tp-theme="slate"] {
+  --tp-settings-card-bg: #020617;
+  --tp-settings-card-border: #1e293b;
+}
+
+:root[data-tp-theme="trek-industrial"] {
+  --tp-settings-card-bg: #020617;
+  --tp-settings-card-border: #334155;
+}
+
+:root[data-tp-theme="delta-flyer"] {
+  --tp-settings-card-bg: #020617;
+  --tp-settings-card-border: #4b5563;
+}
+
+:root[data-tp-theme="custom"] {
+  --tp-settings-card-bg: #020617;
+  --tp-settings-card-border: #1e293b;
+}

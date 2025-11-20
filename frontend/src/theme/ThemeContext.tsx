@@ -6,7 +6,8 @@ import React, {
   ReactNode,
 } from "react";
 
-export type ThemeId = "slate" | "lab-soft" | "lab-bold" | "custom";
+// Keep this in sync with the themes you use in SettingsPage and index.css
+export type ThemeId = "slate" | "trek-industrial" | "delta-flyer" | "custom";
 
 const THEME_STORAGE_KEY = "tp_theme_v1";
 
@@ -26,8 +27,14 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === "slate" || stored === "lab-soft" || stored === "lab-bold" || stored === "custom") {
-        setThemeState(stored);
+
+      if (
+        stored === "slate" ||
+        stored === "trek-industrial" ||
+        stored === "delta-flyer" ||
+        stored === "custom"
+      ) {
+        setThemeState(stored as ThemeId);
       }
     } catch {
       // ignore

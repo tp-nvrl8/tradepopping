@@ -11,6 +11,7 @@ import StructureFilters from "../lab-components/StructureFilters";
 
 import IndicatorBuilderPanel from "../lab-components/IndicatorBuilderPanel";
 import FilterComposerPanel from "../lab-components/FilterComposerPanel";
+import LabPanelShell from "../lab-components/LabPanelShell";
 
 type LabTab = "scan" | "backtests" | "candidates";
 
@@ -26,12 +27,6 @@ const defaultCenterOrder: CenterPanelId[] = [
 
 const PANEL_STORAGE_KEY = "tp_lab_panel_layout_v1";
 const CENTER_PANEL_STORAGE_KEY = "tp_lab_center_panels_v1";
-
-const statusBadgeClasses: Record<IdeaStatus, string> = {
-  active: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
-  draft: "bg-amber-500/10 text-amber-300 border-amber-500/40",
-  retired: "bg-slate-500/10 text-slate-300 border-slate-500/40",
-};
 
 const statusOptions: { id: IdeaStatus; label: string }[] = [
   { id: "draft", label: "Draft" },
@@ -188,6 +183,8 @@ const LabPage: React.FC = () => {
   const [rightOpen, setRightOpen] = useState(true);
   const [bottomOpen, setBottomOpen] = useState(true);
   const [builderOpen, setBuilderOpen] = useState(true);
+  const [indicatorOpen, setIndicatorOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -248,54 +245,62 @@ const LabPage: React.FC = () => {
           setBottomOpen(parsed.bottomOpen);
         if (typeof parsed.builderOpen === "boolean")
           setBuilderOpen(parsed.builderOpen);
+        // If we later persist indicatorOpen/filtersOpen, we can restore here too
       }
     } catch (e) {
       console.warn("Failed to load panel layout", e);
     }
   }, []);
 
-  // Persist panel layout (side + builder)
+  // Persist panel layout (side + builder + bottom)
   useEffect(() => {
     try {
-      const payload = { leftOpen, rightOpen, bottomOpen, builderOpen };
+      const payload = {
+        leftOpen,
+        rightOpen,
+        bottomOpen,
+        builderOpen,
+        // future: indicatorOpen, filtersOpen
+      };
       localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.warn("Failed to save panel layout", e);
     }
   }, [leftOpen, rightOpen, bottomOpen, builderOpen]);
 
-  // Load center panel order from localStorage and merge with defaults
+      // Load center panel order from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CENTER_PANEL_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const allowed: CenterPanelId[] = [
-            "builder",
-            "indicator",
-            "filters",
-            "analysis",
-          ];
+          const allowed: CenterPanelId[] = defaultCenterOrder;
 
+          // Keep only allowed IDs
           const valid = parsed.filter(
             (p: unknown): p is CenterPanelId =>
               typeof p === "string" && (allowed as string[]).includes(p)
           );
 
-          if (valid.length) {
-            const merged: CenterPanelId[] = [...valid];
-            for (const id of defaultCenterOrder) {
-              if (!merged.includes(id)) {
-                merged.push(id);
-              }
-            }
-            setCenterPanelsOrder(merged);
-          }
+          // 🔑 Merge with any new panel IDs we’ve added in code
+          const merged: CenterPanelId[] = [
+            ...valid,
+            ...allowed.filter((p) => !valid.includes(p)),
+          ];
+
+          setCenterPanelsOrder(
+            merged.length > 0 ? merged : defaultCenterOrder
+          );
+          return;
         }
       }
+
+      // If no stored value, fall back to default
+      setCenterPanelsOrder(defaultCenterOrder);
     } catch (e) {
       console.warn("Failed to load center panel order", e);
+      setCenterPanelsOrder(defaultCenterOrder);
     }
   }, []);
 
@@ -404,218 +409,220 @@ const LabPage: React.FC = () => {
     switch (panelId) {
       case "builder":
         return (
-          <section
+          <LabPanelShell
             key="builder"
-            className="rounded-md border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)] flex flex-col"
+            title="Idea Builder"
+            open={builderOpen}
+            onToggle={() => setBuilderOpen((open) => !open)}
+            containerClassName="border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]"
+            headerClassName="border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md"
+            bodyClassName="space-y-4 rounded-b-md"
           >
-            {/* Header bar (collapsible) */}
-            <div
-              className="px-3 py-2 border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md flex items-center justify-between cursor-pointer"
-              onClick={() => setBuilderOpen((open) => !open)}
-            >
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">
-                Idea Builder
-              </span>
-              <span className="text-slate-400 text-sm">
-                {builderOpen ? "▾" : "▸"}
-              </span>
-            </div>
-
-            {builderOpen && (
-              <div className="px-3 py-3 space-y-4 rounded-b-md">
-                {loading && ideas.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                    Loading ideas…
-                  </div>
-                ) : selectedIdea ? (
-                  <>
-                    {/* Meta, status, regime */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <input
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
-                          value={selectedIdea.meta.name}
-                          onChange={(e) =>
-                            updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                              ...idea,
-                              meta: { ...idea.meta, name: e.target.value },
-                            }))
-                          }
-                        />
-                        <textarea
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
-                          placeholder="Describe what this idea is trying to capture…"
-                          value={selectedIdea.meta.description ?? ""}
-                          onChange={(e) =>
-                            updateIdeaById(selectedIdea.meta.id, (idea) => ({
-                              ...idea,
-                              meta: {
-                                ...idea.meta,
-                                description: e.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        {selectedIdea.meta.tags &&
-                          selectedIdea.meta.tags.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {selectedIdea.meta.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2">
-                        {/* Status control */}
-                        <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
-                          {statusOptions.map((opt) => {
-                            const active = selectedIdea.meta.status === opt.id;
-                            return (
-                              <button
-                                key={opt.id}
-                                onClick={() =>
-                                  updateIdeaById(
-                                    selectedIdea.meta.id,
-                                    (idea) => ({
-                                      ...idea,
-                                      meta: { ...idea.meta, status: opt.id },
-                                    })
-                                  )
-                                }
-                                className={`px-2 py-0.5 text-[10px] rounded-full transition ${
-                                  active
-                                    ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
-                                    : "text-slate-300 hover:bg-slate-800"
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
+            {loading && ideas.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                Loading ideas…
+              </div>
+            ) : selectedIdea ? (
+              <>
+                {/* Meta, status, regime */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm mb-1"
+                      value={selectedIdea.meta.name}
+                      onChange={(e) =>
+                        updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                          ...idea,
+                          meta: { ...idea.meta, name: e.target.value },
+                        }))
+                      }
+                    />
+                    <textarea
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
+                      placeholder="Describe what this idea is trying to capture…"
+                      value={selectedIdea.meta.description ?? ""}
+                      onChange={(e) =>
+                        updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                          ...idea,
+                          meta: {
+                            ...idea.meta,
+                            description: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                    {selectedIdea.meta.tags &&
+                      selectedIdea.meta.tags.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {selectedIdea.meta.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
+                            >
+                              {tag}
+                            </span>
+                          ))}
                         </div>
+                      )}
+                  </div>
 
-                        {/* Regime chip + selector */}
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase tracking-wide text-[10px] ${
-                              regimeChipClasses[selectedIdea.volatility.regime]
-                            }`}
-                          >
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
-                            {selectedIdea.volatility.regime.toUpperCase()}
-                          </span>
-                          <select
-                            className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                            value={selectedIdea.volatility.regime}
-                            onChange={(e) =>
+                  <div className="flex flex-col items-end gap-2">
+                    {/* Status control */}
+                    <div className="inline-flex rounded-full bg-slate-900/60 border border-slate-700 p-0.5">
+                      {statusOptions.map((opt) => {
+                        const active = selectedIdea.meta.status === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() =>
                               updateIdeaById(
                                 selectedIdea.meta.id,
                                 (idea) => ({
                                   ...idea,
-                                  volatility: {
-                                    ...idea.volatility,
-                                    regime:
-                                      e.target.value as VolatilityRegime,
-                                  },
+                                  meta: { ...idea.meta, status: opt.id },
                                 })
                               )
                             }
+                            className={`px-2 py-0.5 text-[10px] rounded-full transition ${
+                              active
+                                ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
+                                : "text-slate-300 hover:bg-slate-800"
+                            }`}
                           >
-                            <option value="any">Any</option>
-                            <option value="quiet">Quiet</option>
-                            <option value="normal">Normal</option>
-                            <option value="expanding">Expanding</option>
-                            <option value="crisis">Crisis</option>
-                          </select>
-                        </div>
-                      </div>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    {/* Filters */}
-                    <PriceLiquidityFilters
-                      idea={selectedIdea}
-                      onChangeRange={(field, bound, raw) =>
-                        updateRangeField(
-                          selectedIdea.meta.id,
-                          "priceLiquidity",
-                          field,
-                          bound,
-                          raw
-                        )
-                      }
-                    />
-
-                    <VolatilityFilters
-                      idea={selectedIdea}
-                      onChangeRange={(field, bound, raw) =>
-                        updateRangeField(
-                          selectedIdea.meta.id,
-                          "volatility",
-                          field,
-                          bound,
-                          raw
-                        )
-                      }
-                    />
-
-                    <StructureFilters
-                      idea={selectedIdea}
-                      onChangeRange={(field, bound, raw) =>
-                        updateRangeField(
-                          selectedIdea.meta.id,
-                          "structure",
-                          field,
-                          bound,
-                          raw
-                        )
-                      }
-                    />
-
-                    {/* Save / Duplicate */}
-                    <div className="mt-2 flex gap-2 items-center">
-                      <button
-                        onClick={handleSaveIdea}
-                        disabled={saving}
-                        className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
+                    {/* Regime chip + selector */}
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 uppercase tracking-wide text-[10px] ${
+                          regimeChipClasses[selectedIdea.volatility.regime]
+                        }`}
                       >
-                        {saving ? "Saving…" : "Save Idea"}
-                      </button>
-                      <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
-                        Duplicate (stub)
-                      </button>
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
+                        {selectedIdea.volatility.regime.toUpperCase()}
+                      </span>
+                      <select
+                        className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        value={selectedIdea.volatility.regime}
+                        onChange={(e) =>
+                          updateIdeaById(
+                            selectedIdea.meta.id,
+                            (idea) => ({
+                              ...idea,
+                              volatility: {
+                                ...idea.volatility,
+                                regime: e.target
+                                  .value as VolatilityRegime,
+                              },
+                            })
+                          )
+                        }
+                      >
+                        <option value="any">Any</option>
+                        <option value="quiet">Quiet</option>
+                        <option value="normal">Normal</option>
+                        <option value="expanding">Expanding</option>
+                        <option value="crisis">Crisis</option>
+                      </select>
                     </div>
-                  </>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                    No idea selected. Choose an idea on the left or create a new
-                    one.
                   </div>
-                )}
+                </div>
+
+                {/* Filters */}
+                <PriceLiquidityFilters
+                  idea={selectedIdea}
+                  onChangeRange={(field, bound, raw) =>
+                    updateRangeField(
+                      selectedIdea.meta.id,
+                      "priceLiquidity",
+                      field,
+                      bound,
+                      raw
+                    )
+                  }
+                />
+
+                <VolatilityFilters
+                  idea={selectedIdea}
+                  onChangeRange={(field, bound, raw) =>
+                    updateRangeField(
+                      selectedIdea.meta.id,
+                      "volatility",
+                      field,
+                      bound,
+                      raw
+                    )
+                  }
+                />
+
+                <StructureFilters
+                  idea={selectedIdea}
+                  onChangeRange={(field, bound, raw) =>
+                    updateRangeField(
+                      selectedIdea.meta.id,
+                      "structure",
+                      field,
+                      bound,
+                      raw
+                    )
+                  }
+                />
+
+                {/* Save / Duplicate */}
+                <div className="mt-2 flex gap-2 items-center">
+                  <button
+                    onClick={handleSaveIdea}
+                    disabled={saving}
+                    className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
+                  >
+                    {saving ? "Saving…" : "Save Idea"}
+                  </button>
+                  <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
+                    Duplicate (stub)
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                No idea selected. Choose an idea on the left or create a new
+                one.
               </div>
             )}
-          </section>
+          </LabPanelShell>
         );
 
       case "indicator":
         return (
-          <IndicatorBuilderPanel
+          <LabPanelShell
             key="indicator"
-            ideaName={selectedIdea?.meta.name}
-          />
+            title="Indicator Builder"
+            open={indicatorOpen}
+            onToggle={() => setIndicatorOpen((o) => !o)}
+            containerClassName="border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]"
+            headerClassName="border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md"
+            bodyClassName="rounded-b-md"
+          >
+            <IndicatorBuilderPanel ideaName={selectedIdea?.meta.name} />
+          </LabPanelShell>
         );
 
       case "filters":
         return (
-          <FilterComposerPanel
+          <LabPanelShell
             key="filters"
-            ideaName={selectedIdea?.meta.name}
-          />
+            title="Filter Composer"
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen((o) => !o)}
+            containerClassName="border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]"
+            headerClassName="border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md"
+            bodyClassName="rounded-b-md"
+          >
+            <FilterComposerPanel ideaName={selectedIdea?.meta.name} />
+          </LabPanelShell>
         );
 
       case "analysis":
@@ -641,7 +648,9 @@ const LabPage: React.FC = () => {
       {/* Header */}
       <header className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Strategy Lab</h1>
+          <h1 className="text-lg font-semibold tracking-tight">
+            Strategy Lab
+          </h1>
           <p className="text-xs text-slate-400">
             Design, test, and refine trading ideas. This cockpit will feed
             candidates and the test stand later.
@@ -704,7 +713,7 @@ const LabPage: React.FC = () => {
           )}
         </aside>
 
-        {/* Center: all panels in unified width container */}
+        {/* Center: builder + indicator + filters + analysis (order is configurable) */}
         <main className="flex-1 flex flex-col overflow-y-auto items-center">
           <div className="w-full max-w-5xl px-4 py-3 space-y-4">
             {centerPanelsOrder.map((panelId) => renderCenterPanel(panelId))}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { LabIdea, IdeaStatus, VolatilityRegime } from "../lab/types";
 import { fetchLabIdeas, saveLabIdea } from "../api/lab";
+import { useUiScopedTokens } from "../config/useUiScopedTokens";
 
 import IdeaListSidebar from "../lab-components/IdeaListSidebar";
 import LabBottomPanel from "../lab-components/LabBottomPanel";
@@ -193,6 +194,8 @@ const LabPage: React.FC = () => {
 
   const [centerPanelsOrder, setCenterPanelsOrder] =
     useState<CenterPanelId[]>(defaultCenterOrder);
+
+  const tokens = useUiScopedTokens(["global", "page:lab"]);
 
   const allPanelsClosed = !leftOpen && !rightOpen && !bottomOpen;
 
@@ -644,9 +647,18 @@ const LabPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div
+      className="min-h-screen bg-slate-950 text-slate-100 flex flex-col"
+      style={{
+        background: tokens.surface,
+        color: tokens.textPrimary,
+      }}
+    >
       {/* Header */}
-      <header className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+      <header
+        className="border-b border-slate-800 px-4 py-3 flex items-center justify-between"
+        style={{ borderColor: tokens.border }}
+      >
         <div>
           <h1 className="text-lg font-semibold tracking-tight">
             Strategy Lab

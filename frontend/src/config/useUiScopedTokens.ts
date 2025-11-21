@@ -1,8 +1,11 @@
 import { useMemo } from "react";
 import { useUiSettings } from "./UiSettingsContext";
+import {
+  DEFAULT_THEME_TOKENS,
+  mergeThemeTokens,
+  UiTokens,
+} from "./uiThemeCore";
 import { resolveThemeTokens } from "./resolveThemeTokens";
-import type { SemanticTokens } from "./ThemeContext";
-import { DEFAULT_THEME_TOKENS, mergeThemeTokens } from "./uiThemeCore";
 
 /**
  * Inputs:
@@ -18,31 +21,34 @@ import { DEFAULT_THEME_TOKENS, mergeThemeTokens } from "./uiThemeCore";
  *       -> Merge overrides on top of the current tokens.
  *   - Return final SemanticTokens.
  */
-export function useUiScopedTokens(orderedScopes: string[]): SemanticTokens {
-  const { getScopeSettings, activeThemeId, themeProfiles } = useUiSettings();
+export function useUiScopedTokens(scopeOrder: string[]): UiTokens {
+  const {
+    activeThemeId,
+    themeProfiles,
+    getScopeSettings,
+  } = useUiSettings();
 
   return useMemo(() => {
-    let baseTokens: SemanticTokens = { ...DEFAULT_THEME_TOKENS };
+    let baseTokens: UiTokens = { ...DEFAULT_THEME_TOKENS };
 
-    if (activeThemeId && themeProfiles?.[activeThemeId]) {
+    if (activeThemeId && themeProfiles && themeProfiles[activeThemeId]) {
       const profile = themeProfiles[activeThemeId];
-      baseTokens = mergeThemeTokens(DEFAULT_THEME_TOKENS, profile.tokens);
+      baseTokens = mergeThemeTokens(
+        DEFAULT_THEME_TOKENS,
+        profile.tokens ?? undefined
+      );
     }
 
-    let tokens: SemanticTokens = { ...baseTokens };
+    let tokens: UiTokens = { ...baseTokens };
 
     // Walk through all scopes in provided order
-    for (const scopeId of orderedScopes) {
+    for (const scopeId of scopeOrder) {
       const scopeSettings = getScopeSettings(scopeId);
-      if (!scopeSettings) continue;
+      if (!scopeSettings || !scopeSettings.overrides) continue;
 
-      const overrides = scopeSettings.overrides || {};
-
-      tokens = resolveThemeTokens(tokens, overrides);
+      tokens = resolveThemeTokens(tokens, scopeSettings.overrides);
     }
 
     return tokens;
-  }, [activeThemeId, getScopeSettings, orderedScopes, themeProfiles]);
-
-
+  }, [activeThemeId, getScopeSettings, scopeOrder, themeProfiles]);
 }

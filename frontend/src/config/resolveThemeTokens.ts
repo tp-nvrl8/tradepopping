@@ -10,17 +10,13 @@ export function resolveThemeTokens(
   base: UiTokens,
   overrides?: Partial<UiTokens>
 ): UiTokens {
-  if (!overrides) {
-    return { ...base };
-  }
+  if (!overrides) return { ...base };
 
   const next: UiTokens = { ...base };
 
   for (const key of Object.keys(overrides) as TokenKey[]) {
     const value = overrides[key];
-    if (value) {
-      next[key] = value;
-    }
+    if (value) next[key] = value;
   }
 
   return next;

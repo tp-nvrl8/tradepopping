@@ -58,3 +58,43 @@ export function mergeThemeTokens(
   }
   return next;
 }
+
+export interface CustomPalette {
+  builderBg: string;
+  builderBorder: string;
+  builderHeaderBg: string;
+  builderHeaderBorder: string;
+  analysisBg: string;
+  analysisBorder: string;
+  analysisHeaderBg: string;
+  analysisHeaderBorder: string;
+}
+
+export function deriveUiTokensFromCustomPalette(
+  palette: CustomPalette | null | undefined
+): UiTokens {
+  const p: CustomPalette =
+    palette ?? {
+      builderBg: "#020617",
+      builderBorder: "#1e293b",
+      builderHeaderBg: "#020617",
+      builderHeaderBorder: "#334155",
+      analysisBg: "#020617",
+      analysisBorder: "#1e293b",
+      analysisHeaderBg: "#020617",
+      analysisHeaderBorder: "#334155",
+    };
+
+  return {
+    surface: p.builderBg,
+    surfaceMuted: p.builderHeaderBg,
+    border: p.builderBorder,
+    textPrimary: DEFAULT_THEME_TOKENS.textPrimary,
+    textSecondary: DEFAULT_THEME_TOKENS.textSecondary,
+    accent: p.analysisHeaderBorder,
+    accentMuted: p.analysisBorder,
+    success: DEFAULT_THEME_TOKENS.success,
+    warning: DEFAULT_THEME_TOKENS.warning,
+    danger: DEFAULT_THEME_TOKENS.danger,
+  };
+}

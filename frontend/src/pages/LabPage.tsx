@@ -196,6 +196,16 @@ const LabPage: React.FC = () => {
     useState<CenterPanelId[]>(defaultCenterOrder);
 
   const tokens = useUiScopedTokens(["global", "page:lab"]);
+  const indicatorTokens = useUiScopedTokens([
+    "global",
+    "page:lab",
+    "region:lab:indicator",
+  ]);
+  const filterTokens = useUiScopedTokens([
+    "global",
+    "page:lab",
+    "region:lab:filter",
+  ]);
 
   const allPanelsClosed = !leftOpen && !rightOpen && !bottomOpen;
 
@@ -608,6 +618,11 @@ const LabPage: React.FC = () => {
             containerClassName="border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]"
             headerClassName="border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md"
             bodyClassName="rounded-b-md"
+            style={{
+              background: indicatorTokens.surface,
+              borderColor: indicatorTokens.border,
+              color: indicatorTokens.textPrimary,
+            }}
           >
             <IndicatorBuilderPanel ideaName={selectedIdea?.meta.name} />
           </LabPanelShell>
@@ -623,6 +638,11 @@ const LabPage: React.FC = () => {
             containerClassName="border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]"
             headerClassName="border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md"
             bodyClassName="rounded-b-md"
+            style={{
+              background: filterTokens.surface,
+              borderColor: filterTokens.border,
+              color: filterTokens.textPrimary,
+            }}
           >
             <FilterComposerPanel ideaName={selectedIdea?.meta.name} />
           </LabPanelShell>

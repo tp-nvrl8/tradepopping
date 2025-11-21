@@ -20,8 +20,6 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       className="rounded-md border border-slate-800 bg-slate-900/40 flex flex-col"
       style={{
         background: tokens.surfaceMuted,
-        borderColor: tokens.border,
-        color: tokens.textPrimary,
       }}
     >
       {/* Header */}

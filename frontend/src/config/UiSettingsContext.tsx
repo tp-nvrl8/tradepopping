@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -17,20 +16,21 @@ import {
   type ThemeProfile,
 } from "./uiThemeCore";
 
-const DEFAULT_UI_SETTINGS: UiSettings = {
-  version: 1,
-  scopes: {
-    // Global default scope: uses the "default" theme unless overridden later
-    global: {
-      themeId: "default",
-    },
-  },
-};
+/**
+ * v1: canonical UI settings + theme engine context.
+ *
+ * Responsibilities:
+ * - Hold UI scope settings (global/page/region overrides)
+ * - Hold theme profiles (built-in + user-created)
+ * - Track activeThemeId
+ * - Persist everything to localStorage
+ */
 
 const THEME_PROFILES_STORAGE_KEY = "tp_theme_profiles_v2";
 const ACTIVE_THEME_ID_STORAGE_KEY = "tp_theme_active_id_v1";
 
 const DEFAULT_THEME_PROFILE_ID = "default-slate";
+const PASTEL_THEME_PROFILE_ID = "pastel-lab";
 
 const DEFAULT_THEME_PROFILE: ThemeProfile = {
   id: DEFAULT_THEME_PROFILE_ID,
@@ -39,23 +39,30 @@ const DEFAULT_THEME_PROFILE: ThemeProfile = {
   tokens: { ...DEFAULT_THEME_TOKENS },
 };
 
-const PASTEL_THEME_PROFILE_ID = "pastel-lab";
-
 const PASTEL_THEME_PROFILE: ThemeProfile = {
   id: PASTEL_THEME_PROFILE_ID,
   name: "Pastel Lab",
   description: "Soft pastel variant for lab panels",
   tokens: {
-    surface: "#0f172a",
-    surfaceMuted: "#111827",
-    border: "#f9a8d4",
-    accent: "#c084fc",
-    accentMuted: "#f472b6",
-    textPrimary: "#f8fafc",
-    textSecondary: "#e2e8f0",
-    success: "#34d399",
-    warning: "#fbbf24",
-    danger: "#fb7185",
+    ...DEFAULT_THEME_TOKENS,
+    // Make this visibly different so we can see it in the Lab
+    surface: "#020617",
+    surfaceMuted: "#0b1120",
+    border: "#f97316",        // bright orange border
+    accent: "#a5b4fc",        // indigo accent
+    accentMuted: "#f97316",
+    textPrimary: "#f9fafb",
+    textSecondary: "#e5e7eb",
+  },
+};
+
+const DEFAULT_UI_SETTINGS: UiSettings = {
+  version: 1,
+  scopes: {
+    // Global default scope: tie it to the default theme id
+    global: {
+      themeId: DEFAULT_THEME_PROFILE_ID,
+    },
   },
 };
 
@@ -63,6 +70,7 @@ export interface UiSettingsContextValue {
   uiSettings: UiSettings;
   themeProfiles: Record<string, ThemeProfile>;
   activeThemeId: string;
+
   /**
    * Get the settings for a single scope.
    * Returns undefined if the scope has never been customized.
@@ -82,14 +90,13 @@ export interface UiSettingsContextValue {
 
   /**
    * Reset all UI settings back to defaults.
+   * Does NOT clear theme profiles, only scope-level customizations.
    */
   resetAll: () => void;
 
+  // Theme profile management for Theme Lab
   createThemeProfile: (input: { name: string; baseFromId?: string }) => string;
-  updateThemeProfile: (
-    id: string,
-    patch: Partial<ThemeProfile>
-  ) => void;
+  updateThemeProfile: (id: string, patch: Partial<ThemeProfile>) => void;
   deleteThemeProfile: (id: string) => void;
   setActiveTheme: (id: string) => void;
 }
@@ -102,58 +109,81 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [uiSettings, setUiSettings] = useState<UiSettings>(DEFAULT_UI_SETTINGS);
-  const [themeProfiles, setThemeProfiles] = useState<Record<string, ThemeProfile>>({
+
+  const [themeProfiles, setThemeProfiles] = useState<
+    Record<string, ThemeProfile>
+  >({
     [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
     [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
   });
+
   const [activeThemeId, setActiveThemeId] = useState<string>(
-    PASTEL_THEME_PROFILE_ID
+    DEFAULT_THEME_PROFILE_ID
   );
 
-  // Load from localStorage on first mount
+  // ---- Hydrate from localStorage on first mount ----
   useEffect(() => {
+    // UI settings (scopes)
     try {
       const raw = window.localStorage.getItem(UI_SETTINGS_STORAGE_KEY);
-      if (!raw) return;
-
-      const parsed = JSON.parse(raw) as UiSettings;
-
-      // Very light validation: check version and basic structure
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        parsed.version === 1 &&
-        typeof parsed.scopes === "object" &&
-        parsed.scopes !== null
-      ) {
-        setUiSettings(parsed);
+      if (raw) {
+        const parsed = JSON.parse(raw) as UiSettings;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          parsed.version === 1 &&
+          parsed.scopes &&
+          typeof parsed.scopes === "object"
+        ) {
+          setUiSettings(parsed);
+        }
       }
     } catch {
-      // ignore parse errors and stick with defaults
+      // ignore parse errors, keep defaults
     }
 
+    // Theme profiles + active theme
     try {
-      const themeRaw = window.localStorage.getItem(THEME_PROFILES_STORAGE_KEY);
+      const themeRaw = window.localStorage.getItem(
+        THEME_PROFILES_STORAGE_KEY
+      );
       let userProfiles: Record<string, ThemeProfile> = {};
+
       if (themeRaw) {
         const parsed = JSON.parse(themeRaw) as Record<string, ThemeProfile>;
         if (parsed && typeof parsed === "object") {
-          userProfiles = Object.fromEntries(
-            Object.entries(parsed).filter(
-              ([id]) =>
-                id !== DEFAULT_THEME_PROFILE_ID && id !== PASTEL_THEME_PROFILE_ID
-            )
-          );
+          // Only keep user-defined profiles (don’t override built-ins)
+          const cleaned: Record<string, ThemeProfile> = {};
+          for (const [id, profile] of Object.entries(parsed)) {
+            if (
+              id !== DEFAULT_THEME_PROFILE_ID &&
+              id !== PASTEL_THEME_PROFILE_ID &&
+              profile &&
+              typeof profile.id === "string" &&
+              typeof profile.name === "string" &&
+              profile.tokens &&
+              typeof profile.tokens === "object"
+            ) {
+              cleaned[id] = profile;
+            }
+          }
+          userProfiles = cleaned;
         }
       }
 
-      const loadedProfiles: Record<string, ThemeProfile> = {
+      const builtIns: Record<string, ThemeProfile> = {
         [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
         [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
+      };
+
+      const loadedProfiles: Record<string, ThemeProfile> = {
+        ...builtIns,
         ...userProfiles,
       };
 
-      const activeRaw = window.localStorage.getItem(ACTIVE_THEME_ID_STORAGE_KEY);
+      const activeRaw = window.localStorage.getItem(
+        ACTIVE_THEME_ID_STORAGE_KEY
+      );
       const nextActive =
         activeRaw && loadedProfiles[activeRaw]
           ? activeRaw
@@ -161,13 +191,12 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
 
       setThemeProfiles(loadedProfiles);
       setActiveThemeId(nextActive);
-
     } catch {
       // ignore theme profile parse errors
     }
   }, []);
 
-  // Persist to localStorage whenever uiSettings changes
+  // ---- Persist UI settings when scopes change ----
   useEffect(() => {
     try {
       window.localStorage.setItem(
@@ -175,23 +204,31 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
         JSON.stringify(uiSettings)
       );
     } catch {
-      // ignore write failures (e.g. private mode / quota)
+      // ignore failures (private mode, quota, etc.)
     }
   }, [uiSettings]);
 
+  // ---- Persist theme profiles + active theme ----
   useEffect(() => {
     try {
       window.localStorage.setItem(
         THEME_PROFILES_STORAGE_KEY,
         JSON.stringify(themeProfiles)
       );
-      window.localStorage.setItem(ACTIVE_THEME_ID_STORAGE_KEY, activeThemeId);
+      window.localStorage.setItem(
+        ACTIVE_THEME_ID_STORAGE_KEY,
+        activeThemeId
+      );
     } catch {
-      // ignore write failures (e.g. private mode / quota)
+      // ignore
     }
-  }, [activeThemeId, themeProfiles]);
+  }, [themeProfiles, activeThemeId]);
 
-  const getScopeSettings = (scopeId: ScopeId): UiScopeSettings | undefined => {
+  // ---- Scope helpers ----
+
+  const getScopeSettings = (
+    scopeId: ScopeId
+  ): UiScopeSettings | undefined => {
     return uiSettings.scopes[scopeId];
   };
 
@@ -204,7 +241,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
       const nextScope = updater(prevScope);
 
       if (!nextScope) {
-        // Remove this scope entry entirely
+        // Remove this scope entry entirely (inherit from parent/global)
         const { [scopeId]: _removed, ...restScopes } = prev.scopes;
         return {
           ...prev,
@@ -226,22 +263,25 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
     setUiSettings(DEFAULT_UI_SETTINGS);
   };
 
+  // ---- Theme profile helpers for Theme Lab ----
+
   const createThemeProfile = (input: {
     name: string;
     baseFromId?: string;
   }): string => {
     const trimmedName = input.name.trim() || "Untitled Theme";
     const baseProfile = themeProfiles[input.baseFromId ?? ""];
-    const baseTokens = {
-      ...DEFAULT_THEME_TOKENS,
-      ...(baseProfile?.tokens ?? DEFAULT_THEME_TOKENS),
-    };
+
     const id = `theme-${Date.now()}`;
 
     const profile: ThemeProfile = {
       id,
       name: trimmedName,
-      tokens: { ...baseTokens },
+      description: baseProfile?.description,
+      tokens: {
+        ...DEFAULT_THEME_TOKENS,
+        ...(baseProfile?.tokens ?? {}),
+      },
       typography: baseProfile?.typography
         ? { ...baseProfile.typography }
         : undefined,
@@ -250,8 +290,8 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
     setThemeProfiles((prev) => ({
       ...prev,
       [id]: profile,
-      [DEFAULT_THEME_PROFILE_ID]:
-        prev[DEFAULT_THEME_PROFILE_ID] ?? DEFAULT_THEME_PROFILE,
+      [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+      [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
     }));
     setActiveThemeId(id);
     return id;
@@ -273,24 +313,33 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
           : existing.typography,
       };
 
-      return { ...prev, [id]: next };
+      return {
+        ...prev,
+        [id]: next,
+        [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+        [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
+      };
     });
   };
 
   const deleteThemeProfile = (id: string) => {
-    if (id === DEFAULT_THEME_PROFILE_ID) return;
+    // Built-ins cannot be deleted
+    if (id === DEFAULT_THEME_PROFILE_ID || id === PASTEL_THEME_PROFILE_ID) {
+      return;
+    }
 
     setThemeProfiles((prev) => {
       if (!prev[id]) return prev;
 
       const { [id]: _removed, ...rest } = prev;
-      const nextProfiles = {
+      const nextProfiles: Record<string, ThemeProfile> = {
         ...rest,
-        [DEFAULT_THEME_PROFILE_ID]:
-          rest[DEFAULT_THEME_PROFILE_ID] ?? DEFAULT_THEME_PROFILE,
+        [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+        [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
       };
 
       if (activeThemeId === id) {
+        // If we deleted the active one, fall back to default
         setActiveThemeId(DEFAULT_THEME_PROFILE_ID);
       }
 

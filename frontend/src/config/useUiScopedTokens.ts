@@ -1,4 +1,3 @@
-// src/config/useUiScopedTokens.ts
 import { useMemo } from "react";
 import { useUiSettings } from "./UiSettingsContext";
 import {
@@ -10,26 +9,26 @@ import { resolveThemeTokens } from "./resolveThemeTokens";
 
 /**
  * Inputs:
- *   orderedScopes: array of scope IDs in merge order.
+ *   scopeOrder: array of scope IDs in merge order.
  *     e.g. ["global", "page:lab", "region:lab:ideaBuilder"]
  *
  * Output:
- *   final merged UiTokens.
+ *   final merged UiTokens for that component.
  *
- * Merge order rules:
- *   - Start from the active theme profile (or default tokens).
- *   - For each scope:
- *       -> Merge overrides on top of the current tokens.
- *   - Return final UiTokens.
+ * Merge order:
+ *   1) Start from DEFAULT_THEME_TOKENS.
+ *   2) Merge in the active theme profile's tokens (if any).
+ *   3) For each scope in scopeOrder:
+ *        - If that scope has overrides, merge them on top.
  */
 export function useUiScopedTokens(scopeOrder: string[]): UiTokens {
   const { activeThemeId, themeProfiles, getScopeSettings } = useUiSettings();
 
   return useMemo(() => {
-    // 1) Base: DEFAULT_THEME_TOKENS
+    // 1) Base from default tokens
     let baseTokens: UiTokens = { ...DEFAULT_THEME_TOKENS };
 
-    // 2) Apply active theme profile (if any)
+    // 2) Apply active theme profile if defined
     if (activeThemeId && themeProfiles && themeProfiles[activeThemeId]) {
       const profile = themeProfiles[activeThemeId];
       baseTokens = mergeThemeTokens(

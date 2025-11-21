@@ -1,5 +1,6 @@
 import React from "react";
 import { useTheme } from "../config/ThemeContext";
+import { useUiScopedTokens } from "../config/useUiScopedTokens";
 
 export type LabTab = "scan" | "backtests" | "candidates";
 
@@ -20,9 +21,21 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
 }) => {
   const name = ideaName ?? "no idea selected";
   const { theme } = useTheme(); // currently unused, but keeps hook aligned with engine
+  const tokens = useUiScopedTokens([
+    "global",
+    "page:lab",
+    "region:lab:analysis",
+  ]);
 
   return (
-    <section className="w-full max-w-5xl mx-auto rounded-md border border-[var(--tp-lab-analysis-border)] bg-[var(--tp-lab-analysis-bg)] flex flex-col">
+    <section
+      className="w-full max-w-5xl mx-auto rounded-md border border-[var(--tp-lab-analysis-border)] bg-[var(--tp-lab-analysis-bg)] flex flex-col"
+      style={{
+        background: tokens.surfaceMuted,
+        borderColor: tokens.border,
+        color: tokens.textPrimary,
+      }}
+    >
       {/* Header: collapsible, like Idea Builder */}
       <div
         className="px-3 py-2 border-b border-[var(--tp-lab-analysis-header-border)] bg-[var(--tp-lab-analysis-header-bg)] flex items-center justify-between cursor-pointer rounded-t-md"

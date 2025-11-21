@@ -1,4 +1,5 @@
 import React from "react";
+import { useUiScopedTokens } from "../config/useUiScopedTokens";
 
 interface FilterComposerPanelProps {
   ideaName?: string;
@@ -8,9 +9,21 @@ const FilterComposerPanel: React.FC<FilterComposerPanelProps> = ({
   ideaName,
 }) => {
   const name = ideaName ?? "no idea selected";
+  const tokens = useUiScopedTokens([
+    "global",
+    "page:lab",
+    "region:lab:filter",
+  ]);
 
   return (
-    <section className="rounded-md border border-slate-800 bg-slate-900/40 flex flex-col">
+    <section
+      className="rounded-md border border-slate-800 bg-slate-900/40 flex flex-col"
+      style={{
+        background: tokens.surfaceMuted,
+        borderColor: tokens.border,
+        color: tokens.textPrimary,
+      }}
+    >
       {/* Header */}
       <div className="px-3 py-2 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">

@@ -60,9 +60,15 @@ export interface StructureFilters {
  * Reference to a particular indicator variant.
  * For now, this is "pick from library", not free-form builder.
  */
-export interface IndicatorRef {
-  id: string;               // e.g. "sobv_trend", "kama_regime"
-  variant?: string;         // e.g. "fast", "slow", "default"
+export type IndicatorId =
+  | "sobv_trend"
+  | "kama_regime"
+  | "darkflow_bias"
+  | "zscore_price_lookback";
+
+export interface IndicatorInstance {
+  id: IndicatorId;
+  variant?: string | null;
   enabled: boolean;
   params?: Record<string, number | string | boolean>;
 }
@@ -71,8 +77,8 @@ export interface IndicatorRef {
  * The group of indicators/overlays this idea wants to use
  * when scanning or scoring candidates.
  */
-export interface IndicatorConfig {
-  indicators: IndicatorRef[];
+export interface IdeaIndicators {
+  indicators: IndicatorInstance[];
 }
 
 /**
@@ -83,5 +89,5 @@ export interface LabIdea {
   priceLiquidity: PriceLiquidityFilters;
   volatility: VolatilityFilters;
   structure: StructureFilters;
-  indicators: IndicatorConfig;
+  indicators: IdeaIndicators;
 }

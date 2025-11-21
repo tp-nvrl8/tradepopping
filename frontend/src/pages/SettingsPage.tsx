@@ -1,12 +1,59 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useUiSettings } from "../config/UiSettingsContext";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
 import { UI_SCOPES, type UiScopeDefinition } from "../config/uiScopes";
 import type { UiScopeSettings } from "../config/UiSettingsTypes";
+import { DEFAULT_THEME_TOKENS } from "../config/uiThemeCore";
 
 const SettingsPage: React.FC = () => {
-  const { uiSettings, getScopeSettings, updateScopeSettings, resetAll } =
-    useUiSettings();
+  const {
+    uiSettings,
+    getScopeSettings,
+    updateScopeSettings,
+    resetAll,
+    themeProfiles,
+    activeThemeId,
+    createThemeProfile,
+    setActiveTheme,
+  } = useUiSettings();
+
+  const themeList = useMemo(
+    () => Object.values(themeProfiles ?? {}),
+    [themeProfiles]
+  );
+
+  const [selectedThemeId, setSelectedThemeId] = useState<string>(() => {
+    if (activeThemeId && themeProfiles[activeThemeId]) return activeThemeId;
+    const first = Object.values(themeProfiles ?? {})[0];
+    return first ? first.id : "";
+  });
+
+  useEffect(() => {
+    if (selectedThemeId && themeProfiles[selectedThemeId]) return;
+    if (activeThemeId && themeProfiles[activeThemeId]) {
+      setSelectedThemeId(activeThemeId);
+      return;
+    }
+    const first = Object.values(themeProfiles ?? {})[0];
+    setSelectedThemeId(first ? first.id : "");
+  }, [activeThemeId, selectedThemeId, themeProfiles]);
+
+  const selectedTheme = selectedThemeId
+    ? themeProfiles[selectedThemeId]
+    : activeThemeId
+    ? themeProfiles[activeThemeId]
+    : undefined;
+
+  const themePreviewTokens = useMemo(() => {
+    const base = DEFAULT_THEME_TOKENS;
+    const overrides = selectedTheme?.tokens ?? {};
+    return {
+      ...base,
+      ...overrides,
+    };
+  }, [selectedTheme]);
+
+  const activeTheme = activeThemeId ? themeProfiles[activeThemeId] : undefined;
 
   // ---- Page + region selection ----
 
@@ -45,6 +92,32 @@ const SettingsPage: React.FC = () => {
   const isCustomized = !!scopeSettings;
   const themeId = scopeSettings?.themeId ?? "default";
   const borderOverride = scopeSettings?.overrides?.border ?? "";
+
+  const handleSelectThemeChange = (value: string) => {
+    setSelectedThemeId(value);
+  };
+
+  const handleUseTheme = () => {
+    if (selectedTheme) {
+      setActiveTheme(selectedTheme.id);
+    }
+  };
+
+  const handleNewThemeFromCurrent = () => {
+    const name = window.prompt("Name for new theme profile?");
+    if (!name) return;
+
+    const newId = createThemeProfile({
+      name,
+      baseFromId: selectedThemeId || activeThemeId || undefined,
+    });
+
+    setSelectedThemeId(newId);
+  };
+
+  const handleSaveAs = () => {
+    handleNewThemeFromCurrent();
+  };
 
   // ---- Handlers ----
 
@@ -136,6 +209,94 @@ const SettingsPage: React.FC = () => {
         >
           Reset all to defaults
         </button>
+      </div>
+
+      <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-sm font-semibold">Theme Lab</h2>
+            <p className="text-[11px] text-slate-400">
+              Create and manage named themes for the lab. The active theme applies
+              as the global default.
+            </p>
+          </div>
+          {activeTheme && (
+            <span className="px-2 py-1 rounded-md border border-sky-500 text-[11px] text-sky-200 bg-sky-500/10">
+              Active: {activeTheme.name}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-3 items-stretch">
+          <div className="flex-1 space-y-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Theme Profile
+            </label>
+            <select
+              value={selectedThemeId}
+              onChange={(e) => handleSelectThemeChange(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+            >
+              {themeList.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+              {themeList.length === 0 && <option value="">No themes</option>}
+            </select>
+
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button
+                type="button"
+                onClick={handleNewThemeFromCurrent}
+                className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
+              >
+                New
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAs}
+                className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
+              >
+                Save As
+              </button>
+              <button
+                type="button"
+                onClick={handleUseTheme}
+                className="px-3 py-1.5 rounded-md border border-sky-600 bg-sky-600/20 text-sky-100 text-xs hover:bg-sky-600/30"
+              >
+                Use
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
+              Theme Preview
+            </div>
+            <div
+              className="rounded-md border px-3 py-3 text-xs"
+              style={{
+                background: themePreviewTokens.surface,
+                borderColor: themePreviewTokens.border,
+                color: themePreviewTokens.textPrimary,
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold">
+                  {selectedTheme?.name ?? "No theme selected"}
+                </span>
+                <span className="text-[11px] text-slate-300">
+                  border: {themePreviewTokens.border}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-200">
+                This card previews the selected theme’s surface, border, and text
+                colors.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Scope selection row */}

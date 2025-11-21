@@ -1,5 +1,6 @@
 // src/lab-components/LabPanelShell.tsx
 import React, { ReactNode } from "react";
+import { useUiScopedTokens } from "../config/useUiScopedTokens";
 
 interface LabPanelShellProps {
   title: string;
@@ -23,9 +24,24 @@ const LabPanelShell: React.FC<LabPanelShellProps> = ({
   headerClassName = "",
   bodyClassName = "",
 }) => {
+  const tokens = useUiScopedTokens([
+    "global",
+    "page:lab",
+    "region:lab:ideaBuilder",
+  ]);
+
   return (
     <section
       className={`rounded-md flex flex-col ${containerClassName}`}
+      style={
+        title === "Idea Builder"
+          ? {
+              background: tokens.surfaceMuted,
+              borderColor: tokens.border,
+              color: tokens.textPrimary,
+            }
+          : undefined
+      }
     >
       {/* Header bar with toggle */}
       <div

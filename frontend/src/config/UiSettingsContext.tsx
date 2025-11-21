@@ -27,7 +27,7 @@ const DEFAULT_UI_SETTINGS: UiSettings = {
   },
 };
 
-const THEME_PROFILES_STORAGE_KEY = "tp_theme_profiles_v1";
+const THEME_PROFILES_STORAGE_KEY = "tp_theme_profiles_v2";
 const ACTIVE_THEME_ID_STORAGE_KEY = "tp_theme_active_id_v1";
 
 const DEFAULT_THEME_PROFILE_ID = "default-slate";
@@ -46,15 +46,15 @@ const PASTEL_THEME_PROFILE: ThemeProfile = {
   name: "Pastel Lab",
   description: "Soft pastel variant for lab panels",
   tokens: {
-    surface: "#0b1120",
+    surface: "#0f172a",
     surfaceMuted: "#111827",
-    border: "#38bdf8",
-    accent: "#a5b4fc",
-    accentMuted: "#f97316",
-    textPrimary: "#e5e7eb",
-    textSecondary: "#cbd5e1",
-    success: "#22c55e",
-    warning: "#eab308",
+    border: "#f9a8d4",
+    accent: "#c084fc",
+    accentMuted: "#f472b6",
+    textPrimary: "#f8fafc",
+    textSecondary: "#e2e8f0",
+    success: "#34d399",
+    warning: "#fbbf24",
     danger: "#fb7185",
   },
 };
@@ -134,31 +134,30 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       const themeRaw = window.localStorage.getItem(THEME_PROFILES_STORAGE_KEY);
-      let loadedProfiles: Record<string, ThemeProfile> = {
-        [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
-        [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
-      };
+      let userProfiles: Record<string, ThemeProfile> = {};
       if (themeRaw) {
         const parsed = JSON.parse(themeRaw) as Record<string, ThemeProfile>;
         if (parsed && typeof parsed === "object") {
-          loadedProfiles = {
-            ...loadedProfiles,
-            ...parsed,
-          };
+          userProfiles = Object.fromEntries(
+            Object.entries(parsed).filter(
+              ([id]) =>
+                id !== DEFAULT_THEME_PROFILE_ID && id !== PASTEL_THEME_PROFILE_ID
+            )
+          );
         }
       }
 
-      loadedProfiles = {
-        ...loadedProfiles,
-        [DEFAULT_THEME_PROFILE_ID]:
-          loadedProfiles[DEFAULT_THEME_PROFILE_ID] ?? DEFAULT_THEME_PROFILE,
+      const loadedProfiles: Record<string, ThemeProfile> = {
+        [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+        [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
+        ...userProfiles,
       };
 
       const activeRaw = window.localStorage.getItem(ACTIVE_THEME_ID_STORAGE_KEY);
       const nextActive =
         activeRaw && loadedProfiles[activeRaw]
           ? activeRaw
-          : PASTEL_THEME_PROFILE_ID;
+          : DEFAULT_THEME_PROFILE_ID;
 
       setThemeProfiles(loadedProfiles);
       setActiveThemeId(nextActive);

@@ -107,7 +107,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
     [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
   });
   const [activeThemeId, setActiveThemeId] = useState<string>(
-    DEFAULT_THEME_PROFILE_ID
+    PASTEL_THEME_PROFILE_ID
   );
 
   // Load from localStorage on first mount
@@ -158,7 +158,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
       const nextActive =
         activeRaw && loadedProfiles[activeRaw]
           ? activeRaw
-          : DEFAULT_THEME_PROFILE_ID;
+          : PASTEL_THEME_PROFILE_ID;
 
       setThemeProfiles(loadedProfiles);
       setActiveThemeId(nextActive);

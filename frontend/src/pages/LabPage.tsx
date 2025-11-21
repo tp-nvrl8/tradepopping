@@ -196,6 +196,11 @@ const LabPage: React.FC = () => {
     useState<CenterPanelId[]>(defaultCenterOrder);
 
   const tokens = useUiScopedTokens(["global", "page:lab"]);
+  const ideaBuilderTokens = useUiScopedTokens([
+    "global",
+    "page:lab",
+    "region:lab:ideaBuilder",
+  ]);
   const indicatorTokens = useUiScopedTokens([
     "global",
     "page:lab",
@@ -431,9 +436,14 @@ const LabPage: React.FC = () => {
             title="Idea Builder"
             open={builderOpen}
             onToggle={() => setBuilderOpen((open) => !open)}
-            containerClassName="border border-[var(--tp-lab-builder-border)] bg-[var(--tp-lab-builder-bg)]"
-            headerClassName="border-b border-[var(--tp-lab-builder-header-border)] bg-[var(--tp-lab-builder-header-bg)] rounded-t-md"
+            containerClassName="border rounded-md"
+            headerClassName="border-b rounded-t-md"
             bodyClassName="space-y-4 rounded-b-md"
+            style={{
+              background: ideaBuilderTokens.surface,
+              borderColor: ideaBuilderTokens.border,
+              color: ideaBuilderTokens.textPrimary,
+            }}
           >
             {loading && ideas.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-500">

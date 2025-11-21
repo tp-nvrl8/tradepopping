@@ -1,3 +1,4 @@
+// src/config/useUiScopedTokens.ts
 import { useMemo } from "react";
 import { useUiSettings } from "./UiSettingsContext";
 import {
@@ -13,24 +14,22 @@ import { resolveThemeTokens } from "./resolveThemeTokens";
  *     e.g. ["global", "page:lab", "region:lab:ideaBuilder"]
  *
  * Output:
- *   final merged SemanticTokens.
+ *   final merged UiTokens.
  *
  * Merge order rules:
  *   - Start from the active theme profile (or default tokens).
  *   - For each scope:
  *       -> Merge overrides on top of the current tokens.
- *   - Return final SemanticTokens.
+ *   - Return final UiTokens.
  */
 export function useUiScopedTokens(scopeOrder: string[]): UiTokens {
-  const {
-    activeThemeId,
-    themeProfiles,
-    getScopeSettings,
-  } = useUiSettings();
+  const { activeThemeId, themeProfiles, getScopeSettings } = useUiSettings();
 
   return useMemo(() => {
+    // 1) Base: DEFAULT_THEME_TOKENS
     let baseTokens: UiTokens = { ...DEFAULT_THEME_TOKENS };
 
+    // 2) Apply active theme profile (if any)
     if (activeThemeId && themeProfiles && themeProfiles[activeThemeId]) {
       const profile = themeProfiles[activeThemeId];
       baseTokens = mergeThemeTokens(
@@ -39,14 +38,14 @@ export function useUiScopedTokens(scopeOrder: string[]): UiTokens {
       );
     }
 
+    // 3) Apply scope overrides in order
     let tokens: UiTokens = { ...baseTokens };
 
-    // Walk through all scopes in provided order
     for (const scopeId of scopeOrder) {
       const scopeSettings = getScopeSettings(scopeId);
       if (!scopeSettings || !scopeSettings.overrides) continue;
 
-      tokens = resolveThemeTokens(tokens, scopeSettings.overrides);
+      tokens = resolveThemeTokens(tokens, scopeSettings.overrides as Partial<UiTokens>);
     }
 
     return tokens;

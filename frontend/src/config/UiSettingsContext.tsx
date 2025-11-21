@@ -39,6 +39,26 @@ const DEFAULT_THEME_PROFILE: ThemeProfile = {
   tokens: { ...DEFAULT_THEME_TOKENS },
 };
 
+const PASTEL_THEME_PROFILE_ID = "pastel-lab";
+
+const PASTEL_THEME_PROFILE: ThemeProfile = {
+  id: PASTEL_THEME_PROFILE_ID,
+  name: "Pastel Lab",
+  description: "Soft pastel variant for lab panels",
+  tokens: {
+    surface: "#0b1120",
+    surfaceMuted: "#111827",
+    border: "#38bdf8",
+    accent: "#a5b4fc",
+    accentMuted: "#f97316",
+    textPrimary: "#e5e7eb",
+    textSecondary: "#cbd5e1",
+    success: "#22c55e",
+    warning: "#eab308",
+    danger: "#fb7185",
+  },
+};
+
 export interface UiSettingsContextValue {
   uiSettings: UiSettings;
   themeProfiles: Record<string, ThemeProfile>;
@@ -84,6 +104,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
   const [uiSettings, setUiSettings] = useState<UiSettings>(DEFAULT_UI_SETTINGS);
   const [themeProfiles, setThemeProfiles] = useState<Record<string, ThemeProfile>>({
     [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+    [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
   });
   const [activeThemeId, setActiveThemeId] = useState<string>(
     DEFAULT_THEME_PROFILE_ID
@@ -115,6 +136,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
       const themeRaw = window.localStorage.getItem(THEME_PROFILES_STORAGE_KEY);
       let loadedProfiles: Record<string, ThemeProfile> = {
         [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+        [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
       };
       if (themeRaw) {
         const parsed = JSON.parse(themeRaw) as Record<string, ThemeProfile>;

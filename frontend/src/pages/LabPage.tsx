@@ -701,6 +701,9 @@ const LabPage: React.FC = () => {
             Design, test, and refine trading ideas. This cockpit will feed
             candidates and the test stand later.
           </p>
+          <p className="text-[10px] text-slate-500 mt-1">
+            surface: {tokens.surface} • border: {tokens.border}
+          </p>
           {loadError && (
             <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
           )}

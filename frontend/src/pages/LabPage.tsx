@@ -245,7 +245,7 @@ const LabPage: React.FC = () => {
     );
   };
 
-  // Load panel layout from localStorage (side panels + builder)
+  // Load panel layout from localStorage (side panels + center panels)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(PANEL_STORAGE_KEY);
@@ -258,14 +258,17 @@ const LabPage: React.FC = () => {
           setBottomOpen(parsed.bottomOpen);
         if (typeof parsed.builderOpen === "boolean")
           setBuilderOpen(parsed.builderOpen);
-        // If we later persist indicatorOpen/filtersOpen, we can restore here too
+        if (typeof parsed.indicatorOpen === "boolean")
+          setIndicatorOpen(parsed.indicatorOpen);
+        if (typeof parsed.filtersOpen === "boolean")
+          setFiltersOpen(parsed.filtersOpen);
       }
     } catch (e) {
       console.warn("Failed to load panel layout", e);
     }
   }, []);
 
-  // Persist panel layout (side + builder + bottom)
+  // Persist panel layout (side + center + bottom)
   useEffect(() => {
     try {
       const payload = {
@@ -273,15 +276,16 @@ const LabPage: React.FC = () => {
         rightOpen,
         bottomOpen,
         builderOpen,
-        // future: indicatorOpen, filtersOpen
+        indicatorOpen,
+        filtersOpen,
       };
       localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.warn("Failed to save panel layout", e);
     }
-  }, [leftOpen, rightOpen, bottomOpen, builderOpen]);
+  }, [leftOpen, rightOpen, bottomOpen, builderOpen, indicatorOpen, filtersOpen]);
 
-      // Load center panel order from localStorage
+  // Load center panel order from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CENTER_PANEL_STORAGE_KEY);

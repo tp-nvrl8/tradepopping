@@ -93,16 +93,6 @@ const SettingsPage: React.FC = () => {
   const themeId = scopeSettings?.themeId ?? "default";
   const borderOverride = scopeSettings?.overrides?.border ?? "";
 
-  const handleSelectThemeChange = (value: string) => {
-    setSelectedThemeId(value);
-  };
-
-  const handleUseTheme = () => {
-    if (selectedTheme) {
-      setActiveTheme(selectedTheme.id);
-    }
-  };
-
   const handleNewThemeFromCurrent = () => {
     const name = window.prompt("Name for new theme profile?");
     if (!name) return;
@@ -229,44 +219,72 @@ const SettingsPage: React.FC = () => {
 
         <div className="flex flex-col md:flex-row gap-3 items-stretch">
           <div className="flex-1 space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Theme Profile
-            </label>
-            <select
-              value={selectedThemeId}
-              onChange={(e) => handleSelectThemeChange(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              {themeList.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-              {themeList.length === 0 && <option value="">No themes</option>}
-            </select>
+            <div className="flex items-center justify-between gap-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Theme Profiles
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleNewThemeFromCurrent}
+                  className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
+                >
+                  New
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAs}
+                  className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
+                >
+                  Save As
+                </button>
+              </div>
+            </div>
 
-            <div className="flex flex-wrap gap-2 mt-2">
-              <button
-                type="button"
-                onClick={handleNewThemeFromCurrent}
-                className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
-              >
-                New
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAs}
-                className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
-              >
-                Save As
-              </button>
-              <button
-                type="button"
-                onClick={handleUseTheme}
-                className="px-3 py-1.5 rounded-md border border-sky-600 bg-sky-600/20 text-sky-100 text-xs hover:bg-sky-600/30"
-              >
-                Use
-              </button>
+            <div className="space-y-2">
+              {themeList.map((profile) => (
+                <div
+                  key={profile.id}
+                  className={`rounded-md border px-3 py-2 bg-slate-950/60 border-slate-700/80 hover:border-sky-600 transition-colors ${
+                    selectedThemeId === profile.id ? "ring-1 ring-sky-600" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-semibold text-slate-100">
+                        {profile.name}
+                      </div>
+                      <div className="text-[11px] text-slate-400">ID: {profile.id}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedThemeId(profile.id)}
+                        className="px-2.5 py-1 rounded-md border border-slate-700 bg-slate-800 text-[11px] hover:bg-slate-700"
+                      >
+                        Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTheme(profile.id)}
+                        disabled={profile.id === activeThemeId}
+                        className={`px-2.5 py-1 rounded-md border text-[11px] ${
+                          profile.id === activeThemeId
+                            ? "border-sky-700 bg-sky-700/30 text-sky-100 cursor-default"
+                            : "border-sky-600 bg-sky-600/20 text-sky-100 hover:bg-sky-600/30"
+                        }`}
+                      >
+                        {profile.id === activeThemeId ? "Active" : "Use"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {themeList.length === 0 && (
+                <div className="text-[11px] text-slate-400">
+                  No themes yet. Click "New" to create one.
+                </div>
+              )}
             </div>
           </div>
 

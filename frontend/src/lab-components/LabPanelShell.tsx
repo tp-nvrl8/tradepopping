@@ -1,5 +1,5 @@
 // src/lab-components/LabPanelShell.tsx
-import React, { ReactNode } from "react";
+import React, { CSSProperties, ReactNode } from "react";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
 
 interface LabPanelShellProps {
@@ -13,6 +13,8 @@ interface LabPanelShellProps {
   headerClassName?: string;
   /** Optional extra classes for body wrapper */
   bodyClassName?: string;
+  /** Optional inline styles for the outer container */
+  style?: CSSProperties;
 }
 
 const LabPanelShell: React.FC<LabPanelShellProps> = ({
@@ -23,6 +25,7 @@ const LabPanelShell: React.FC<LabPanelShellProps> = ({
   containerClassName = "",
   headerClassName = "",
   bodyClassName = "",
+  style,
 }) => {
   const tokens = useUiScopedTokens([
     "global",
@@ -30,18 +33,21 @@ const LabPanelShell: React.FC<LabPanelShellProps> = ({
     "region:lab:ideaBuilder",
   ]);
 
+  const mergedStyle = {
+    ...(title === "Idea Builder"
+      ? {
+          background: tokens.surfaceMuted,
+          borderColor: tokens.border,
+          color: tokens.textPrimary,
+        }
+      : {}),
+    ...style,
+  };
+
   return (
     <section
       className={`rounded-md flex flex-col ${containerClassName}`}
-      style={
-        title === "Idea Builder"
-          ? {
-              background: tokens.surfaceMuted,
-              borderColor: tokens.border,
-              color: tokens.textPrimary,
-            }
-          : undefined
-      }
+      style={Object.keys(mergedStyle).length > 0 ? mergedStyle : undefined}
     >
       {/* Header bar with toggle */}
       <div

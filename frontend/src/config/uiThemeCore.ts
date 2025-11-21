@@ -1,4 +1,23 @@
-export const DEFAULT_THEME_TOKENS = {
+// src/config/uiThemeCore.ts
+
+// All the theme token keys we care about
+export type TokenKey =
+  | "surface"
+  | "surfaceMuted"
+  | "border"
+  | "textPrimary"
+  | "textSecondary"
+  | "accent"
+  | "accentMuted"
+  | "success"
+  | "warning"
+  | "danger";
+
+// A simple map from token key -> hex string
+export type UiTokens = Record<TokenKey, string>;
+
+// Default theme values (dark slate-y base)
+export const DEFAULT_THEME_TOKENS: UiTokens = {
   surface: "#0b1220",
   surfaceMuted: "#111827",
   border: "#1f2937",
@@ -9,10 +28,9 @@ export const DEFAULT_THEME_TOKENS = {
   success: "#22c55e",
   warning: "#eab308",
   danger: "#f43f5e",
-} as const;
+};
 
-export type UiTokens = typeof DEFAULT_THEME_TOKENS;
-
+// A named theme profile for Theme Lab
 export interface ThemeProfile {
   id: string;
   name: string;
@@ -24,34 +42,19 @@ export interface ThemeProfile {
   };
 }
 
+// Basic merge helper: start from base tokens and apply overrides
 export function mergeThemeTokens(
   base: UiTokens,
-  overrides?: Partial<UiTokens>
+  overrides?: Partial<UiTokens> | null
 ): UiTokens {
-  if (!overrides) return base;
-  return { ...base, ...overrides };
-}
+  if (!overrides) return { ...base };
 
-export function deriveUiTokensFromCustomPalette(palette: {
-  builderBg: string;
-  builderBorder: string;
-  builderHeaderBg: string;
-  builderHeaderBorder: string;
-  analysisBg: string;
-  analysisBorder: string;
-  analysisHeaderBg: string;
-  analysisHeaderBorder: string;
-}): UiTokens {
-  return {
-    surface: palette.builderBg,
-    surfaceMuted: palette.builderHeaderBg,
-    border: palette.builderBorder,
-    textPrimary: "#e2e8f0",
-    textSecondary: "#cbd5e1",
-    accent: palette.analysisHeaderBorder,
-    accentMuted: palette.analysisBorder,
-    success: "#22c55e",
-    warning: "#eab308",
-    danger: "#f43f5e",
-  };
+  const next: UiTokens = { ...base };
+  for (const key of Object.keys(overrides) as TokenKey[]) {
+    const value = overrides[key];
+    if (value) {
+      next[key] = value;
+    }
+  }
+  return next;
 }

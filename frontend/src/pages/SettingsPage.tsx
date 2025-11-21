@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useUiSettings } from "../config/UiSettingsContext";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
 import { UI_SCOPES, type UiScopeDefinition } from "../config/uiScopes";
 import type { UiScopeSettings } from "../config/UiSettingsTypes";
-import { DEFAULT_THEME_TOKENS } from "../config/uiThemeCore";
 
 const SettingsPage: React.FC = () => {
   const {
@@ -14,49 +13,9 @@ const SettingsPage: React.FC = () => {
     activeThemeId,
     themeProfiles,
     updateThemeProfile,
-    createThemeProfile,
-    setActiveTheme,
   } = useUiSettings();
 
   void uiSettings;
-
-  const themeList = useMemo(
-    () => Object.values(themeProfiles ?? {}),
-    [themeProfiles]
-  );
-
-  const [selectedThemeId, setSelectedThemeId] = useState<string>(() => {
-    if (activeThemeId && themeProfiles[activeThemeId]) return activeThemeId;
-    const first = Object.values(themeProfiles ?? {})[0];
-    return first ? first.id : "";
-  });
-
-  useEffect(() => {
-    if (selectedThemeId && themeProfiles[selectedThemeId]) return;
-    if (activeThemeId && themeProfiles[activeThemeId]) {
-      setSelectedThemeId(activeThemeId);
-      return;
-    }
-    const first = Object.values(themeProfiles ?? {})[0];
-    setSelectedThemeId(first ? first.id : "");
-  }, [activeThemeId, selectedThemeId, themeProfiles]);
-
-  const selectedTheme = selectedThemeId
-    ? themeProfiles[selectedThemeId]
-    : activeThemeId
-    ? themeProfiles[activeThemeId]
-    : undefined;
-
-  const themePreviewTokens = useMemo(() => {
-    const base = DEFAULT_THEME_TOKENS;
-    const overrides = selectedTheme?.tokens ?? {};
-    return {
-      ...base,
-      ...overrides,
-    };
-  }, [selectedTheme]);
-
-  const activeTheme = activeThemeId ? themeProfiles[activeThemeId] : undefined;
 
   // ---- Page + region selection ----
 
@@ -97,22 +56,6 @@ const SettingsPage: React.FC = () => {
 
   const activeProfile = themeProfiles?.[activeThemeId];
   const baseTokens = activeProfile?.tokens ?? {};
-
-  const handleNewThemeFromCurrent = () => {
-    const name = window.prompt("Name for new theme profile?");
-    if (!name) return;
-
-    const newId = createThemeProfile({
-      name,
-      baseFromId: selectedThemeId || activeThemeId || undefined,
-    });
-
-    setSelectedThemeId(newId);
-  };
-
-  const handleSaveAs = () => {
-    handleNewThemeFromCurrent();
-  };
 
   // ---- Handlers ----
 
@@ -173,7 +116,6 @@ const SettingsPage: React.FC = () => {
       | "textSecondary",
     value: string
   ) => {
-    if (!activeThemeId) return;
     const trimmed = value.trim();
     if (!trimmed) return;
     updateThemeProfile(activeThemeId, {
@@ -197,7 +139,7 @@ const SettingsPage: React.FC = () => {
     <div className="p-3 flex flex-col gap-3 text-sm text-slate-100">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">UI Settings</h1>
+          <h1 className="text-lg font-semibold">Lab UI Console</h1>
           <p className="text-[11px] text-slate-400">
             Configure global defaults, per-page themes, and lab region
             highlights.
@@ -211,14 +153,15 @@ const SettingsPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-xs mb-1">
+      <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-xs mb-3">
         <div className="flex items-center justify-between mb-2">
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Base Lab Palette
             </h2>
             <p className="text-[11px] text-slate-500">
-              Core colors for the lab. Page and region overrides sit on top of these.
+              Global base colors used by all pages. Page and region overrides
+              sit on top of this.
             </p>
           </div>
         </div>
@@ -249,122 +192,6 @@ const SettingsPage: React.FC = () => {
               </div>
             )
           )}
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="text-sm font-semibold">Theme Lab</h2>
-            <p className="text-[11px] text-slate-400">
-              Create and manage named themes for the lab. The active theme applies
-              as the global default.
-            </p>
-          </div>
-          {activeTheme && (
-            <span className="px-2 py-1 rounded-md border border-sky-500 text-[11px] text-sky-200 bg-sky-500/10">
-              Active: {activeTheme.name}
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-3 items-stretch">
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                Theme Profiles
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleNewThemeFromCurrent}
-                  className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
-                >
-                  New
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAs}
-                  className="px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 text-xs hover:bg-slate-700"
-                >
-                  Save As
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {themeList.map((profile) => (
-                <div
-                  key={profile.id}
-                  className={`rounded-md border px-3 py-2 bg-slate-950/60 border-slate-700/80 hover:border-sky-600 transition-colors ${
-                    selectedThemeId === profile.id ? "ring-1 ring-sky-600" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="text-sm font-semibold text-slate-100">
-                        {profile.name}
-                      </div>
-                      <div className="text-[11px] text-slate-400">ID: {profile.id}</div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedThemeId(profile.id)}
-                        className="px-2.5 py-1 rounded-md border border-slate-700 bg-slate-800 text-[11px] hover:bg-slate-700"
-                      >
-                        Preview
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTheme(profile.id)}
-                        disabled={profile.id === activeThemeId}
-                        className={`px-2.5 py-1 rounded-md border text-[11px] ${
-                          profile.id === activeThemeId
-                            ? "border-sky-700 bg-sky-700/30 text-sky-100 cursor-default"
-                            : "border-sky-600 bg-sky-600/20 text-sky-100 hover:bg-sky-600/30"
-                        }`}
-                      >
-                        {profile.id === activeThemeId ? "Active" : "Use"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {themeList.length === 0 && (
-                <div className="text-[11px] text-slate-400">
-                  No themes yet. Click "New" to create one.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
-              Theme Preview
-            </div>
-            <div
-              className="rounded-md border px-3 py-3 text-xs"
-              style={{
-                background: themePreviewTokens.surface,
-                borderColor: themePreviewTokens.border,
-                color: themePreviewTokens.textPrimary,
-              }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-semibold">
-                  {selectedTheme?.name ?? "No theme selected"}
-                </span>
-                <span className="text-[11px] text-slate-300">
-                  border: {themePreviewTokens.border}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-200">
-                This card previews the selected theme’s surface, border, and text
-                colors.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 

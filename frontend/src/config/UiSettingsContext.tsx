@@ -12,6 +12,10 @@ import {
   type UiScopeSettings,
   type ScopeId,
 } from "./UiSettingsTypes";
+import {
+  DEFAULT_THEME_TOKENS,
+  type ThemeProfile,
+} from "./uiThemeCore";
 
 const DEFAULT_UI_SETTINGS: UiSettings = {
   version: 1,
@@ -23,8 +27,22 @@ const DEFAULT_UI_SETTINGS: UiSettings = {
   },
 };
 
+const THEME_PROFILES_STORAGE_KEY = "tp_theme_profiles_v1";
+const ACTIVE_THEME_ID_STORAGE_KEY = "tp_theme_active_id_v1";
+
+const DEFAULT_THEME_PROFILE_ID = "default-slate";
+
+const DEFAULT_THEME_PROFILE: ThemeProfile = {
+  id: DEFAULT_THEME_PROFILE_ID,
+  name: "Default Slate",
+  description: "Built-in slate baseline theme",
+  tokens: { ...DEFAULT_THEME_TOKENS },
+};
+
 export interface UiSettingsContextValue {
   uiSettings: UiSettings;
+  themeProfiles: Record<string, ThemeProfile>;
+  activeThemeId: string;
   /**
    * Get the settings for a single scope.
    * Returns undefined if the scope has never been customized.
@@ -46,6 +64,14 @@ export interface UiSettingsContextValue {
    * Reset all UI settings back to defaults.
    */
   resetAll: () => void;
+
+  createThemeProfile: (input: { name: string; baseFromId?: string }) => string;
+  updateThemeProfile: (
+    id: string,
+    patch: Partial<ThemeProfile>
+  ) => void;
+  deleteThemeProfile: (id: string) => void;
+  setActiveTheme: (id: string) => void;
 }
 
 const UiSettingsContext = createContext<UiSettingsContextValue | undefined>(
@@ -56,6 +82,12 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [uiSettings, setUiSettings] = useState<UiSettings>(DEFAULT_UI_SETTINGS);
+  const [themeProfiles, setThemeProfiles] = useState<Record<string, ThemeProfile>>({
+    [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+  });
+  const [activeThemeId, setActiveThemeId] = useState<string>(
+    DEFAULT_THEME_PROFILE_ID
+  );
 
   // Load from localStorage on first mount
   useEffect(() => {
@@ -78,6 +110,40 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
     } catch {
       // ignore parse errors and stick with defaults
     }
+
+    try {
+      const themeRaw = window.localStorage.getItem(THEME_PROFILES_STORAGE_KEY);
+      let loadedProfiles: Record<string, ThemeProfile> = {
+        [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
+      };
+      if (themeRaw) {
+        const parsed = JSON.parse(themeRaw) as Record<string, ThemeProfile>;
+        if (parsed && typeof parsed === "object") {
+          loadedProfiles = {
+            ...loadedProfiles,
+            ...parsed,
+          };
+        }
+      }
+
+      loadedProfiles = {
+        ...loadedProfiles,
+        [DEFAULT_THEME_PROFILE_ID]:
+          loadedProfiles[DEFAULT_THEME_PROFILE_ID] ?? DEFAULT_THEME_PROFILE,
+      };
+
+      const activeRaw = window.localStorage.getItem(ACTIVE_THEME_ID_STORAGE_KEY);
+      const nextActive =
+        activeRaw && loadedProfiles[activeRaw]
+          ? activeRaw
+          : DEFAULT_THEME_PROFILE_ID;
+
+      setThemeProfiles(loadedProfiles);
+      setActiveThemeId(nextActive);
+
+    } catch {
+      // ignore theme profile parse errors
+    }
   }, []);
 
   // Persist to localStorage whenever uiSettings changes
@@ -91,6 +157,18 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
       // ignore write failures (e.g. private mode / quota)
     }
   }, [uiSettings]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        THEME_PROFILES_STORAGE_KEY,
+        JSON.stringify(themeProfiles)
+      );
+      window.localStorage.setItem(ACTIVE_THEME_ID_STORAGE_KEY, activeThemeId);
+    } catch {
+      // ignore write failures (e.g. private mode / quota)
+    }
+  }, [activeThemeId, themeProfiles]);
 
   const getScopeSettings = (scopeId: ScopeId): UiScopeSettings | undefined => {
     return uiSettings.scopes[scopeId];
@@ -127,11 +205,93 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
     setUiSettings(DEFAULT_UI_SETTINGS);
   };
 
+  const createThemeProfile = (input: {
+    name: string;
+    baseFromId?: string;
+  }): string => {
+    const trimmedName = input.name.trim() || "Untitled Theme";
+    const baseProfile = themeProfiles[input.baseFromId ?? ""];
+    const baseTokens = {
+      ...DEFAULT_THEME_TOKENS,
+      ...(baseProfile?.tokens ?? DEFAULT_THEME_TOKENS),
+    };
+    const id = `theme-${Date.now()}`;
+
+    const profile: ThemeProfile = {
+      id,
+      name: trimmedName,
+      tokens: { ...baseTokens },
+      typography: baseProfile?.typography
+        ? { ...baseProfile.typography }
+        : undefined,
+    };
+
+    setThemeProfiles((prev) => ({
+      ...prev,
+      [id]: profile,
+      [DEFAULT_THEME_PROFILE_ID]:
+        prev[DEFAULT_THEME_PROFILE_ID] ?? DEFAULT_THEME_PROFILE,
+    }));
+    setActiveThemeId(id);
+    return id;
+  };
+
+  const updateThemeProfile = (id: string, patch: Partial<ThemeProfile>) => {
+    setThemeProfiles((prev) => {
+      const existing = prev[id];
+      if (!existing) return prev;
+
+      const next: ThemeProfile = {
+        ...existing,
+        ...patch,
+        tokens: patch.tokens
+          ? { ...existing.tokens, ...patch.tokens }
+          : existing.tokens,
+        typography: patch.typography
+          ? { ...existing.typography, ...patch.typography }
+          : existing.typography,
+      };
+
+      return { ...prev, [id]: next };
+    });
+  };
+
+  const deleteThemeProfile = (id: string) => {
+    if (id === DEFAULT_THEME_PROFILE_ID) return;
+
+    setThemeProfiles((prev) => {
+      if (!prev[id]) return prev;
+
+      const { [id]: _removed, ...rest } = prev;
+      const nextProfiles = {
+        ...rest,
+        [DEFAULT_THEME_PROFILE_ID]:
+          rest[DEFAULT_THEME_PROFILE_ID] ?? DEFAULT_THEME_PROFILE,
+      };
+
+      if (activeThemeId === id) {
+        setActiveThemeId(DEFAULT_THEME_PROFILE_ID);
+      }
+
+      return nextProfiles;
+    });
+  };
+
+  const setActiveTheme = (id: string) => {
+    setActiveThemeId((prev) => (themeProfiles[id] ? id : prev));
+  };
+
   const value: UiSettingsContextValue = {
     uiSettings,
+    themeProfiles,
+    activeThemeId,
     getScopeSettings,
     updateScopeSettings,
     resetAll,
+    createThemeProfile,
+    updateThemeProfile,
+    deleteThemeProfile,
+    setActiveTheme,
   };
 
   return (

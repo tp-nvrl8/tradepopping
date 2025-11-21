@@ -1,9 +1,6 @@
 // resolveThemeTokens.ts
-import {
-  type SemanticTokens,
-  DEFAULT_CUSTOM_PALETTE,
-  // These refer to your ThemeContext exports
-} from "./ThemeContext";
+import { type SemanticTokens } from "./ThemeContext";
+import { DEFAULT_THEME_TOKENS } from "./uiThemeCore";
 import { PRESET_THEMES, getThemeDefinition } from "./uiTheme";
 
 /**
@@ -20,16 +17,7 @@ export function resolveThemeTokens(themeId: string): SemanticTokens {
     // These are your base default values.
     // For now we hardcode the slate preset as “default”.
     return {
-      surface: "#0b1220",
-      surfaceMuted: "#111827",
-      border: "#1f2937",
-      textPrimary: "#e2e8f0",
-      textSecondary: "#94a3b8",
-      accent: "#38bdf8",
-      accentMuted: "#0ea5e9",
-      success: "#22c55e",
-      warning: "#eab308",
-      danger: "#f43f5e",
+      ...DEFAULT_THEME_TOKENS,
     };
   }
 
@@ -41,18 +29,7 @@ export function resolveThemeTokens(themeId: string): SemanticTokens {
   const resolve = (k: keyof SemanticTokens): string => {
     return (
       (def.tokens as any)[k] ??
-      {
-        surface: "#0b1220",
-        surfaceMuted: "#111827",
-        border: "#1f2937",
-        textPrimary: "#e2e8f0",
-        textSecondary: "#cbd5e1",
-        accent: "#38bdf8",
-        accentMuted: "#0ea5e9",
-        success: "#22c55e",
-        warning: "#eab308",
-        danger: "#f43f5e",
-      }[k]
+      DEFAULT_THEME_TOKENS[k]
     );
   };
 

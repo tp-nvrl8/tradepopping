@@ -6,6 +6,11 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import {
+  DEFAULT_THEME_TOKENS,
+  type UiTokens,
+  deriveUiTokensFromCustomPalette,
+} from "./uiThemeCore";
 
 export type ThemeId =
   | "slate"
@@ -56,18 +61,7 @@ export interface CustomThemeProfile {
   palette: CustomPalette;
 }
 
-export interface SemanticTokens {
-  surface: string;
-  surfaceMuted: string;
-  border: string;
-  textPrimary: string;
-  textSecondary: string;
-  accent: string;
-  accentMuted: string;
-  success: string;
-  warning: string;
-  danger: string;
-}
+export type SemanticTokens = UiTokens;
 
 interface PageThemeState {
   id: string;
@@ -123,16 +117,7 @@ const BASE_LAB_PALETTES: Record<Exclude<ThemeId, "custom">, CustomPalette> = {
 
 const BASE_SEMANTIC_TOKENS: Record<Exclude<ThemeId, "custom">, SemanticTokens> = {
   slate: {
-    surface: "#0b1220",
-    surfaceMuted: "#111827",
-    border: "#1f2937",
-    textPrimary: "#e2e8f0",
-    textSecondary: "#94a3b8",
-    accent: "#38bdf8",
-    accentMuted: "#0ea5e9",
-    success: "#22c55e",
-    warning: "#eab308",
-    danger: "#f43f5e",
+    ...DEFAULT_THEME_TOKENS,
   },
   "trek-industrial": {
     surface: "#0a0d12",
@@ -162,18 +147,7 @@ const BASE_SEMANTIC_TOKENS: Record<Exclude<ThemeId, "custom">, SemanticTokens> =
 
 function deriveCustomTokens(palette: CustomPalette | null): SemanticTokens {
   const base = palette ?? DEFAULT_CUSTOM_PALETTE;
-  return {
-    surface: base.builderBg,
-    surfaceMuted: base.builderHeaderBg,
-    border: base.builderBorder,
-    textPrimary: "#e2e8f0",
-    textSecondary: "#cbd5e1",
-    accent: base.analysisHeaderBorder,
-    accentMuted: base.analysisBorder,
-    success: "#22c55e",
-    warning: "#eab308",
-    danger: "#f43f5e",
-  };
+  return deriveUiTokensFromCustomPalette(base);
 }
 
 /** Helper: apply theme + semantic tokens + optional custom palette to <html> */

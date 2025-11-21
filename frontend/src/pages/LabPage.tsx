@@ -638,7 +638,16 @@ const LabPage: React.FC = () => {
               color: indicatorTokens.textPrimary,
             }}
           >
-            <IndicatorBuilderPanel ideaName={selectedIdea?.meta.name} />
+            <IndicatorBuilderPanel
+              ideaName={selectedIdea?.meta.name}
+              indicators={selectedIdea?.indicators ?? { indicators: [] }}
+              onChangeIndicators={(next) =>
+                updateIdeaById(selectedIdea?.meta.id, (idea) => ({
+                  ...idea,
+                  indicators: next,
+                }))
+              }
+            />
           </LabPanelShell>
         );
 

@@ -11,11 +11,14 @@ const SettingsPage: React.FC = () => {
     getScopeSettings,
     updateScopeSettings,
     resetAll,
-    themeProfiles,
     activeThemeId,
+    themeProfiles,
+    updateThemeProfile,
     createThemeProfile,
     setActiveTheme,
   } = useUiSettings();
+
+  void uiSettings;
 
   const themeList = useMemo(
     () => Object.values(themeProfiles ?? {}),
@@ -90,8 +93,10 @@ const SettingsPage: React.FC = () => {
     getScopeSettings(activeScopeId);
 
   const isCustomized = !!scopeSettings;
-  const themeId = scopeSettings?.themeId ?? "default";
   const borderOverride = scopeSettings?.overrides?.border ?? "";
+
+  const activeProfile = themeProfiles?.[activeThemeId];
+  const baseTokens = activeProfile?.tokens ?? {};
 
   const handleNewThemeFromCurrent = () => {
     const name = window.prompt("Name for new theme profile?");
@@ -123,18 +128,6 @@ const SettingsPage: React.FC = () => {
       if (prev) return prev;
       return {
         themeId: "default",
-      };
-    });
-  };
-
-  const handleThemeIdChange = (value: string) => {
-    updateScopeSettings(activeScopeId, (prev) => {
-      const base: UiScopeSettings = prev ?? {
-        themeId: "default",
-      };
-      return {
-        ...base,
-        themeId: value || "default",
       };
     });
   };
@@ -171,6 +164,23 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleBaseTokenChange = (
+    key:
+      | "surface"
+      | "border"
+      | "accent"
+      | "textPrimary"
+      | "textSecondary",
+    value: string
+  ) => {
+    if (!activeThemeId) return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    updateThemeProfile(activeThemeId, {
+      tokens: { [key]: trimmed },
+    });
+  };
+
   // ---- Live preview tokens ----
 
   const orderedScopesForPreview = useMemo(() => {
@@ -184,11 +194,11 @@ const SettingsPage: React.FC = () => {
   const previewTokens = useUiScopedTokens(orderedScopesForPreview);
 
   return (
-    <div className="p-4 flex flex-col gap-4 text-sm text-slate-100">
-      <div className="flex items-center justify-between gap-4">
+    <div className="p-3 flex flex-col gap-3 text-sm text-slate-100">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">UI Settings</h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-[11px] text-slate-400">
             Configure global defaults, per-page themes, and lab region
             highlights.
           </p>
@@ -199,6 +209,47 @@ const SettingsPage: React.FC = () => {
         >
           Reset all to defaults
         </button>
+      </div>
+
+      <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-xs mb-1">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Base Lab Palette
+            </h2>
+            <p className="text-[11px] text-slate-500">
+              Core colors for the lab. Page and region overrides sit on top of these.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
+          {["surface", "border", "accent", "textPrimary", "textSecondary"].map(
+            (key) => (
+              <div key={key} className="space-y-1">
+                <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  {key}
+                </label>
+                <input
+                  type="text"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  value={(baseTokens as any)[key] ?? ""}
+                  onChange={(e) =>
+                    handleBaseTokenChange(
+                      key as
+                        | "surface"
+                        | "border"
+                        | "accent"
+                        | "textPrimary"
+                        | "textSecondary",
+                      e.target.value
+                    )
+                  }
+                  placeholder="#0b1220"
+                />
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
@@ -318,7 +369,7 @@ const SettingsPage: React.FC = () => {
       </div>
 
       {/* Scope selection row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Page selector */}
         <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
           <div className="flex items-center justify-between mb-2">
@@ -443,26 +494,7 @@ const SettingsPage: React.FC = () => {
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {/* Theme selection */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Theme ID
-            </label>
-            <input
-              type="text"
-              value={themeId}
-              disabled={!isCustomized}
-              onChange={(e) => handleThemeIdChange(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
-              placeholder="default, slate, labSoft, etc."
-            />
-            <p className="text-[11px] text-slate-500">
-              For now this is a free-form theme identifier. In a later phase we
-              can wire this to a Theme Lab picker.
-            </p>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
           {/* Border override */}
           <div className="space-y-1.5">
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">

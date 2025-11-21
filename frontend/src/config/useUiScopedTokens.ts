@@ -2,21 +2,7 @@ import { useMemo } from "react";
 import { useUiSettings } from "./UiSettingsContext";
 import { resolveThemeTokens } from "./resolveThemeTokens";
 import type { SemanticTokens } from "./ThemeContext";
-
-/**
- * Merge SemanticTokens, overriding only provided fields.
- */
-function mergeTokens(
-  base: SemanticTokens,
-  overrides?: Partial<SemanticTokens>
-): SemanticTokens {
-  if (!overrides) return base;
-
-  return {
-    ...base,
-    ...overrides,
-  };
-}
+import { DEFAULT_THEME_TOKENS, mergeThemeTokens } from "./uiThemeCore";
 
 /**
  * Inputs:
@@ -27,37 +13,36 @@ function mergeTokens(
  *   final merged SemanticTokens.
  *
  * Merge order rules:
- *   - Start from global theme.
+ *   - Start from the active theme profile (or default tokens).
  *   - For each scope:
- *       -> If scope has themeId, load that theme's tokens (reset baseline).
- *       -> Then merge overrides on top.
+ *       -> Merge overrides on top of the current tokens.
  *   - Return final SemanticTokens.
  */
 export function useUiScopedTokens(orderedScopes: string[]): SemanticTokens {
-  const { uiSettings } = useUiSettings();
+  const { getScopeSettings, activeThemeId, themeProfiles } = useUiSettings();
 
   return useMemo(() => {
-    // Start with the GLOBAL baseline theme from UiSettings
-    const global = uiSettings.scopes["global"];
-    const globalThemeId = global?.themeId ?? "default";
-    let tokens = resolveThemeTokens(globalThemeId);
+    let baseTokens: SemanticTokens = { ...DEFAULT_THEME_TOKENS };
+
+    if (activeThemeId && themeProfiles?.[activeThemeId]) {
+      const profile = themeProfiles[activeThemeId];
+      baseTokens = mergeThemeTokens(DEFAULT_THEME_TOKENS, profile.tokens);
+    }
+
+    let tokens: SemanticTokens = { ...baseTokens };
 
     // Walk through all scopes in provided order
     for (const scopeId of orderedScopes) {
-      const scopeSettings = uiSettings.scopes[scopeId];
+      const scopeSettings = getScopeSettings(scopeId);
       if (!scopeSettings) continue;
 
-      // If the scope sets a theme, reset the baseline
-      if (scopeSettings.themeId) {
-        tokens = resolveThemeTokens(scopeSettings.themeId);
-      }
+      const overrides = scopeSettings.overrides || {};
 
-      // Apply overrides on top
-      tokens = mergeTokens(tokens, scopeSettings.overrides);
+      tokens = resolveThemeTokens(tokens, overrides);
     }
 
     return tokens;
-  }, [orderedScopes, uiSettings]);
-  
+  }, [activeThemeId, getScopeSettings, orderedScopes, themeProfiles]);
+
 
 }

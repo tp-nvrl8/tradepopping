@@ -73,6 +73,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     onChangeIndicators(nextIndicators);
   };
 
+  const toggleInfo = (index: number) => {
+    setOpenInfoIds((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
   const handleDelete = (index: number) => {
     const nextIndicators = indicators.filter((_, i) => i !== index);
     onChangeIndicators(nextIndicators);
@@ -241,6 +248,15 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         ↓
                       </button>
                     </div>
+                    {def?.description && (
+                      <button
+                        type="button"
+                        onClick={() => toggleInfo(index)}
+                        className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                      >
+                        ⓘ
+                      </button>
+                    )}
                     <label className="flex items-center gap-1 text-[10px] text-slate-400">
                       <input
                         type="checkbox"
@@ -268,9 +284,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                       </span>
                     </div>
                     {def.summary && (
-                      <div className="text-slate-400">
-                        {def.summary}
-                      </div>
+                      <div className="text-slate-400">{def.summary}</div>
                     )}
                     {openInfoIds[index] && def.description && (
                       <div className="mt-1 text-[11px] text-slate-400 leading-snug">

@@ -70,6 +70,22 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     onChangeIndicators(nextIndicators);
   };
 
+  const moveIndicator = (index: number, direction: "up" | "down") => {
+    const next = [...indicators];
+    if (direction === "up") {
+      if (index <= 0) return;
+      const tmp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = tmp;
+    } else {
+      if (index >= next.length - 1) return;
+      const tmp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = tmp;
+    }
+    onChangeIndicators(next);
+  };
+
   const handleParamChange = (
     index: number,
     param: IndicatorParamDef,
@@ -195,6 +211,24 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveIndicator(index, "up")}
+                        disabled={index === 0}
+                        className="px-1.5 py-0.5 text-[10px] rounded border border-slate-700 text-slate-300 disabled:opacity-40 hover:bg-slate-800"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveIndicator(index, "down")}
+                        disabled={index === indicators.length - 1}
+                        className="px-1.5 py-0.5 text-[10px] rounded border border-slate-700 text-slate-300 disabled:opacity-40 hover:bg-slate-800"
+                      >
+                        ↓
+                      </button>
+                    </div>
                     <label className="flex items-center gap-1 text-[10px] text-slate-400">
                       <input
                         type="checkbox"

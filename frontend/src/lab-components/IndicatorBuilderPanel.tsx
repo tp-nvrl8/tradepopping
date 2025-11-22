@@ -25,6 +25,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   ]);
 
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
+  const [openInfoIds, setOpenInfoIds] = useState<Record<number, boolean>>({});
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -56,6 +57,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
 
     onChangeIndicators([...indicators, nextInstance]);
     setSelectedToAdd("");
+  };
+
+  const toggleInfo = (index: number) => {
+    setOpenInfoIds((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
   };
 
   const handleToggleEnabled = (index: number) => {
@@ -197,17 +205,21 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
-                    <div className="text-[12px] font-semibold">
-                      {def?.name ?? inst.id}
+                    <div className="flex items-center gap-2 text-[12px] font-semibold">
+                      <span>{def?.name ?? inst.id}</span>
+                      {def?.description && (
+                        <button
+                          type="button"
+                          onClick={() => toggleInfo(index)}
+                          className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                        >
+                          ⓘ
+                        </button>
+                      )}
                     </div>
                     <div className="text-[11px] text-slate-400">
                       {def?.category ?? "Uncategorized"}
                     </div>
-                    {def?.description && (
-                      <div className="text-[11px] text-slate-500">
-                        {def.description}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -246,6 +258,27 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {def && (
+                  <div className="mb-2 text-[11px] text-slate-300">
+                    <div className="font-semibold">
+                      {def.name}
+                      <span className="ml-2 text-[10px] text-slate-500">
+                        ({def.category})
+                      </span>
+                    </div>
+                    {def.summary && (
+                      <div className="text-slate-400">
+                        {def.summary}
+                      </div>
+                    )}
+                    {openInfoIds[index] && def.description && (
+                      <div className="mt-1 text-[11px] text-slate-400 leading-snug">
+                        {def.description}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {def && def.params.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

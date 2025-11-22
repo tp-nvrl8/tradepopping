@@ -71,6 +71,7 @@ export interface IndicatorInstance {
   variant?: string | null;
   enabled: boolean;
   params?: Record<string, number | string | boolean>;
+  notes?: string; // free-form observations per indicator
 }
 
 /**

@@ -47,6 +47,7 @@ export const INDICATOR_CATALOG: readonly IndicatorDefinition[] = [
         max: 60,
         step: 1,
         defaultValue: 20,
+        helperText: "Number of days used when smoothing the sOBV slope.",
       },
     ],
   },

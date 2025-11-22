@@ -59,6 +59,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     setSelectedToAdd("");
   };
 
+  const toggleInfo = (index: number) => {
+    setOpenInfoIds((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
   const handleToggleEnabled = (index: number) => {
     const nextIndicators = indicators.map((inst, i) =>
       i === index ? { ...inst, enabled: !inst.enabled } : inst
@@ -205,8 +212,17 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
-                    <div className="text-[12px] font-semibold">
-                      {def?.name ?? inst.id}
+                    <div className="flex items-center gap-2 text-[12px] font-semibold">
+                      <span>{def?.name ?? inst.id}</span>
+                      {def?.description && (
+                        <button
+                          type="button"
+                          onClick={() => toggleInfo(index)}
+                          className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                        >
+                          ⓘ
+                        </button>
+                      )}
                     </div>
                     <div className="text-[11px] text-slate-400">
                       {def?.category ?? "Uncategorized"}

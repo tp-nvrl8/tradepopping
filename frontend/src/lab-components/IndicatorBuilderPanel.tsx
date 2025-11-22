@@ -26,6 +26,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
 
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
+  const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -76,6 +77,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const handleDelete = (index: number) => {
     const nextIndicators = indicators.filter((_, i) => i !== index);
     onChangeIndicators(nextIndicators);
+  };
+
+  const toggleNotes = (id: string) => {
+    setNotesOpen((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   const moveIndicator = (index: number, direction: "up" | "down") => {
@@ -193,10 +201,11 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           </div>
         ) : (
           indicators.map((inst, index) => {
+            const instanceKey = `${inst.id}-${index}`;
             const def = catalogById.get(inst.id);
             return (
               <div
-                key={`${inst.id}-${index}`}
+                key={instanceKey}
                 className="rounded-md border p-3 space-y-2"
                 style={{
                   borderColor: tokens.border,
@@ -250,6 +259,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         ⓘ
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => toggleNotes(instanceKey)}
+                      className="text-[10px] px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-800"
+                    >
+                      Notes
+                    </button>
                     <label className="flex items-center gap-1 text-[10px] text-slate-400">
                       <input
                         type="checkbox"
@@ -375,6 +391,26 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 ) : (
                   <div className="text-[11px] text-slate-500">
                     This indicator has no adjustable parameters.
+                  </div>
+                )}
+
+                {notesOpen[instanceKey] && (
+                  <div className="mt-2">
+                    <label className="block text-[11px] text-slate-400 mb-1">
+                      Observations / Notes
+                    </label>
+                    <textarea
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 min-h-[60px]"
+                      placeholder="What did you notice about this indicator for this idea?"
+                      value={(inst.notes ?? "") as string}
+                      onChange={(e) => {
+                        const nextNotes = e.target.value;
+                        const nextList = indicators.map((ind, idx) =>
+                          idx === index ? { ...ind, notes: nextNotes } : ind
+                        );
+                        onChangeIndicators(nextList);
+                      }}
+                    />
                   </div>
                 )}
               </div>

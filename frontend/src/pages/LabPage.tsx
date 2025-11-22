@@ -28,6 +28,7 @@ const defaultCenterOrder: CenterPanelId[] = [
 
 const PANEL_STORAGE_KEY = "tp_lab_panel_layout_v1";
 const CENTER_PANEL_STORAGE_KEY = "tp_lab_center_panels_v1";
+const LOCAL_IDEAS_STORAGE_KEY = "tp_lab_ideas_v1";
 
 const statusOptions: { id: IdeaStatus; label: string }[] = [
   { id: "draft", label: "Draft" },
@@ -344,6 +345,22 @@ const LabPage: React.FC = () => {
 
     const load = async () => {
       try {
+        try {
+          const local = window.localStorage.getItem(LOCAL_IDEAS_STORAGE_KEY);
+          if (local) {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed)) {
+              setIdeas(parsed);
+              setSelectedIdeaId(parsed[0]?.meta.id ?? null);
+              setNewCounter(computeNextNewCounter(parsed));
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to load ideas from localStorage", e);
+        }
+
         setLoading(true);
         setLoadError(null);
 
@@ -372,6 +389,17 @@ const LabPage: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        LOCAL_IDEAS_STORAGE_KEY,
+        JSON.stringify(ideas)
+      );
+    } catch (e) {
+      console.warn("Failed to save ideas to localStorage", e);
+    }
+  }, [ideas]);
 
   const selectedIdea =
     ideas.find((i) => i.meta.id === selectedIdeaId) ?? ideas[0] ?? null;

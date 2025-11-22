@@ -640,13 +640,17 @@ const LabPage: React.FC = () => {
           >
             <IndicatorBuilderPanel
               ideaName={selectedIdea?.meta.name}
-              indicators={selectedIdea?.indicators ?? { indicators: [] }}
-              onChangeIndicators={(next) =>
-                updateIdeaById(selectedIdea?.meta.id, (idea) => ({
+              indicators={selectedIdea?.indicators?.indicators ?? []}
+              onChangeIndicators={(next) => {
+                if (!selectedIdea) return;
+                updateIdeaById(selectedIdea.meta.id, (idea) => ({
                   ...idea,
-                  indicators: next,
-                }))
-              }
+                  indicators: {
+                    ...(idea.indicators ?? { indicators: [] }),
+                    indicators: next,
+                  },
+                }));
+              }}
             />
           </LabPanelShell>
         );

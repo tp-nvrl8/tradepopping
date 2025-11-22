@@ -25,7 +25,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   ]);
 
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
-  const [openInfoIds, setOpenInfoIds] = useState<Record<number, boolean>>({});
+  const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -59,13 +59,6 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     setSelectedToAdd("");
   };
 
-  const toggleInfo = (index: number) => {
-    setOpenInfoIds((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-  };
-
   const handleToggleEnabled = (index: number) => {
     const nextIndicators = indicators.map((inst, i) =>
       i === index ? { ...inst, enabled: !inst.enabled } : inst
@@ -74,7 +67,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   };
 
   const toggleInfo = (index: number) => {
-    setOpenInfoIds((prev) => ({
+    setInfoOpen((prev) => ({
       ...prev,
       [index]: !prev[index],
     }));
@@ -286,7 +279,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     {def.summary && (
                       <div className="text-slate-400">{def.summary}</div>
                     )}
-                    {openInfoIds[index] && def.description && (
+                    {infoOpen[index] && def.description && (
                       <div className="mt-1 text-[11px] text-slate-400 leading-snug">
                         {def.description}
                       </div>

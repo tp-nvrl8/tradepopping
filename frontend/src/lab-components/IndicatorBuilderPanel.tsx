@@ -100,6 +100,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [previewById, setPreviewById] = useState<Record<string, PreviewStats>>(
     {}
   );
+  const [showSparklineHelp, setShowSparklineHelp] = useState(false);
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -378,6 +379,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     </button>
                     <button
                       type="button"
+                      onClick={() => setShowSparklineHelp(true)}
+                      className="text-[10px] px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-800"
+                    >
+                      ?
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => toggleNotes(instanceKey)}
                       className="text-[10px] px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-800"
                     >
@@ -556,6 +564,173 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           })
         )}
       </div>
+
+      {showSparklineHelp && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+          <div className="max-w-xl w-[90vw] max-h-[80vh] overflow-y-auto bg-slate-950 border border-slate-700 rounded-lg p-4 text-xs text-slate-200 shadow-xl">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-slate-100">
+                Sparkline Interpretation Guide
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowSparklineHelp(false)}
+                className="text-[11px] px-2 py-0.5 rounded border border-slate-600 text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-3 text-[11px] leading-snug">
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  What sparkline previews are
+                </h3>
+                <p className="text-slate-300">
+                  A sparkline is a tiny chart showing the most recent values of an indicator.
+                  It lets you quickly judge the shape, quality, and behavior of the signal:
+                  are you seeing trends, oscillations, compression, or just noise?
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  1. Does the indicator behave how you expect?
+                </h3>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li>Smooth drift is typical for trend/regime indicators.</li>
+                  <li>Up-and-down waves are typical for mean reversion tools.</li>
+                  <li>Sudden expansions and compressions are typical for volatility tools.</li>
+                  <li>Stable zones or plateaus are typical for regime or threshold flags.</li>
+                </ul>
+                <p className="text-slate-400 mt-1">
+                  If the sparkline looks like pure random static, the configuration is probably wrong
+                  or the indicator is not a good fit for this idea.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  2. Using sparklines to tune parameters
+                </h3>
+                <p className="text-slate-300">
+                  Change lookbacks and thresholds, then glance at the sparkline:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li><span className="font-semibold">Too smooth:</span> reacts slowly, may miss entries.</li>
+                  <li><span className="font-semibold">Too jagged:</span> over-reacts to noise, whipsaws a lot.</li>
+                  <li><span className="font-semibold">Almost flat:</span> window is too long or normalization is off.</li>
+                  <li><span className="font-semibold">Violent spikes everywhere:</span> thresholds are too tight or the formula is unstable.</li>
+                </ul>
+                <p className="text-slate-400 mt-1">
+                  Your goal is a shape that matches how you want to trade the idea
+                  (gentle regime drift, sharp extremes, clear bursts of pressure, etc.).
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  3. Reading divergence (math vs price)
+                </h3>
+                <p className="text-slate-300">
+                  When this is wired to real price data, you can compare the indicator sparkline
+                  to a price sparkline:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li>Indicator rising while price is flat: possible accumulation.</li>
+                  <li>Indicator falling while price is flat: possible distribution.</li>
+                  <li>Indicator flattening while price still trends: trend is aging or losing strength.</li>
+                  <li>Indicator curling up while price is still weak: selling may be exhausting.</li>
+                </ul>
+                <p className="text-slate-400 mt-1">
+                  This is the visual version of “math moves first, price catches up later”.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  4. Spotting hidden structure
+                </h3>
+                <p className="text-slate-300">
+                  Over time you&apos;ll recognize recurring shapes:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li>Flat then sudden expansion: volatility squeeze and release.</li>
+                  <li>Repeated spikes around the same level: strong reaction zone.</li>
+                  <li>Gentle curling turns: trend transitions rather than hard reversals.</li>
+                  <li>Plateaus at extreme values: persistent pressure or regime lock-in.</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  5. Quality check before using an indicator in scoring
+                </h3>
+                <p className="text-slate-300">
+                  Before you rely on an indicator in Candidates or the Test Stand, ask:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li>Does this sparkline clearly react to meaningful changes?</li>
+                  <li>Are there obvious extremes that would make good entry/exit zones?</li>
+                  <li>Does the pattern look stable across time, or completely random?</li>
+                </ul>
+                <p className="text-slate-400 mt-1">
+                  If the sparkline doesn&apos;t show anything tradeable, consider removing the indicator
+                  from this idea or adjusting the parameters.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  6. Debugging data problems
+                </h3>
+                <p className="text-slate-300">
+                  Sparkline shapes can also reveal data issues:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li><span className="font-semibold">Perfectly flat line:</span> missing data, wrong symbol, or constant value.</li>
+                  <li><span className="font-semibold">Single giant spike:</span> one bad bar or outlier from the feed.</li>
+                  <li><span className="font-semibold">Saw-tooth pattern:</span> sorting or duplicate-bar issues.</li>
+                  <li><span className="font-semibold">Gaps in values:</span> missing days or inconsistent history length.</li>
+                </ul>
+                <p className="text-slate-400 mt-1">
+                  If something looks off, it probably is — check the upstream data before trusting the signal.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  7. Comparing indicators side by side
+                </h3>
+                <p className="text-slate-300">
+                  With multiple indicators stacked, you can see:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                  <li>Which ones move together (redundant signals).</li>
+                  <li>Which ones lead or lag (good for stacking entries and exits).</li>
+                  <li>Which ones only wake up in certain regimes.</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-slate-100 mb-1">
+                  8. The big question
+                </h3>
+                <p className="text-slate-300">
+                  For each indicator, the sparkline is asking:
+                </p>
+                <p className="italic text-slate-200 mt-1">
+                  “Does this line give me anything I can actually trade?”
+                </p>
+                <p className="text-slate-400 mt-1">
+                  If the answer is no, simplify the idea or adjust the math until the sparkline
+                  tells a clear, repeatable story.
+                </p>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

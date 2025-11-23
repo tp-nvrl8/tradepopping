@@ -1,28 +1,3 @@
-import type { PriceBar } from "./indicatorRuntime";
-
-export const MOCK_DAILY_BARS: PriceBar[] = [
-  { time: "2024-01-02", open: 100, high: 102, low: 99.5, close: 101.2, volume: 125000 },
-  { time: "2024-01-03", open: 101.2, high: 103.5, low: 100.8, close: 102.9, volume: 132500 },
-  { time: "2024-01-04", open: 102.9, high: 104.2, low: 101.9, close: 103.6, volume: 118400 },
-  { time: "2024-01-05", open: 103.6, high: 105.1, low: 102.4, close: 104.8, volume: 141200 },
-  { time: "2024-01-08", open: 104.8, high: 106.4, low: 104.1, close: 105.9, volume: 152300 },
-  { time: "2024-01-09", open: 105.9, high: 107.2, low: 105.2, close: 106.5, volume: 148900 },
-  { time: "2024-01-10", open: 106.5, high: 107.9, low: 105.7, close: 107.1, volume: 160500 },
-  { time: "2024-01-11", open: 107.1, high: 108.8, low: 106.6, close: 108.2, volume: 170200 },
-  { time: "2024-01-12", open: 108.2, high: 109.4, low: 107.5, close: 108.7, volume: 165400 },
-  { time: "2024-01-16", open: 108.7, high: 110.2, low: 108.1, close: 109.8, volume: 159800 },
-  { time: "2024-01-17", open: 109.8, high: 111.5, low: 109.3, close: 110.9, volume: 174000 },
-  { time: "2024-01-18", open: 110.9, high: 112.4, low: 110.2, close: 111.3, volume: 168900 },
-  { time: "2024-01-19", open: 111.3, high: 112.7, low: 110.7, close: 112.1, volume: 173500 },
-  { time: "2024-01-22", open: 112.1, high: 113.6, low: 111.5, close: 113.2, volume: 182300 },
-  { time: "2024-01-23", open: 113.2, high: 114.1, low: 112.4, close: 113.6, volume: 177400 },
-  { time: "2024-01-24", open: 113.6, high: 114.9, low: 113.1, close: 114.7, volume: 185000 },
-  { time: "2024-01-25", open: 114.7, high: 115.8, low: 114.2, close: 115.1, volume: 190600 },
-  { time: "2024-01-26", open: 115.1, high: 116.5, low: 114.6, close: 116.2, volume: 198300 },
-  { time: "2024-01-29", open: 116.2, high: 117.9, low: 115.7, close: 117.4, volume: 205400 },
-  { time: "2024-01-30", open: 117.4, high: 118.6, low: 116.9, close: 118.1, volume: 210100 },
-  { time: "2024-01-31", open: 118.1, high: 119.5, low: 117.3, close: 119.2, volume: 215700 },
-];
 // src/indicators/mockPriceData.ts
 
 import type { PriceBar } from "./indicatorRuntime";

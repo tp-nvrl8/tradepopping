@@ -17,61 +17,75 @@ type PreviewStats = {
   last: number | null;
   min: number | null;
   max: number | null;
-  values: number[]; // sliced numeric points for sparkline
+  indicatorSeries: number[];
+  priceSeries: number[];
 };
 
-interface SparklineProps {
-  values: number[];
-  width?: number;
-  height?: number;
-  stroke?: string;
-}
+const Sparkline: React.FC<{
+  indicator: number[];
+  price: number[];
+}> = ({ indicator, price }) => {
+  const width = 120;
+  const height = 32;
 
-/**
- * Inline sparkline for indicator previews.
- */
-const Sparkline: React.FC<SparklineProps> = ({
-  values,
-  width = 120,
-  height = 32,
-  stroke = "currentColor",
-}) => {
-  if (!values || values.length < 2) {
-    return (
-      <div className="text-[10px] text-slate-500">
-        Not enough data for sparkline
-      </div>
-    );
+  if (indicator.length < 2 || price.length < 2) {
+    return null;
   }
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+  const maxLen = Math.min(indicator.length, price.length);
 
-  const points = values
-    .map((v, idx) => {
-      const x =
-        values.length === 1
-          ? width / 2
-          : (idx / (values.length - 1)) * width;
+  const indSlice = indicator.slice(indicator.length - maxLen);
+  const priceSlice = price.slice(price.length - maxLen);
 
-      const norm = 1 - (v - min) / range;
-      const y = norm * height;
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const allValues = [...indSlice, ...priceSlice];
+  const vMin = Math.min(...allValues);
+  const vMax = Math.max(...allValues);
+  const span = vMax - vMin || 1;
+
+  const scaleX = (i: number) =>
+    (i / (maxLen - 1)) * (width - 4) + 2;
+  const scaleY = (v: number) =>
+    height - 2 - ((v - vMin) / span) * (height - 4);
+
+  const toPath = (vals: number[]) =>
+    vals
+      .map((v, i) => `${i === 0 ? "M" : "L"} ${scaleX(i)} ${scaleY(v)}`)
+      .join(" ");
+
+  const indicatorPath = toPath(indSlice);
+  const pricePath = toPath(priceSlice);
 
   return (
     <svg
+      width={width}
+      height={height}
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full h-8"
-      preserveAspectRatio="none"
+      className="mt-1"
     >
-      <polyline
+      <rect
+        x={0.5}
+        y={0.5}
+        width={width - 1}
+        height={height - 1}
+        rx={3}
+        ry={3}
+        fill="transparent"
+        stroke="rgba(148, 163, 184, 0.3)"
+        strokeWidth={0.5}
+      />
+      {/* Price line (different color) */}
+      <path
+        d={pricePath}
         fill="none"
-        stroke={stroke}
-        strokeWidth={1.5}
-        points={points}
+        stroke="#f97316"
+        strokeWidth={1}
+      />
+      {/* Indicator line */}
+      <path
+        d={indicatorPath}
+        fill="none"
+        stroke="#38bdf8"
+        strokeWidth={1}
       />
     </svg>
   );
@@ -233,19 +247,36 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
 
     const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
     const numericValues = series.values.filter(
-      (v): v is number => typeof v === "number" && Number.isFinite(v)
+      (v): v is number =>
+        typeof v === "number" && Number.isFinite(v)
     );
 
-    const sparkValues =
-      numericValues.length > 40
-        ? numericValues.slice(numericValues.length - 40)
-        : numericValues;
-
-    const last = sparkValues.length
-      ? sparkValues[sparkValues.length - 1]
+    const last = numericValues.length
+      ? numericValues[numericValues.length - 1]
       : null;
-    const min = sparkValues.length ? Math.min(...sparkValues) : null;
-    const max = sparkValues.length ? Math.max(...sparkValues) : null;
+    const min = numericValues.length
+      ? Math.min(...numericValues)
+      : null;
+    const max = numericValues.length
+      ? Math.max(...numericValues)
+      : null;
+
+    // Build aligned indicator + price series (using only numeric indicator values)
+    const indicatorSeries: number[] = [];
+    const priceSeries: number[] = [];
+
+    if (numericValues.length > 0) {
+      const closes = MOCK_DAILY_BARS.map((b) => b.close);
+
+      // Use the last N bars matching numericValues length
+      const N = Math.min(numericValues.length, closes.length);
+      const startIdx = closes.length - N;
+
+      for (let i = 0; i < N; i++) {
+        indicatorSeries.push(numericValues[numericValues.length - N + i]);
+        priceSeries.push(closes[startIdx + i]);
+      }
+    }
 
     setPreviewById((prev) => ({
       ...prev,
@@ -253,7 +284,8 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         last,
         min,
         max,
-        values: sparkValues,
+        indicatorSeries,
+        priceSeries,
       },
     }));
   };
@@ -543,20 +575,19 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                   <div className="text-[11px] text-slate-300 space-y-1">
                     <div className="font-semibold text-slate-200">Preview</div>
 
-                    {preview.values && preview.values.length > 1 && (
-                      <div className="mt-1 rounded bg-slate-950/60 border border-slate-800 px-2 py-1">
-                        <Sparkline
-                          values={preview.values}
-                          stroke={tokens.accent}
-                        />
-                      </div>
-                    )}
-
                     <div className="text-slate-400">
                       Last: {preview.last?.toFixed(3) ?? "—"} · Min:{" "}
                       {preview.min?.toFixed(3) ?? "—"} · Max: {" "}
                       {preview.max?.toFixed(3) ?? "—"}
                     </div>
+
+                    {preview.indicatorSeries.length > 1 &&
+                      preview.priceSeries.length > 1 && (
+                        <Sparkline
+                          indicator={preview.indicatorSeries}
+                          price={preview.priceSeries}
+                        />
+                      )}
                   </div>
                 )}
               </div>

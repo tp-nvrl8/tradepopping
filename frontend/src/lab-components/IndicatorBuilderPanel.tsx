@@ -12,6 +12,71 @@ import {
 } from "../indicators/indicatorRuntime";
 import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
 
+// --- Sparkline + preview types ---
+type PreviewStats = {
+  last: number | null;
+  min: number | null;
+  max: number | null;
+  values: number[]; // sliced numeric points for sparkline
+};
+
+interface SparklineProps {
+  values: number[];
+  width?: number;
+  height?: number;
+  stroke?: string;
+}
+
+/**
+ * Inline sparkline for indicator previews.
+ */
+const Sparkline: React.FC<SparklineProps> = ({
+  values,
+  width = 120,
+  height = 32,
+  stroke = "currentColor",
+}) => {
+  if (!values || values.length < 2) {
+    return (
+      <div className="text-[10px] text-slate-500">
+        Not enough data for sparkline
+      </div>
+    );
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const points = values
+    .map((v, idx) => {
+      const x =
+        values.length === 1
+          ? width / 2
+          : (idx / (values.length - 1)) * width;
+
+      const norm = 1 - (v - min) / range;
+      const y = norm * height;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-full h-8"
+      preserveAspectRatio="none"
+    >
+      <polyline
+        fill="none"
+        stroke={stroke}
+        strokeWidth={1.5}
+        points={points}
+      />
+    </svg>
+  );
+};
+
 interface IndicatorBuilderPanelProps {
   ideaName?: string;
   indicators: IndicatorInstance[];
@@ -32,12 +97,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
   const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
-  const [previewById, setPreviewById] = useState<
-    Record<
-      string,
-      { last: number | null; min: number | null; max: number | null }
-    >
-  >({});
+  const [previewById, setPreviewById] = useState<Record<string, PreviewStats>>(
+    {}
+  );
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -173,19 +235,25 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       (v): v is number => typeof v === "number" && Number.isFinite(v)
     );
 
-    const last = numericValues.length
-      ? numericValues[numericValues.length - 1]
+    const sparkValues =
+      numericValues.length > 40
+        ? numericValues.slice(numericValues.length - 40)
+        : numericValues;
+
+    const last = sparkValues.length
+      ? sparkValues[sparkValues.length - 1]
       : null;
-    const min = numericValues.length
-      ? Math.min(...numericValues)
-      : null;
-    const max = numericValues.length
-      ? Math.max(...numericValues)
-      : null;
+    const min = sparkValues.length ? Math.min(...sparkValues) : null;
+    const max = sparkValues.length ? Math.max(...sparkValues) : null;
 
     setPreviewById((prev) => ({
       ...prev,
-      [instanceKey]: { last, min, max },
+      [instanceKey]: {
+        last,
+        min,
+        max,
+        values: sparkValues,
+      },
     }));
   };
 
@@ -464,10 +532,20 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 )}
 
                 {preview && (
-                  <div className="text-[11px] text-slate-300">
+                  <div className="text-[11px] text-slate-300 space-y-1">
                     <div className="font-semibold text-slate-200">Preview</div>
+
+                    {preview.values && preview.values.length > 1 && (
+                      <div className="mt-1 rounded bg-slate-950/60 border border-slate-800 px-2 py-1">
+                        <Sparkline
+                          values={preview.values}
+                          stroke={tokens.accent}
+                        />
+                      </div>
+                    )}
+
                     <div className="text-slate-400">
-                      Last: {preview.last?.toFixed(3) ?? "—"} · Min: {" "}
+                      Last: {preview.last?.toFixed(3) ?? "—"} · Min:{" "}
                       {preview.min?.toFixed(3) ?? "—"} · Max: {" "}
                       {preview.max?.toFixed(3) ?? "—"}
                     </div>

@@ -572,22 +572,151 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 )}
 
                 {preview && (
-                  <div className="text-[11px] text-slate-300 space-y-1">
-                    <div className="font-semibold text-slate-200">Preview</div>
-
-                    <div className="text-slate-400">
-                      Last: {preview.last?.toFixed(3) ?? "—"} · Min:{" "}
-                      {preview.min?.toFixed(3) ?? "—"} · Max: {" "}
-                      {preview.max?.toFixed(3) ?? "—"}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-slate-200">
+                        Preview
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Last: {preview.last?.toFixed(3) ?? "—"} · Min:{" "}
+                        {preview.min?.toFixed(3) ?? "—"} · Max:{" "}
+                        {preview.max?.toFixed(3) ?? "—"}
+                      </div>
                     </div>
 
-                    {preview.indicatorSeries.length > 1 &&
-                      preview.priceSeries.length > 1 && (
-                        <Sparkline
-                          indicator={preview.indicatorSeries}
-                          price={preview.priceSeries}
-                        />
-                      )}
+                    {(() => {
+                      const width = 220;
+                      const height = 96;
+                      const paddingTop = 4;
+                      const paddingBottom = 14;
+                      const innerHeight = height - paddingTop - paddingBottom;
+
+                      const ctx: IndicatorRuntimeContext = {
+                        symbol: "MOCK",
+                        timeframe: "1d",
+                      };
+
+                      // Recompute series here so the chart reflects current params
+                      const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
+                      const rawValues = (series.values ?? []) as (number | null | undefined)[];
+
+                      const indicatorValues = rawValues.filter(
+                        (v): v is number => typeof v === "number" && Number.isFinite(v)
+                      );
+                      const priceValues = MOCK_DAILY_BARS.map((b) => b.close);
+
+                      const n = Math.min(indicatorValues.length, priceValues.length);
+                      if (!n) return null;
+
+                      const vals = indicatorValues.slice(-n);
+                      const prices = priceValues.slice(-n);
+
+                      const minVal = Math.min(...vals);
+                      const maxVal = Math.max(...vals);
+                      const minPrice = Math.min(...prices);
+                      const maxPrice = Math.max(...prices);
+
+                      const valueRange = maxVal - minVal || 1;
+                      const priceRange = maxPrice - minPrice || 1;
+
+                      const stepX = width / Math.max(n - 1, 1);
+
+                      const yForVal = (v: number) =>
+                        paddingTop +
+                        innerHeight -
+                        ((v - minVal) / valueRange) * innerHeight;
+
+                      const yForPrice = (p: number) =>
+                        paddingTop +
+                        innerHeight -
+                        ((p - minPrice) / priceRange) * innerHeight;
+
+                      const indicatorPath = vals
+                        .map((v, i) => `${i * stepX},${yForVal(v)}`)
+                        .join(" ");
+
+                      const pricePath = prices
+                        .map((p, i) => `${i * stepX},${yForPrice(p)}`)
+                        .join(" ");
+
+                      let zeroY: number | null = null;
+                      if (minVal <= 0 && maxVal >= 0) {
+                        zeroY = yForVal(0);
+                      }
+
+                      const lastX = (n - 1) * stepX;
+                      const lastY = yForVal(vals[vals.length - 1]);
+
+                      return (
+                        <svg
+                          width={width}
+                          height={height}
+                          viewBox={`0 0 ${width} ${height}`}
+                          className="mt-1 rounded border border-slate-800 bg-slate-950/60"
+                          preserveAspectRatio="none"
+                        >
+                          {/* Background */}
+                          <rect
+                            x={0}
+                            y={0}
+                            width={width}
+                            height={height}
+                            fill="transparent"
+                          />
+
+                          {/* Horizontal grid lines */}
+                          {[0.25, 0.5, 0.75].map((frac, idx) => {
+                            const y = paddingTop + innerHeight * frac;
+                            return (
+                              <line
+                                key={idx}
+                                x1={0}
+                                x2={width}
+                                y1={y}
+                                y2={y}
+                                stroke="rgba(148,163,184,0.25)"
+                                strokeWidth={0.5}
+                              />
+                            );
+                          })}
+
+                          {/* Zero line if indicator crosses 0 */}
+                          {zeroY !== null && (
+                            <line
+                              x1={0}
+                              x2={width}
+                              y1={zeroY}
+                              y2={zeroY}
+                              stroke="#334155"
+                              strokeDasharray="3 3"
+                              strokeWidth={0.7}
+                            />
+                          )}
+
+                          {/* Price line (muted) */}
+                          <polyline
+                            fill="none"
+                            stroke="#64748b"
+                            strokeWidth={1}
+                            strokeOpacity={0.85}
+                            points={pricePath}
+                          />
+
+                          {/* Indicator line (highlight) */}
+                          <polyline
+                            fill="none"
+                            stroke="#22c55e"
+                            strokeWidth={1.4}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                            points={indicatorPath}
+                          />
+
+                          {/* Last value marker */}
+                          <circle cx={lastX} cy={lastY} r={2.3} fill="#22c55e" />
+                        </svg>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

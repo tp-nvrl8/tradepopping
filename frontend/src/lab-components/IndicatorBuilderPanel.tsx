@@ -6,6 +6,11 @@ import {
   type IndicatorDefinition,
   type IndicatorParamDef,
 } from "../lab/indicatorCatalog";
+import {
+  computeIndicatorSeries,
+  type IndicatorRuntimeContext,
+} from "../indicators/indicatorRuntime";
+import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
 
 interface IndicatorBuilderPanelProps {
   ideaName?: string;
@@ -27,6 +32,12 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
   const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
+  const [previewById, setPreviewById] = useState<
+    Record<
+      string,
+      { last: number | null; min: number | null; max: number | null }
+    >
+  >({});
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -148,6 +159,36 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     onChangeIndicators(nextIndicators);
   };
 
+  const handlePreviewIndicator = (
+    instanceKey: string,
+    inst: IndicatorInstance
+  ) => {
+    const ctx: IndicatorRuntimeContext = {
+      symbol: "MOCK",
+      timeframe: "1d",
+    };
+
+    const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
+    const numericValues = series.values.filter(
+      (v): v is number => typeof v === "number" && Number.isFinite(v)
+    );
+
+    const last = numericValues.length
+      ? numericValues[numericValues.length - 1]
+      : null;
+    const min = numericValues.length
+      ? Math.min(...numericValues)
+      : null;
+    const max = numericValues.length
+      ? Math.max(...numericValues)
+      : null;
+
+    setPreviewById((prev) => ({
+      ...prev,
+      [instanceKey]: { last, min, max },
+    }));
+  };
+
   return (
     <div
       className="text-xs rounded-md border flex flex-col gap-3 p-3"
@@ -201,8 +242,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           </div>
         ) : (
           indicators.map((inst, index) => {
-            const instanceKey = `${inst.id}-${index}`;
+            const instanceKey = String(index);
             const def = catalogById.get(inst.id);
+            const preview = previewById[instanceKey];
             return (
               <div
                 key={instanceKey}
@@ -259,6 +301,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         ⓘ
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handlePreviewIndicator(instanceKey, inst)}
+                      className="text-[10px] px-2 py-0.5 rounded border border-emerald-500 text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20"
+                    >
+                      Preview
+                    </button>
                     <button
                       type="button"
                       onClick={() => toggleNotes(instanceKey)}
@@ -411,6 +460,17 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         onChangeIndicators(nextList);
                       }}
                     />
+                  </div>
+                )}
+
+                {preview && (
+                  <div className="text-[11px] text-slate-300">
+                    <div className="font-semibold text-slate-200">Preview</div>
+                    <div className="text-slate-400">
+                      Last: {preview.last?.toFixed(3) ?? "—"} · Min: {" "}
+                      {preview.min?.toFixed(3) ?? "—"} · Max: {" "}
+                      {preview.max?.toFixed(3) ?? "—"}
+                    </div>
                   </div>
                 )}
               </div>

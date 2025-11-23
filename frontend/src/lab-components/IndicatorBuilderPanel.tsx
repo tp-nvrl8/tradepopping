@@ -115,6 +115,10 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     {}
   );
   const [showSparklineHelp, setShowSparklineHelp] = useState(false);
+  const [previewModal, setPreviewModal] = useState<{
+    open: boolean;
+    index: number | null;
+  }>({ open: false, index: null });
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -291,14 +295,15 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   };
 
   return (
-    <div
-      className="text-xs rounded-md border flex flex-col gap-3 p-3"
-      style={{
-        background: tokens.surfaceMuted,
-        borderColor: tokens.border,
-        color: tokens.textPrimary,
-      }}
-    >
+    <>
+      <div
+        className="text-xs rounded-md border flex flex-col gap-3 p-3"
+        style={{
+          background: tokens.surfaceMuted,
+          borderColor: tokens.border,
+          color: tokens.textPrimary,
+        }}
+      >
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div className="space-y-0.5">
           <div className="text-[11px] uppercase tracking-wide text-slate-400">
@@ -574,8 +579,18 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 {preview && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center justify-between">
-                      <div className="text-[11px] font-semibold text-slate-200">
-                        Preview
+                      <div className="flex items-center gap-2">
+                        <div className="text-[11px] font-semibold text-slate-200">
+                          Preview
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModal({ open: true, index })}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                          title="Open large preview"
+                        >
+                          ⤢
+                        </button>
                       </div>
                       <div className="text-[10px] text-slate-400">
                         Last: {preview.last?.toFixed(3) ?? "—"} · Min:{" "}
@@ -892,6 +907,216 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         </div>
       )}
     </div>
+
+      {previewModal.open &&
+        previewModal.index !== null &&
+        previewModal.index >= 0 &&
+        previewModal.index < indicators.length && (() => {
+          const index = previewModal.index;
+          const inst = indicators[index];
+          const def = catalogById.get(inst.id);
+
+          if (!inst || !def) return null;
+
+          const ctx: IndicatorRuntimeContext = {
+            symbol: "MOCK",
+            timeframe: "1d",
+          };
+
+          const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
+          const rawValues = (series.values ?? []) as (number | null | undefined)[];
+
+          const indicatorValues = rawValues.filter(
+            (v): v is number => typeof v === "number" && Number.isFinite(v)
+          );
+          const priceValues = MOCK_DAILY_BARS.map((b) => b.close);
+
+          const n = Math.min(indicatorValues.length, priceValues.length);
+          if (!n) return null;
+
+          const width = 520;
+          const height = 220;
+          const paddingTop = 10;
+          const paddingBottom = 28;
+          const innerHeight = height - paddingTop - paddingBottom;
+
+          const vals = indicatorValues.slice(-n);
+          const prices = priceValues.slice(-n);
+
+          const minVal = Math.min(...vals);
+          const maxVal = Math.max(...vals);
+          const minPrice = Math.min(...prices);
+          const maxPrice = Math.max(...prices);
+
+          const valueRange = maxVal - minVal || 1;
+          const priceRange = maxPrice - minPrice || 1;
+
+          const stepX = width / Math.max(n - 1, 1);
+
+          const yForVal = (v: number) =>
+            paddingTop +
+            innerHeight -
+            ((v - minVal) / valueRange) * innerHeight;
+
+          const yForPrice = (p: number) =>
+            paddingTop +
+            innerHeight -
+            ((p - minPrice) / priceRange) * innerHeight;
+
+          const indicatorPath = vals
+            .map((v, i) => `${i * stepX},${yForVal(v)}`)
+            .join(" ");
+
+          const pricePath = prices
+            .map((p, i) => `${i * stepX},${yForPrice(p)}`)
+            .join(" ");
+
+          let zeroY: number | null = null;
+          if (minVal <= 0 && maxVal >= 0) {
+            zeroY = yForVal(0);
+          }
+
+          const lastX = (n - 1) * stepX;
+          const lastY = yForVal(vals[vals.length - 1]);
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+              <div className="w-[600px] max-w-full rounded-lg border border-slate-700 bg-slate-950 p-4 shadow-2xl">
+                {/* Modal header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-100">
+                      {def.name} – Large Preview
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Idea:{" "}
+                      <span className="font-semibold text-slate-200">
+                        {ideaName ?? "no idea selected"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewModal({ open: false, index: null })}
+                    className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+
+                {/* Chart */}
+                <div className="mb-3">
+                  <svg
+                    width={width}
+                    height={height}
+                    viewBox={`0 0 ${width} ${height}`}
+                    className="rounded-md border border-slate-800 bg-slate-950/80"
+                    preserveAspectRatio="none"
+                  >
+                    {/* Background */}
+                    <rect
+                      x={0}
+                      y={0}
+                      width={width}
+                      height={height}
+                      fill="transparent"
+                    />
+
+                    {/* Horizontal grid lines */}
+                    {[0.25, 0.5, 0.75].map((frac, idx) => {
+                      const y = paddingTop + innerHeight * frac;
+                      return (
+                        <line
+                          key={idx}
+                          x1={0}
+                          x2={width}
+                          y1={y}
+                          y2={y}
+                          stroke="rgba(148,163,184,0.25)"
+                          strokeWidth={0.5}
+                        />
+                      );
+                    })}
+
+                    {/* Zero line if indicator crosses 0 */}
+                    {zeroY !== null && (
+                      <line
+                        x1={0}
+                        x2={width}
+                        y1={zeroY}
+                        y2={zeroY}
+                        stroke="#334155"
+                        strokeDasharray="3 3"
+                        strokeWidth={0.7}
+                      />
+                    )}
+
+                    {/* Price line (muted) */}
+                    <polyline
+                      fill="none"
+                      stroke="#64748b"
+                      strokeWidth={1}
+                      strokeOpacity={0.85}
+                      points={pricePath}
+                    />
+
+                    {/* Indicator line (highlight) */}
+                    <polyline
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth={1.6}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points={indicatorPath}
+                    />
+
+                    {/* Last value marker */}
+                    <circle cx={lastX} cy={lastY} r={3} fill="#22c55e" />
+                  </svg>
+                </div>
+
+                {/* How to read this chart */}
+                <div className="text-[11px] text-slate-300 space-y-1">
+                  <div className="flex items-center gap-1 font-semibold">
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-600 text-[10px] text-slate-300">
+                      ?
+                    </span>
+                    <span>How to read this chart</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-slate-400">
+                    <li>
+                      <span className="text-emerald-300 font-medium">
+                        Green line
+                      </span>{" "}
+                      = indicator values over time (your logic / math).
+                    </li>
+                    <li>
+                      <span className="text-slate-300 font-medium">
+                        Gray line
+                      </span>{" "}
+                      = underlying price, normalized to fit.
+                    </li>
+                    <li>
+                      Watch how the green line reacts around the{" "}
+                      <span className="text-slate-200">zero line</span> and near
+                      recent highs/lows – do strong moves line up with good trades?
+                    </li>
+                    <li>
+                      Look for patterns: expanding swings in the indicator during
+                      breakouts, compression before big moves, or divergences where
+                      price makes a new high/low but the indicator doesn&apos;t.
+                    </li>
+                    <li>
+                      The last dot marks the most recent value – this is what would
+                      be used at scan/decision time.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+    </>
   );
 };
 

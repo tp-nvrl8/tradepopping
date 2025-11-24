@@ -5,6 +5,7 @@ import {
   INDICATOR_CATALOG,
   type IndicatorDefinition,
   type IndicatorParamDef,
+  type IndicatorOutputType,
 } from "../lab/indicatorCatalog";
 import {
   computeIndicatorSeries,
@@ -12,90 +13,19 @@ import {
 } from "../indicators/indicatorRuntime";
 import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
 
-// --- Sparkline + preview types ---
-type PreviewStats = {
-  last: number | null;
-  min: number | null;
-  max: number | null;
-  indicatorSeries: number[];
-  priceSeries: number[];
-};
-
-const Sparkline: React.FC<{
-  indicator: number[];
-  price: number[];
-}> = ({ indicator, price }) => {
-  const width = 120;
-  const height = 32;
-
-  if (indicator.length < 2 || price.length < 2) {
-    return null;
-  }
-
-  const maxLen = Math.min(indicator.length, price.length);
-
-  const indSlice = indicator.slice(indicator.length - maxLen);
-  const priceSlice = price.slice(price.length - maxLen);
-
-  const allValues = [...indSlice, ...priceSlice];
-  const vMin = Math.min(...allValues);
-  const vMax = Math.max(...allValues);
-  const span = vMax - vMin || 1;
-
-  const scaleX = (i: number) =>
-    (i / (maxLen - 1)) * (width - 4) + 2;
-  const scaleY = (v: number) =>
-    height - 2 - ((v - vMin) / span) * (height - 4);
-
-  const toPath = (vals: number[]) =>
-    vals
-      .map((v, i) => `${i === 0 ? "M" : "L"} ${scaleX(i)} ${scaleY(v)}`)
-      .join(" ");
-
-  const indicatorPath = toPath(indSlice);
-  const pricePath = toPath(priceSlice);
-
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      className="mt-1"
-    >
-      <rect
-        x={0.5}
-        y={0.5}
-        width={width - 1}
-        height={height - 1}
-        rx={3}
-        ry={3}
-        fill="transparent"
-        stroke="rgba(148, 163, 184, 0.3)"
-        strokeWidth={0.5}
-      />
-      {/* Price line (different color) */}
-      <path
-        d={pricePath}
-        fill="none"
-        stroke="#f97316"
-        strokeWidth={1}
-      />
-      {/* Indicator line */}
-      <path
-        d={indicatorPath}
-        fill="none"
-        stroke="#38bdf8"
-        strokeWidth={1}
-      />
-    </svg>
-  );
-};
-
 interface IndicatorBuilderPanelProps {
   ideaName?: string;
   indicators: IndicatorInstance[];
   onChangeIndicators: (next: IndicatorInstance[]) => void;
 }
+
+type PreviewSnapshot = {
+  outputType: IndicatorOutputType;
+  values: (number | null)[];
+  last: number | null;
+  min: number | null;
+  max: number | null;
+};
 
 const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   ideaName,
@@ -111,14 +41,10 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
   const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
-  const [previewById, setPreviewById] = useState<Record<string, PreviewStats>>(
-    {}
-  );
-  const [showSparklineHelp, setShowSparklineHelp] = useState(false);
-  const [previewModal, setPreviewModal] = useState<{
-    open: boolean;
-    index: number | null;
-  }>({ open: false, index: null });
+  const [previewById, setPreviewById] = useState<
+    Record<string, PreviewSnapshot>
+  >({});
+  const [showPreviewHelp, setShowPreviewHelp] = useState<boolean>(false);
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -249,10 +175,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       timeframe: "1d",
     };
 
-    const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
-    const numericValues = series.values.filter(
-      (v): v is number =>
-        typeof v === "number" && Number.isFinite(v)
+    const result = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
+    const numericValues = result.values.filter(
+      (v): v is number => typeof v === "number" && Number.isFinite(v)
     );
 
     const last = numericValues.length
@@ -265,59 +190,319 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       ? Math.max(...numericValues)
       : null;
 
-    // Build aligned indicator + price series (using only numeric indicator values)
-    const indicatorSeries: number[] = [];
-    const priceSeries: number[] = [];
-
-    if (numericValues.length > 0) {
-      const closes = MOCK_DAILY_BARS.map((b) => b.close);
-
-      // Use the last N bars matching numericValues length
-      const N = Math.min(numericValues.length, closes.length);
-      const startIdx = closes.length - N;
-
-      for (let i = 0; i < N; i++) {
-        indicatorSeries.push(numericValues[numericValues.length - N + i]);
-        priceSeries.push(closes[startIdx + i]);
-      }
-    }
-
     setPreviewById((prev) => ({
       ...prev,
       [instanceKey]: {
+        outputType: result.outputType,
+        values: result.values,
         last,
         min,
         max,
-        indicatorSeries,
-        priceSeries,
       },
     }));
   };
 
-  return (
-    <>
-      <div
-        className="text-xs rounded-md border flex flex-col gap-3 p-3"
-        style={{
-          background: tokens.surfaceMuted,
-          borderColor: tokens.border,
-          color: tokens.textPrimary,
-        }}
+  /**
+   * Render a tiny sparkline that behaves differently
+   * depending on preview.outputType.
+   */
+  const renderSparkline = (preview: PreviewSnapshot) => {
+    const width = 180;
+    const height = 50;
+    const padding = 5;
+
+    const rawValues = preview.values;
+    const numericValues = rawValues
+      .map((v) => (v == null ? null : Number(v)))
+      .filter((v): v is number => Number.isFinite(v));
+
+    if (numericValues.length < 2) {
+      return (
+        <div className="text-[10px] text-slate-500">
+          Not enough data to preview yet.
+        </div>
+      );
+    }
+
+    let min = preview.min ?? Math.min(...numericValues);
+    let max = preview.max ?? Math.max(...numericValues);
+    if (min === max) {
+      min -= 1;
+      max += 1;
+    }
+
+    const usableWidth = width - padding * 2;
+    const usableHeight = height - padding * 2;
+
+    const scaleX = (index: number, length: number) =>
+      length <= 1
+        ? padding + usableWidth / 2
+        : padding + (index / (length - 1)) * usableWidth;
+
+    const scaleY = (value: number) => {
+      const t = (value - min) / (max - min);
+      const clamped = Math.max(0, Math.min(1, t));
+      return padding + (1 - clamped) * usableHeight;
+    };
+
+    const valuesForPath = rawValues.map((v) =>
+      v == null ? null : Number(v)
+    );
+
+    const buildLinePath = () => {
+      let d = "";
+      for (let i = 0; i < valuesForPath.length; i++) {
+        const v = valuesForPath[i];
+        if (v == null || !Number.isFinite(v)) continue;
+        const x = scaleX(i, valuesForPath.length);
+        const y = scaleY(v);
+        d += d ? ` L ${x} ${y}` : `M ${x} ${y}`;
+      }
+      return d || "M 0 0";
+    };
+
+    const outputType = preview.outputType;
+
+    if (outputType === "regime") {
+      // Regime: color-coded stripes (0–3 codes)
+      const regimeColors: Record<number, string> = {
+        0: "#38bdf8", // quiet
+        1: "#22c55e", // normal
+        2: "#eab308", // expanding
+        3: "#f97316", // crisis / strong move
+      };
+
+      const segmentWidth =
+        usableWidth / Math.max(1, valuesForPath.length);
+
+      return (
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill="#020617"
+            rx={4}
+          />
+          {valuesForPath.map((v, i) => {
+            if (v == null || !Number.isFinite(v)) return null;
+            const code = Math.round(v);
+            const color = regimeColors[code] ?? "#64748b";
+            const x = padding + i * segmentWidth;
+            return (
+              <rect
+                key={i}
+                x={x}
+                y={padding}
+                width={segmentWidth + 0.5}
+                height={usableHeight}
+                fill={color}
+                opacity={0.7}
+              />
+            );
+          })}
+          <rect
+            x={padding}
+            y={padding}
+            width={usableWidth}
+            height={usableHeight}
+            fill="none"
+            stroke="#0f172a"
+            strokeWidth={0.8}
+            rx={3}
+          />
+        </svg>
+      );
+    }
+
+    if (outputType === "binary") {
+      // Binary: step-like line + dots at 0/1
+      const path = buildLinePath();
+
+      return (
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill="#020617"
+            rx={4}
+          />
+          <path
+            d={path}
+            fill="none"
+            stroke="#38bdf8"
+            strokeWidth={1.4}
+          />
+          {valuesForPath.map((v, i) => {
+            if (v == null || !Number.isFinite(v)) return null;
+            const x = scaleX(i, valuesForPath.length);
+            const y = scaleY(v);
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r={2.1}
+                fill="#e5e7eb"
+                stroke="#0f172a"
+                strokeWidth={0.7}
+              />
+            );
+          })}
+          <rect
+            x={padding}
+            y={padding}
+            width={usableWidth}
+            height={usableHeight}
+            fill="none"
+            stroke="#0f172a"
+            strokeWidth={0.8}
+            rx={3}
+          />
+        </svg>
+      );
+    }
+
+    if (outputType === "score") {
+      // Score: line + midline band
+      const path = buildLinePath();
+
+      const midValue = (min + max) / 2;
+      const midY = scaleY(midValue);
+      const bandHeight = usableHeight * 0.16;
+
+      return (
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill="#020617"
+            rx={4}
+          />
+          <rect
+            x={padding}
+            width={usableWidth}
+            y={midY - bandHeight / 2}
+            height={bandHeight}
+            fill="#22c55e"
+            opacity={0.12}
+          />
+          <line
+            x1={padding}
+            x2={padding + usableWidth}
+            y1={midY}
+            y2={midY}
+            stroke="#22c55e"
+            strokeDasharray="3 3"
+            strokeWidth={0.8}
+          />
+          <path
+            d={path}
+            fill="none"
+            stroke="#fbbf24"
+            strokeWidth={1.4}
+          />
+          <rect
+            x={padding}
+            y={padding}
+            width={usableWidth}
+            height={usableHeight}
+            fill="none"
+            stroke="#0f172a"
+            strokeWidth={0.8}
+            rx={3}
+          />
+        </svg>
+      );
+    }
+
+    // Default (numeric, custom, etc.): plain line
+    const path = buildLinePath();
+
+    return (
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
       >
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fill="#020617"
+          rx={4}
+        />
+        <path
+          d={path}
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth={1.4}
+        />
+        <rect
+          x={padding}
+          y={padding}
+          width={usableWidth}
+          height={usableHeight}
+          fill="none"
+          stroke="#0f172a"
+          strokeWidth={0.8}
+          rx={3}
+        />
+      </svg>
+    );
+  };
+
+  return (
+    <div
+      className="text-xs rounded-md border flex flex-col gap-3 p-3"
+      style={{
+        background: tokens.surfaceMuted,
+        borderColor: tokens.border,
+        color: tokens.textPrimary,
+      }}
+    >
+      {/* Header row */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="space-y-0.5">
           <div className="text-[11px] uppercase tracking-wide text-slate-400">
             Indicator Builder
           </div>
           <div className="text-[11px] text-slate-500">
-            Attached to idea: {" "}
+            Attached to idea:{" "}
             <span className="font-semibold text-slate-200">
               {ideaName ?? "no idea selected"}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPreviewHelp((prev) => !prev)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-600 text-[11px] text-slate-200 hover:bg-slate-800"
+          >
+            <span className="text-xs">❔</span>
+            <span>How to read previews</span>
+          </button>
+
           <select
             className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
             value={selectedToAdd}
@@ -341,6 +526,42 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         </div>
       </div>
 
+      {/* Help panel */}
+      {showPreviewHelp && (
+        <div className="rounded-md border border-slate-700 bg-slate-900/70 px-3 py-2 text-[11px] space-y-2">
+          <div className="font-semibold text-slate-200">
+            How to read these tiny previews
+          </div>
+          <ul className="list-disc list-inside space-y-1 text-slate-300">
+            <li>
+              <span className="font-semibold">numeric:</span> plain blue line.  
+              Look for slope (trend), smooth vs choppy, and big jumps.
+            </li>
+            <li>
+              <span className="font-semibold">score:</span> yellow line with a
+              green mid-band.  
+              Are values hugging the middle (neutral) or living above/below
+              (persistent bias)?
+            </li>
+            <li>
+              <span className="font-semibold">binary:</span> dots/steps around
+              two levels.  
+              Shows how often this signal turns on/off and if it clusters.
+            </li>
+            <li>
+              <span className="font-semibold">regime:</span> colored vertical
+              bars.  
+              Color shifts show how the environment changes over time
+              (quiet → normal → expanding → crisis).
+            </li>
+          </ul>
+          <p className="text-[10px] text-slate-500">
+            These are quick “personality cards” for each indicator under your
+            current settings — not trade signals by themselves.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         {indicators.length === 0 ? (
           <div className="text-[11px] text-slate-500">
@@ -351,6 +572,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
             const instanceKey = String(index);
             const def = catalogById.get(inst.id);
             const preview = previewById[instanceKey];
+
             return (
               <div
                 key={instanceKey}
@@ -364,19 +586,18 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-[12px] font-semibold">
                       <span>{def?.name ?? inst.id}</span>
+
                       {def?.outputType && (
-                        <span
-                          className="uppercase text-[9px] px-1.5 py-0.5 rounded-full border border-slate-700 bg-slate-900 text-slate-300"
-                          title="Output type"
-                        >
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-slate-700 text-slate-300 uppercase tracking-wide">
                           {def.outputType}
                         </span>
                       )}
+
                       {def?.description && (
                         <button
                           type="button"
                           onClick={() => toggleInfo(index)}
-                          className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                          className="ml-1 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
                         >
                           ⓘ
                         </button>
@@ -406,28 +627,14 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         ↓
                       </button>
                     </div>
-                    {def?.description && (
-                      <button
-                        type="button"
-                        onClick={() => toggleInfo(index)}
-                        className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
-                      >
-                        ⓘ
-                      </button>
-                    )}
                     <button
                       type="button"
-                      onClick={() => handlePreviewIndicator(instanceKey, inst)}
+                      onClick={() =>
+                        handlePreviewIndicator(instanceKey, inst)
+                      }
                       className="text-[10px] px-2 py-0.5 rounded border border-emerald-500 text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20"
                     >
                       Preview
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowSparklineHelp(true)}
-                      className="text-[10px] px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-800"
-                    >
-                      ?
                     </button>
                     <button
                       type="button"
@@ -572,7 +779,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     <textarea
                       className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 min-h-[60px]"
                       placeholder="What did you notice about this indicator for this idea?"
-                      value={(inst.notes ?? "") as string}
+                      value={(inst as any).notes ?? ""}
                       onChange={(e) => {
                         const nextNotes = e.target.value;
                         const nextList = indicators.map((ind, idx) =>
@@ -585,161 +792,27 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 )}
 
                 {preview && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1 text-[11px] text-slate-300">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="text-[11px] font-semibold text-slate-200">
-                          Preview
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewModal({ open: true, index })}
-                          className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
-                          title="Open large preview"
-                        >
-                          ⤢
-                        </button>
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        Last: {preview.last?.toFixed(3) ?? "—"} · Min:{" "}
-                        {preview.min?.toFixed(3) ?? "—"} · Max:{" "}
-                        {preview.max?.toFixed(3) ?? "—"}
-                      </div>
+                      <span className="font-semibold text-slate-200">
+                        Preview ({preview.outputType})
+                      </span>
+                      <span className="text-slate-400">
+                        Last:{" "}
+                        {preview.last != null
+                          ? preview.last.toFixed(3)
+                          : "—"}
+                        {" · "}Min:{" "}
+                        {preview.min != null
+                          ? preview.min.toFixed(3)
+                          : "—"}
+                        {" · "}Max:{" "}
+                        {preview.max != null
+                          ? preview.max.toFixed(3)
+                          : "—"}
+                      </span>
                     </div>
-
-                    {(() => {
-                      const width = 220;
-                      const height = 96;
-                      const paddingTop = 4;
-                      const paddingBottom = 14;
-                      const innerHeight = height - paddingTop - paddingBottom;
-
-                      const ctx: IndicatorRuntimeContext = {
-                        symbol: "MOCK",
-                        timeframe: "1d",
-                      };
-
-                      // Recompute series here so the chart reflects current params
-                      const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
-                      const rawValues = (series.values ?? []) as (number | null | undefined)[];
-
-                      const indicatorValues = rawValues.filter(
-                        (v): v is number => typeof v === "number" && Number.isFinite(v)
-                      );
-                      const priceValues = MOCK_DAILY_BARS.map((b) => b.close);
-
-                      const n = Math.min(indicatorValues.length, priceValues.length);
-                      if (!n) return null;
-
-                      const vals = indicatorValues.slice(-n);
-                      const prices = priceValues.slice(-n);
-
-                      const minVal = Math.min(...vals);
-                      const maxVal = Math.max(...vals);
-                      const minPrice = Math.min(...prices);
-                      const maxPrice = Math.max(...prices);
-
-                      const valueRange = maxVal - minVal || 1;
-                      const priceRange = maxPrice - minPrice || 1;
-
-                      const stepX = width / Math.max(n - 1, 1);
-
-                      const yForVal = (v: number) =>
-                        paddingTop +
-                        innerHeight -
-                        ((v - minVal) / valueRange) * innerHeight;
-
-                      const yForPrice = (p: number) =>
-                        paddingTop +
-                        innerHeight -
-                        ((p - minPrice) / priceRange) * innerHeight;
-
-                      const indicatorPath = vals
-                        .map((v, i) => `${i * stepX},${yForVal(v)}`)
-                        .join(" ");
-
-                      const pricePath = prices
-                        .map((p, i) => `${i * stepX},${yForPrice(p)}`)
-                        .join(" ");
-
-                      let zeroY: number | null = null;
-                      if (minVal <= 0 && maxVal >= 0) {
-                        zeroY = yForVal(0);
-                      }
-
-                      const lastX = (n - 1) * stepX;
-                      const lastY = yForVal(vals[vals.length - 1]);
-
-                      return (
-                        <svg
-                          width={width}
-                          height={height}
-                          viewBox={`0 0 ${width} ${height}`}
-                          className="mt-1 rounded border border-slate-800 bg-slate-950/60"
-                          preserveAspectRatio="none"
-                        >
-                          {/* Background */}
-                          <rect
-                            x={0}
-                            y={0}
-                            width={width}
-                            height={height}
-                            fill="transparent"
-                          />
-
-                          {/* Horizontal grid lines */}
-                          {[0.25, 0.5, 0.75].map((frac, idx) => {
-                            const y = paddingTop + innerHeight * frac;
-                            return (
-                              <line
-                                key={idx}
-                                x1={0}
-                                x2={width}
-                                y1={y}
-                                y2={y}
-                                stroke="rgba(148,163,184,0.25)"
-                                strokeWidth={0.5}
-                              />
-                            );
-                          })}
-
-                          {/* Zero line if indicator crosses 0 */}
-                          {zeroY !== null && (
-                            <line
-                              x1={0}
-                              x2={width}
-                              y1={zeroY}
-                              y2={zeroY}
-                              stroke="#334155"
-                              strokeDasharray="3 3"
-                              strokeWidth={0.7}
-                            />
-                          )}
-
-                          {/* Price line (muted) */}
-                          <polyline
-                            fill="none"
-                            stroke="#64748b"
-                            strokeWidth={1}
-                            strokeOpacity={0.85}
-                            points={pricePath}
-                          />
-
-                          {/* Indicator line (highlight) */}
-                          <polyline
-                            fill="none"
-                            stroke="#22c55e"
-                            strokeWidth={1.4}
-                            strokeLinejoin="round"
-                            strokeLinecap="round"
-                            points={indicatorPath}
-                          />
-
-                          {/* Last value marker */}
-                          <circle cx={lastX} cy={lastY} r={2.3} fill="#22c55e" />
-                        </svg>
-                      );
-                    })()}
+                    <div>{renderSparkline(preview)}</div>
                   </div>
                 )}
               </div>
@@ -747,384 +820,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           })
         )}
       </div>
-
-      {showSparklineHelp && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
-          <div className="max-w-xl w-[90vw] max-h-[80vh] overflow-y-auto bg-slate-950 border border-slate-700 rounded-lg p-4 text-xs text-slate-200 shadow-xl">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-slate-100">
-                Sparkline Interpretation Guide
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowSparklineHelp(false)}
-                className="text-[11px] px-2 py-0.5 rounded border border-slate-600 text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="space-y-3 text-[11px] leading-snug">
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  What sparkline previews are
-                </h3>
-                <p className="text-slate-300">
-                  A sparkline is a tiny chart showing the most recent values of an indicator.
-                  It lets you quickly judge the shape, quality, and behavior of the signal:
-                  are you seeing trends, oscillations, compression, or just noise?
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  1. Does the indicator behave how you expect?
-                </h3>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li>Smooth drift is typical for trend/regime indicators.</li>
-                  <li>Up-and-down waves are typical for mean reversion tools.</li>
-                  <li>Sudden expansions and compressions are typical for volatility tools.</li>
-                  <li>Stable zones or plateaus are typical for regime or threshold flags.</li>
-                </ul>
-                <p className="text-slate-400 mt-1">
-                  If the sparkline looks like pure random static, the configuration is probably wrong
-                  or the indicator is not a good fit for this idea.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  2. Using sparklines to tune parameters
-                </h3>
-                <p className="text-slate-300">
-                  Change lookbacks and thresholds, then glance at the sparkline:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li><span className="font-semibold">Too smooth:</span> reacts slowly, may miss entries.</li>
-                  <li><span className="font-semibold">Too jagged:</span> over-reacts to noise, whipsaws a lot.</li>
-                  <li><span className="font-semibold">Almost flat:</span> window is too long or normalization is off.</li>
-                  <li><span className="font-semibold">Violent spikes everywhere:</span> thresholds are too tight or the formula is unstable.</li>
-                </ul>
-                <p className="text-slate-400 mt-1">
-                  Your goal is a shape that matches how you want to trade the idea
-                  (gentle regime drift, sharp extremes, clear bursts of pressure, etc.).
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  3. Reading divergence (math vs price)
-                </h3>
-                <p className="text-slate-300">
-                  When this is wired to real price data, you can compare the indicator sparkline
-                  to a price sparkline:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li>Indicator rising while price is flat: possible accumulation.</li>
-                  <li>Indicator falling while price is flat: possible distribution.</li>
-                  <li>Indicator flattening while price still trends: trend is aging or losing strength.</li>
-                  <li>Indicator curling up while price is still weak: selling may be exhausting.</li>
-                </ul>
-                <p className="text-slate-400 mt-1">
-                  This is the visual version of “math moves first, price catches up later”.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  4. Spotting hidden structure
-                </h3>
-                <p className="text-slate-300">
-                  Over time you&apos;ll recognize recurring shapes:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li>Flat then sudden expansion: volatility squeeze and release.</li>
-                  <li>Repeated spikes around the same level: strong reaction zone.</li>
-                  <li>Gentle curling turns: trend transitions rather than hard reversals.</li>
-                  <li>Plateaus at extreme values: persistent pressure or regime lock-in.</li>
-                </ul>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  5. Quality check before using an indicator in scoring
-                </h3>
-                <p className="text-slate-300">
-                  Before you rely on an indicator in Candidates or the Test Stand, ask:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li>Does this sparkline clearly react to meaningful changes?</li>
-                  <li>Are there obvious extremes that would make good entry/exit zones?</li>
-                  <li>Does the pattern look stable across time, or completely random?</li>
-                </ul>
-                <p className="text-slate-400 mt-1">
-                  If the sparkline doesn&apos;t show anything tradeable, consider removing the indicator
-                  from this idea or adjusting the parameters.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  6. Debugging data problems
-                </h3>
-                <p className="text-slate-300">
-                  Sparkline shapes can also reveal data issues:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li><span className="font-semibold">Perfectly flat line:</span> missing data, wrong symbol, or constant value.</li>
-                  <li><span className="font-semibold">Single giant spike:</span> one bad bar or outlier from the feed.</li>
-                  <li><span className="font-semibold">Saw-tooth pattern:</span> sorting or duplicate-bar issues.</li>
-                  <li><span className="font-semibold">Gaps in values:</span> missing days or inconsistent history length.</li>
-                </ul>
-                <p className="text-slate-400 mt-1">
-                  If something looks off, it probably is — check the upstream data before trusting the signal.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  7. Comparing indicators side by side
-                </h3>
-                <p className="text-slate-300">
-                  With multiple indicators stacked, you can see:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-1">
-                  <li>Which ones move together (redundant signals).</li>
-                  <li>Which ones lead or lag (good for stacking entries and exits).</li>
-                  <li>Which ones only wake up in certain regimes.</li>
-                </ul>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-slate-100 mb-1">
-                  8. The big question
-                </h3>
-                <p className="text-slate-300">
-                  For each indicator, the sparkline is asking:
-                </p>
-                <p className="italic text-slate-200 mt-1">
-                  “Does this line give me anything I can actually trade?”
-                </p>
-                <p className="text-slate-400 mt-1">
-                  If the answer is no, simplify the idea or adjust the math until the sparkline
-                  tells a clear, repeatable story.
-                </p>
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-
-      {previewModal.open &&
-        previewModal.index !== null &&
-        previewModal.index >= 0 &&
-        previewModal.index < indicators.length && (() => {
-          const index = previewModal.index;
-          const inst = indicators[index];
-          const def = catalogById.get(inst.id);
-
-          if (!inst || !def) return null;
-
-          const ctx: IndicatorRuntimeContext = {
-            symbol: "MOCK",
-            timeframe: "1d",
-          };
-
-          const series = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
-          const rawValues = (series.values ?? []) as (number | null | undefined)[];
-
-          const indicatorValues = rawValues.filter(
-            (v): v is number => typeof v === "number" && Number.isFinite(v)
-          );
-          const priceValues = MOCK_DAILY_BARS.map((b) => b.close);
-
-          const n = Math.min(indicatorValues.length, priceValues.length);
-          if (!n) return null;
-
-          const width = 520;
-          const height = 220;
-          const paddingTop = 10;
-          const paddingBottom = 28;
-          const innerHeight = height - paddingTop - paddingBottom;
-
-          const vals = indicatorValues.slice(-n);
-          const prices = priceValues.slice(-n);
-
-          const minVal = Math.min(...vals);
-          const maxVal = Math.max(...vals);
-          const minPrice = Math.min(...prices);
-          const maxPrice = Math.max(...prices);
-
-          const valueRange = maxVal - minVal || 1;
-          const priceRange = maxPrice - minPrice || 1;
-
-          const stepX = width / Math.max(n - 1, 1);
-
-          const yForVal = (v: number) =>
-            paddingTop +
-            innerHeight -
-            ((v - minVal) / valueRange) * innerHeight;
-
-          const yForPrice = (p: number) =>
-            paddingTop +
-            innerHeight -
-            ((p - minPrice) / priceRange) * innerHeight;
-
-          const indicatorPath = vals
-            .map((v, i) => `${i * stepX},${yForVal(v)}`)
-            .join(" ");
-
-          const pricePath = prices
-            .map((p, i) => `${i * stepX},${yForPrice(p)}`)
-            .join(" ");
-
-          let zeroY: number | null = null;
-          if (minVal <= 0 && maxVal >= 0) {
-            zeroY = yForVal(0);
-          }
-
-          const lastX = (n - 1) * stepX;
-          const lastY = yForVal(vals[vals.length - 1]);
-
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-              <div className="w-[600px] max-w-full rounded-lg border border-slate-700 bg-slate-950 p-4 shadow-2xl">
-                {/* Modal header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-100">
-                      {def.name} – Large Preview
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      Idea:{" "}
-                      <span className="font-semibold text-slate-200">
-                        {ideaName ?? "no idea selected"}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewModal({ open: false, index: null })}
-                    className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
-                  >
-                    ✕ Close
-                  </button>
-                </div>
-
-                {/* Chart */}
-                <div className="mb-3">
-                  <svg
-                    width={width}
-                    height={height}
-                    viewBox={`0 0 ${width} ${height}`}
-                    className="rounded-md border border-slate-800 bg-slate-950/80"
-                    preserveAspectRatio="none"
-                  >
-                    {/* Background */}
-                    <rect
-                      x={0}
-                      y={0}
-                      width={width}
-                      height={height}
-                      fill="transparent"
-                    />
-
-                    {/* Horizontal grid lines */}
-                    {[0.25, 0.5, 0.75].map((frac, idx) => {
-                      const y = paddingTop + innerHeight * frac;
-                      return (
-                        <line
-                          key={idx}
-                          x1={0}
-                          x2={width}
-                          y1={y}
-                          y2={y}
-                          stroke="rgba(148,163,184,0.25)"
-                          strokeWidth={0.5}
-                        />
-                      );
-                    })}
-
-                    {/* Zero line if indicator crosses 0 */}
-                    {zeroY !== null && (
-                      <line
-                        x1={0}
-                        x2={width}
-                        y1={zeroY}
-                        y2={zeroY}
-                        stroke="#334155"
-                        strokeDasharray="3 3"
-                        strokeWidth={0.7}
-                      />
-                    )}
-
-                    {/* Price line (muted) */}
-                    <polyline
-                      fill="none"
-                      stroke="#64748b"
-                      strokeWidth={1}
-                      strokeOpacity={0.85}
-                      points={pricePath}
-                    />
-
-                    {/* Indicator line (highlight) */}
-                    <polyline
-                      fill="none"
-                      stroke="#22c55e"
-                      strokeWidth={1.6}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      points={indicatorPath}
-                    />
-
-                    {/* Last value marker */}
-                    <circle cx={lastX} cy={lastY} r={3} fill="#22c55e" />
-                  </svg>
-                </div>
-
-                {/* How to read this chart */}
-                <div className="text-[11px] text-slate-300 space-y-1">
-                  <div className="flex items-center gap-1 font-semibold">
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-600 text-[10px] text-slate-300">
-                      ?
-                    </span>
-                    <span>How to read this chart</span>
-                  </div>
-                  <ul className="list-disc list-inside space-y-1 text-slate-400">
-                    <li>
-                      <span className="text-emerald-300 font-medium">
-                        Green line
-                      </span>{" "}
-                      = indicator values over time (your logic / math).
-                    </li>
-                    <li>
-                      <span className="text-slate-300 font-medium">
-                        Gray line
-                      </span>{" "}
-                      = underlying price, normalized to fit.
-                    </li>
-                    <li>
-                      Watch how the green line reacts around the{" "}
-                      <span className="text-slate-200">zero line</span> and near
-                      recent highs/lows – do strong moves line up with good trades?
-                    </li>
-                    <li>
-                      Look for patterns: expanding swings in the indicator during
-                      breakouts, compression before big moves, or divergences where
-                      price makes a new high/low but the indicator doesn&apos;t.
-                    </li>
-                    <li>
-                      The last dot marks the most recent value – this is what would
-                      be used at scan/decision time.
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-    </>
   );
 };
 

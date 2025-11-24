@@ -107,17 +107,66 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
 
   const moveIndicator = (index: number, direction: "up" | "down") => {
     const next = [...indicators];
-    if (direction === "up") {
-      if (index <= 0) return;
-      const tmp = next[index - 1];
-      next[index - 1] = next[index];
-      next[index] = tmp;
-    } else {
-      if (index >= next.length - 1) return;
-      const tmp = next[index + 1];
-      next[index + 1] = next[index];
-      next[index] = tmp;
-    }
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= next.length) return;
+
+    const keyA = String(index);
+    const keyB = String(targetIndex);
+
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+
+    setPreviewById((prev) => {
+      const nextPreview = { ...prev };
+      const a = prev[keyA];
+      const b = prev[keyB];
+      if (b !== undefined) {
+        nextPreview[keyA] = b;
+      } else {
+        delete nextPreview[keyA];
+      }
+      if (a !== undefined) {
+        nextPreview[keyB] = a;
+      } else {
+        delete nextPreview[keyB];
+      }
+      return nextPreview;
+    });
+
+    setInfoOpen((prev) => {
+      const nextInfo = { ...prev };
+      const a = prev[index];
+      const b = prev[targetIndex];
+      if (b !== undefined) {
+        nextInfo[index] = b;
+      } else {
+        delete nextInfo[index];
+      }
+      if (a !== undefined) {
+        nextInfo[targetIndex] = a;
+      } else {
+        delete nextInfo[targetIndex];
+      }
+      return nextInfo;
+    });
+
+    setNotesOpen((prev) => {
+      const nextNotes = { ...prev };
+      const a = prev[keyA];
+      const b = prev[keyB];
+      if (b !== undefined) {
+        nextNotes[keyA] = b;
+      } else {
+        delete nextNotes[keyA];
+      }
+      if (a !== undefined) {
+        nextNotes[keyB] = a;
+      } else {
+        delete nextNotes[keyB];
+      }
+      return nextNotes;
+    });
+
     onChangeIndicators(next);
   };
 

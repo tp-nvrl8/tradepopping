@@ -2,6 +2,13 @@ import type { IndicatorId } from "./types";
 
 export type IndicatorParamType = "number" | "select" | "boolean";
 
+export type IndicatorOutputType =
+  | "numeric"
+  | "score"
+  | "binary"
+  | "regime"
+  | "custom";
+
 export interface IndicatorParamDef {
   key: string;
   label: string;
@@ -25,6 +32,9 @@ export interface IndicatorDefinition {
   /** Optional longer explanation shown in the info panel. */
   description?: string;
 
+  outputType: IndicatorOutputType;
+  customOutputShape?: "band" | "multi";
+
   params: IndicatorParamDef[];
 }
 
@@ -38,6 +48,7 @@ export const INDICATOR_CATALOG: readonly IndicatorDefinition[] = [
       "sOBV builds an on-balance-style series using daily short volume and price direction. " +
       "A rising sOBV while price is flat or drifting down can signal stealth accumulation, " +
       "hedging pressure, or early short squeeze conditions.",
+    outputType: "numeric",
     params: [
       {
         key: "lookback",
@@ -60,6 +71,7 @@ export const INDICATOR_CATALOG: readonly IndicatorDefinition[] = [
       "Kaufman’s Adaptive Moving Average reacts faster in strong directional moves and slows down " +
       "in choppy markets. Comparing price versus KAMA and its slope can help label regimes as " +
       "quiet, trending, or noisy and filter ideas that only work in certain environments.",
+    outputType: "regime",
     params: [
       {
         key: "fast",
@@ -88,6 +100,7 @@ export const INDICATOR_CATALOG: readonly IndicatorDefinition[] = [
       "Aggregates dark pool prints over time to estimate whether large players are building or " +
       "unwinding positions off-exchange. A persistent positive bias can support long ideas, while " +
       "negative bias may warn against long exposure.",
+    outputType: "score",
     params: [],
   },
   {
@@ -99,6 +112,7 @@ export const INDICATOR_CATALOG: readonly IndicatorDefinition[] = [
       "Computes how many standard deviations the current price is from its recent mean over a rolling " +
       "window. High positive or negative Z-scores can highlight stretched moves that may revert, " +
       "especially in quiet or range-bound regimes.",
+    outputType: "numeric",
     params: [
       {
         key: "lookback",

@@ -364,6 +364,14 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-[12px] font-semibold">
                       <span>{def?.name ?? inst.id}</span>
+                      {def?.outputType && (
+                        <span
+                          className="uppercase text-[9px] px-1.5 py-0.5 rounded-full border border-slate-700 bg-slate-900 text-slate-300"
+                          title="Output type"
+                        >
+                          {def.outputType}
+                        </span>
+                      )}
                       {def?.description && (
                         <button
                           type="button"

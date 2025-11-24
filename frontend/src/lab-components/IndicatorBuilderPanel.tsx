@@ -45,6 +45,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     Record<string, PreviewSnapshot>
   >({});
   const [helpOpen, setHelpOpen] = useState(false);
+  const [modalPreviewKey, setModalPreviewKey] = useState<string | null>(null);
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -206,9 +207,12 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
    * Render a tiny sparkline that behaves differently
    * depending on preview.outputType.
    */
-  const renderSparkline = (preview: PreviewSnapshot) => {
-    const width = 180;
-    const height = 50;
+  const renderSparkline = (
+    preview: PreviewSnapshot,
+    size: "small" | "large" = "small"
+  ) => {
+    const width = size === "large" ? 320 : 180;
+    const height = size === "large" ? 120 : 50;
     const padding = 5;
 
     const rawValues = preview.values;
@@ -601,6 +605,18 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     </button>
                     <button
                       type="button"
+                      onClick={() => {
+                        // Ensure we have up-to-date preview data
+                        handlePreviewIndicator(instanceKey, inst);
+                        setModalPreviewKey(instanceKey);
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-800"
+                      title="Open larger preview"
+                    >
+                      ⤢
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => toggleNotes(instanceKey)}
                       className="text-[10px] px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-800"
                     >
@@ -785,7 +801,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                           : "—"}
                       </span>
                     </div>
-                    <div>{renderSparkline(preview)}</div>
+                    <div>{renderSparkline(preview, "small")}</div>
                   </div>
                 )}
               </div>
@@ -793,6 +809,55 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           })
         )}
       </div>
+
+      {modalPreviewKey && previewById[modalPreviewKey] && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-40">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-[95%] max-w-2xl shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="space-y-0.5">
+                <div className="text-sm font-semibold text-slate-200">
+                  Indicator Preview
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Larger sparkline preview for this indicator.
+                </div>
+              </div>
+              <button
+                onClick={() => setModalPreviewKey(null)}
+                className="text-slate-400 hover:text-slate-200 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-[11px] text-slate-300 mb-2">
+              <span className="font-semibold">
+                Output type: {previewById[modalPreviewKey].outputType}
+              </span>
+              <span className="ml-2 text-slate-400">
+                Last:{" "}
+                {previewById[modalPreviewKey].last != null
+                  ? previewById[modalPreviewKey].last!.toFixed(3)
+                  : "—"}
+                {" · "}
+                Min:{" "}
+                {previewById[modalPreviewKey].min != null
+                  ? previewById[modalPreviewKey].min!.toFixed(3)
+                  : "—"}
+                {" · "}
+                Max:{" "}
+                {previewById[modalPreviewKey].max != null
+                  ? previewById[modalPreviewKey].max!.toFixed(3)
+                  : "—"}
+              </span>
+            </div>
+
+            <div className="border border-slate-800 rounded-md bg-slate-950/60 p-3">
+              {renderSparkline(previewById[modalPreviewKey], "large")}
+            </div>
+          </div>
+        </div>
+      )}
 
       {helpOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">

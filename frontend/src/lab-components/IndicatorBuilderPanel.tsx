@@ -44,7 +44,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [previewById, setPreviewById] = useState<
     Record<string, PreviewSnapshot>
   >({});
-  const [showPreviewHelp, setShowPreviewHelp] = useState<boolean>(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const catalogById = useMemo(() => {
     const map = new Map<string, IndicatorDefinition>();
@@ -494,15 +494,6 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPreviewHelp((prev) => !prev)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-600 text-[11px] text-slate-200 hover:bg-slate-800"
-          >
-            <span className="text-xs">❔</span>
-            <span>How to read previews</span>
-          </button>
-
           <select
             className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
             value={selectedToAdd}
@@ -523,44 +514,16 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           >
             Add indicator
           </button>
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="px-2 py-1 rounded-md border border-slate-700 text-[11px] text-slate-300 hover:bg-slate-800"
+            title="How to read indicator previews"
+          >
+            ?
+          </button>
         </div>
       </div>
-
-      {/* Help panel */}
-      {showPreviewHelp && (
-        <div className="rounded-md border border-slate-700 bg-slate-900/70 px-3 py-2 text-[11px] space-y-2">
-          <div className="font-semibold text-slate-200">
-            How to read these tiny previews
-          </div>
-          <ul className="list-disc list-inside space-y-1 text-slate-300">
-            <li>
-              <span className="font-semibold">numeric:</span> plain blue line.  
-              Look for slope (trend), smooth vs choppy, and big jumps.
-            </li>
-            <li>
-              <span className="font-semibold">score:</span> yellow line with a
-              green mid-band.  
-              Are values hugging the middle (neutral) or living above/below
-              (persistent bias)?
-            </li>
-            <li>
-              <span className="font-semibold">binary:</span> dots/steps around
-              two levels.  
-              Shows how often this signal turns on/off and if it clusters.
-            </li>
-            <li>
-              <span className="font-semibold">regime:</span> colored vertical
-              bars.  
-              Color shifts show how the environment changes over time
-              (quiet → normal → expanding → crisis).
-            </li>
-          </ul>
-          <p className="text-[10px] text-slate-500">
-            These are quick “personality cards” for each indicator under your
-            current settings — not trade signals by themselves.
-          </p>
-        </div>
-      )}
 
       <div className="flex flex-col gap-2">
         {indicators.length === 0 ? (
@@ -820,6 +783,92 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           })
         )}
       </div>
+
+      {helpOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-[90%] max-w-lg shadow-xl">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-sm font-semibold text-slate-200">
+                How to Read Indicator Previews
+              </h2>
+              <button
+                onClick={() => setHelpOpen(false)}
+                className="text-slate-400 hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-[11px] text-slate-300 leading-relaxed">
+              <div>
+                <div className="font-semibold text-sky-300 mb-1">
+                  Numeric (blue line)
+                </div>
+                <p>
+                  Standard indicator output like moving averages, Z-Score, or sOBV
+                  trend. Look for slope, stability, breakouts, and peaks/valleys.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-semibold text-emerald-300 mb-1">
+                  Score (green line + midline)
+                </div>
+                <p>
+                  Scores typically range from -1 to +1 or 0 to 100. Crossing the
+                  midline shows bias flipping from bearish to bullish (or
+                  the opposite). Clustering near extremes hints at strong
+                  conviction.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-semibold text-amber-300 mb-1">
+                  Regime (colored strips)
+                </div>
+                <p>
+                  Regime previews encode quiet / normal / expanding / crisis
+                  states as color bands. Rapid regime changes often precede
+                  volatility expansions. Stable colors mean a consistent
+                  environment.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-semibold text-rose-300 mb-1">
+                  Binary (dots or steps)
+                </div>
+                <p>
+                  Binary indicators show simple on/off states. Use them as
+                  filters or triggers: clusters of "on" can mark high
+                  conviction zones, scattered signals can indicate noise.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-semibold text-indigo-300 mb-1">
+                  Multi-Series (future)
+                </div>
+                <p>
+                  Some indicators output multiple series (bands, envelopes,
+                  ranges). These appear as stacked micro-bands in the preview
+                  so you can see compression, expansion, and where price sits
+                  inside the band.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 text-right">
+              <button
+                onClick={() => setHelpOpen(false)}
+                className="px-3 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-xs font-semibold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

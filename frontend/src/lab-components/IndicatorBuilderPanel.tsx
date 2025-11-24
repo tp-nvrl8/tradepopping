@@ -41,7 +41,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
   const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
-  const [previewById, setPreviewById] = useState<Record<string, PreviewSnapshot>>({});
+  const [previewById, setPreviewById] = useState<
+    Record<string, PreviewSnapshot>
+  >({});
   const [helpOpen, setHelpOpen] = useState(false);
   const [modalPreviewKey, setModalPreviewKey] = useState<string | null>(null);
 
@@ -198,11 +200,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   };
 
   /**
-   * Render a tiny sparkline that behaves differently
-   * depending on preview.outputType.
-   *
-   * size = "small"  → inline card preview
-   * size = "large"  → modal preview
+   * Render sparkline; size = "small" (inline) or "large" (modal).
    */
   const renderSparkline = (
     preview: PreviewSnapshot,
@@ -265,12 +263,11 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     const outputType = preview.outputType;
 
     if (outputType === "regime") {
-      // Regime: color-coded stripes (0–3 codes)
       const regimeColors: Record<number, string> = {
         0: "#38bdf8", // quiet
         1: "#22c55e", // normal
         2: "#eab308", // expanding
-        3: "#f97316", // crisis / strong move
+        3: "#f97316", // crisis
       };
 
       const segmentWidth =
@@ -322,7 +319,6 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     }
 
     if (outputType === "binary") {
-      // Binary: step-like line + dots at 0/1
       const path = buildLinePath();
 
       return (
@@ -376,7 +372,6 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     }
 
     if (outputType === "score") {
-      // Score: line + midline band
       const path = buildLinePath();
 
       const midValue = (min + max) / 2;
@@ -434,7 +429,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       );
     }
 
-    // Default (numeric, custom, etc.): plain line
+    // Default numeric
     const path = buildLinePath();
 
     return (
@@ -480,7 +475,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         color: tokens.textPrimary,
       }}
     >
-      {/* Header section */}
+      {/* Header */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -604,7 +599,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        // ensure preview data is fresh, then open modal
+                        // Refresh preview then open modal
                         handlePreviewIndicator(instanceKey, inst);
                         setModalPreviewKey(instanceKey);
                       }}
@@ -848,7 +843,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         </div>
       )}
 
-      {/* Help / how-to-read modal */}
+      {/* Help modal */}
       {helpOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-[90%] max-w-lg shadow-xl">

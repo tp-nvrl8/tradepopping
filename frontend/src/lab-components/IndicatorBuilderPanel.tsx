@@ -41,9 +41,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
   const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
-  const [previewById, setPreviewById] = useState<
-    Record<string, PreviewSnapshot>
-  >({});
+  const [previewById, setPreviewById] = useState<Record<string, PreviewSnapshot>>({});
   const [helpOpen, setHelpOpen] = useState(false);
   const [modalPreviewKey, setModalPreviewKey] = useState<string | null>(null);
 
@@ -184,12 +182,8 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     const last = numericValues.length
       ? numericValues[numericValues.length - 1]
       : null;
-    const min = numericValues.length
-      ? Math.min(...numericValues)
-      : null;
-    const max = numericValues.length
-      ? Math.max(...numericValues)
-      : null;
+    const min = numericValues.length ? Math.min(...numericValues) : null;
+    const max = numericValues.length ? Math.max(...numericValues) : null;
 
     setPreviewById((prev) => ({
       ...prev,
@@ -206,6 +200,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   /**
    * Render a tiny sparkline that behaves differently
    * depending on preview.outputType.
+   *
+   * size = "small"  → inline card preview
+   * size = "large"  → modal preview
    */
   const renderSparkline = (
     preview: PreviewSnapshot,
@@ -483,11 +480,21 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         color: tokens.textPrimary,
       }}
     >
-      {/* Header row */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-0.5">
-          <div className="text-[11px] uppercase tracking-wide text-slate-400">
-            Indicator Builder
+      {/* Header section */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-400">
+              Indicator Builder
+            </div>
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="px-1.5 py-0.5 rounded-md border border-slate-700 text-[11px] text-slate-300 hover:bg-slate-800"
+              title="How to read indicator previews"
+            >
+              ?
+            </button>
           </div>
           <div className="text-[11px] text-slate-500">
             Attached to idea:{" "}
@@ -518,17 +525,10 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           >
             Add indicator
           </button>
-          <button
-            type="button"
-            onClick={() => setHelpOpen(true)}
-            className="px-2 py-1 rounded-md border border-slate-700 text-[11px] text-slate-300 hover:bg-slate-800"
-            title="How to read indicator previews"
-          >
-            ?
-          </button>
         </div>
       </div>
 
+      {/* Indicator list */}
       <div className="flex flex-col gap-2">
         {indicators.length === 0 ? (
           <div className="text-[11px] text-slate-500">
@@ -596,9 +596,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        handlePreviewIndicator(instanceKey, inst)
-                      }
+                      onClick={() => handlePreviewIndicator(instanceKey, inst)}
                       className="text-[10px] px-2 py-0.5 rounded border border-emerald-500 text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20"
                     >
                       Preview
@@ -606,7 +604,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        // Ensure we have up-to-date preview data
+                        // ensure preview data is fresh, then open modal
                         handlePreviewIndicator(instanceKey, inst);
                         setModalPreviewKey(instanceKey);
                       }}
@@ -773,19 +771,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 {preview && (
                   <div className="mt-2 space-y-1 text-[11px] text-slate-300">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-200">
-                          Preview ({preview.outputType})
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setHelpOpen(true)}
-                          className="px-1.5 py-0.5 rounded border border-slate-700 text-[10px] text-slate-300 hover:bg-slate-800"
-                          title="How to read this preview"
-                        >
-                          ?
-                        </button>
-                      </div>
+                      <span className="font-semibold text-slate-200">
+                        Preview ({preview.outputType})
+                      </span>
                       <span className="text-slate-400">
                         Last:{" "}
                         {preview.last != null
@@ -810,6 +798,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         )}
       </div>
 
+      {/* Large preview modal */}
       {modalPreviewKey && previewById[modalPreviewKey] && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-40">
           <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-[95%] max-w-2xl shadow-2xl">
@@ -859,6 +848,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         </div>
       )}
 
+      {/* Help / how-to-read modal */}
       {helpOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-[90%] max-w-lg shadow-xl">
@@ -887,7 +877,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
 
               <div>
                 <div className="font-semibold text-emerald-300 mb-1">
-                  Score (green line + midline)
+                  Score (green band + midline)
                 </div>
                 <p>
                   Scores typically range from -1 to +1 or 0 to 100. Crossing the

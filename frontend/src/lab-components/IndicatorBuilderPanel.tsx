@@ -757,9 +757,19 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 {preview && (
                   <div className="mt-2 space-y-1 text-[11px] text-slate-300">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-200">
-                        Preview ({preview.outputType})
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-200">
+                          Preview ({preview.outputType})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setHelpOpen(true)}
+                          className="px-1.5 py-0.5 rounded border border-slate-700 text-[10px] text-slate-300 hover:bg-slate-800"
+                          title="How to read this preview"
+                        >
+                          ?
+                        </button>
+                      </div>
                       <span className="text-slate-400">
                         Last:{" "}
                         {preview.last != null

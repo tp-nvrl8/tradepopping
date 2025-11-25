@@ -1,11 +1,6 @@
-import React, { useMemo } from "react";
-import { INDICATOR_CATALOG, type IndicatorOutputType } from "../lab/indicatorCatalog";
-import type { IndicatorInstance } from "../lab/types";
-import {
-  computeIndicatorSeries,
-  type IndicatorRuntimeContext,
-} from "../indicators/indicatorRuntime";
-import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
+import React from "react";
+import type { IndicatorOutputType } from "../lab/indicatorCatalog";
+import type { IdeaIndicatorMatrix } from "../indicators/ideaIndicatorMatrix";
 
 // Helper type for sparkline previews in Test Stand
 type IndicatorPreviewSnapshot = {
@@ -305,31 +300,11 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
   );
 }
 
-const DEFAULT_INDICATORS: IndicatorInstance[] = [
-  { id: "sobv_trend", enabled: true, variant: "default", params: { lookback: 20 } },
-  { id: "kama_regime", enabled: true, variant: "default", params: { fast: 2, slow: 30 } },
-  { id: "darkflow_bias", enabled: true, variant: "default" },
-  { id: "zscore_price_lookback", enabled: true, variant: "default", params: { lookback: 10, threshold: 2 } },
-];
+interface TestStandPanelProps {
+  matrix: IdeaIndicatorMatrix | null;
+}
 
-const TestStandPanel: React.FC = () => {
-  const ctx = useMemo<IndicatorRuntimeContext>(
-    () => ({ symbol: "MOCK", timeframe: "1d" }),
-    []
-  );
-
-  const runResult = useMemo(
-    () => ({
-      indicatorResults: DEFAULT_INDICATORS.filter((inst) => inst.enabled).map(
-        (inst) => ({
-          instance: inst,
-          result: computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx),
-        })
-      ),
-    }),
-    [ctx]
-  );
-
+const TestStandPanel: React.FC<TestStandPanelProps> = ({ matrix }) => {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -338,68 +313,99 @@ const TestStandPanel: React.FC = () => {
             Indicator previews
           </h2>
           <p className="text-sm text-slate-400">
-            Quick glance at the current indicator stack before promoting ideas into the
-            Test Stand.
+            Quick glance at this idea&apos;s indicator stack played through the mock
+            daily series.
           </p>
         </div>
         <div className="text-[11px] text-slate-500 text-right">
-          Demo values computed from mock daily bars for preview purposes.
+          Values computed from mock daily bars (symbol: MOCK, timeframe: 1D).
         </div>
       </div>
 
-      {runResult?.indicatorResults && runResult.indicatorResults.length > 0 && (
-        <div className="space-y-3 mt-3">
-          {runResult.indicatorResults.map((row, idx) => {
-            // 🔧 Adapt to actual shape of each row:
-            // assume row = { instance: IndicatorInstance, result: { outputType, values } }
-            const { instance, result } = row;
-            const def = INDICATOR_CATALOG.find((d) => d.id === instance.id);
+      <div className="mt-3">
+        {!matrix ? (
+          <div className="text-[11px] text-slate-500">
+            Click &quot;Run Test&quot; to compute this idea&apos;s indicator stack on the mock price
+            series.
+          </div>
+        ) : matrix.rows.length === 0 ? (
+          <div className="text-[11px] text-slate-500">
+            This idea has no indicators attached yet. Add indicators in the Strategy Lab
+            Indicator Builder.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {matrix.rows.map((row) => {
+              const { instance, definition, result } = row;
+              const def = definition;
+              const preview = makeIndicatorPreviewSnapshot({
+                outputType: result.outputType,
+                values: result.values,
+              });
 
-            const preview = makeIndicatorPreviewSnapshot(result);
-
-            return (
-              <div
-                key={idx}
-                className="rounded-md border border-slate-800 bg-slate-950/60 p-3 space-y-2"
-              >
-                {/* Header: name + stats */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-200">
-                      <span>{def?.name ?? instance.id}</span>
-                      {def?.outputType && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-slate-700 text-slate-300 uppercase tracking-wide">
-                          {def.outputType}
-                        </span>
-                      )}
+              return (
+                <div
+                  key={row.index}
+                  className="rounded-md border border-slate-800 bg-slate-950/60 p-3 space-y-2"
+                >
+                  {/* Header: name + stats */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-200">
+                        <span>{def?.name ?? instance.id}</span>
+                        {def?.outputType && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-slate-700 text-slate-300 uppercase tracking-wide">
+                            {def.outputType}
+                          </span>
+                        )}
+                        {!instance.enabled && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                            disabled
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {def?.category ?? "Uncategorized"}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-400">
-                      {def?.category ?? "Uncategorized"}
+
+                    <div className="text-[11px] text-slate-400 text-right">
+                      <div>
+                        Last:{" "}
+                        {preview.last != null
+                          ? preview.last.toFixed(3)
+                          : "—"}
+                      </div>
+                      <div>
+                        Min:{" "}
+                        {preview.min != null
+                          ? preview.min.toFixed(3)
+                          : "—"}{" "}
+                        · Max:{" "}
+                        {preview.max != null
+                          ? preview.max.toFixed(3)
+                          : "—"}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-slate-400 text-right">
-                    <div>
-                      Last:{" "}
-                      {preview.last != null ? preview.last.toFixed(3) : "—"}
-                    </div>
-                    <div>
-                      Min:{" "}
-                      {preview.min != null ? preview.min.toFixed(3) : "—"} · Max:{" "}
-                      {preview.max != null ? preview.max.toFixed(3) : "—"}
-                    </div>
+                  {/* Full-width sparkline */}
+                  <div className="mt-1">
+                    {renderTestStandSparkline(preview)}
                   </div>
-                </div>
 
-                {/* Full-width sparkline */}
-                <div className="mt-1">
-                  {renderTestStandSparkline(preview)}
+                  {/* Optional description below chart */}
+                  {def && (def.summary || def.description) && (
+                    <div className="text-[11px] text-slate-400 mt-1">
+                      {def.summary ?? def.description}
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

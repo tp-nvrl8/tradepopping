@@ -13,6 +13,8 @@ import {
 import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
 import type { IndicatorRuntimeContext } from "../indicators/indicatorRuntime";
 
+import TestStandPanel from "../teststand/TestStandPanel";
+
 const TestStandPage: React.FC = () => {
   const tokens = useUiScopedTokens(["global", "page:teststand"]);
 
@@ -40,7 +42,9 @@ const TestStandPage: React.FC = () => {
       } catch (err) {
         console.error("Failed to load ideas for Test Stand", err);
         if (!cancelled) {
-          setLoadError("Could not load ideas. Create ideas in Strategy Lab first.");
+          setLoadError(
+            "Could not load ideas. Create ideas in Strategy Lab first."
+          );
           setIdeas([]);
         }
       } finally {
@@ -63,15 +67,11 @@ const TestStandPage: React.FC = () => {
     setRunning(true);
     try {
       const ctx: IndicatorRuntimeContext = {
-        symbol: "MOCK",     // later: real symbol
-        timeframe: "1d",    // later: selectable timeframe
+        symbol: "MOCK", // later: real symbol
+        timeframe: "1d", // later: selectable timeframe
       };
 
-      const m = computeIdeaIndicatorMatrix(
-        selectedIdea,
-        MOCK_DAILY_BARS,
-        ctx
-      );
+      const m = computeIdeaIndicatorMatrix(selectedIdea, MOCK_DAILY_BARS, ctx);
       setMatrix(m);
     } catch (err) {
       console.error("Error running test stand", err);
@@ -127,9 +127,7 @@ const TestStandPage: React.FC = () => {
         }`}
       >
         {/* Left: idea list (reuse same sidebar as Lab) */}
-        <aside
-          className="border-r border-slate-800 bg-slate-950/80 flex flex-col w-72"
-        >
+        <aside className="border-r border-slate-800 bg-slate-950/80 flex flex-col w-72">
           <div className="px-3 py-2 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Ideas
@@ -143,7 +141,8 @@ const TestStandPage: React.FC = () => {
               </div>
             ) : ideas.length === 0 ? (
               <div className="p-3 text-[11px] text-slate-500">
-                No ideas available. Go to Strategy Lab and create an idea first.
+                No ideas available. Go to Strategy Lab and create an idea
+                first.
               </div>
             ) : (
               <IdeaListSidebar
@@ -169,6 +168,7 @@ const TestStandPage: React.FC = () => {
               </div>
             ) : (
               <>
+                {/* Idea header */}
                 <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <div>
@@ -183,8 +183,8 @@ const TestStandPage: React.FC = () => {
                       </p>
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      Symbol: <span className="font-semibold">MOCK</span>{" "}
-                      • Timeframe: <span className="font-semibold">1D</span>
+                      Symbol: <span className="font-semibold">MOCK</span> •
+                      Timeframe: <span className="font-semibold">1D</span>
                     </div>
                   </div>
                   {selectedIdea.meta.description && (
@@ -194,6 +194,7 @@ const TestStandPage: React.FC = () => {
                   )}
                 </section>
 
+                {/* Indicator results + previews */}
                 <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
@@ -206,69 +207,7 @@ const TestStandPage: React.FC = () => {
                     </span>
                   </div>
 
-                  {!matrix ? (
-                    <div className="text-[11px] text-slate-500">
-                      Click &quot;Run Test&quot; to compute this idea&apos;s indicator
-                      stack on the mock price series.
-                    </div>
-                  ) : matrix.rows.length === 0 ? (
-                    <div className="text-[11px] text-slate-500">
-                      This idea has no indicators attached yet. Add indicators
-                      in the Strategy Lab Indicator Builder.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {matrix.rows.map((row) => {
-                        const { instance, definition, result } = row;
-                        return (
-                          <div
-                            key={row.index}
-                            className="rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 flex items-center justify-between"
-                          >
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-100">
-                                <span>{definition?.name ?? instance.id}</span>
-                                {definition?.outputType && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-slate-700 text-slate-300 uppercase tracking-wide">
-                                    {definition.outputType}
-                                  </span>
-                                )}
-                                {!instance.enabled && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400">
-                                    disabled
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-slate-400">
-                                {definition?.summary ??
-                                  definition?.description ??
-                                  "No description yet."}
-                              </div>
-                            </div>
-
-                            <div className="text-[11px] text-slate-300 text-right">
-                              <div>
-                                Last:{" "}
-                                {result.meta?.last != null
-                                  ? Number(result.meta.last).toFixed(3)
-                                  : "—"}
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                Min:{" "}
-                                {result.meta?.min != null
-                                  ? Number(result.meta.min).toFixed(3)
-                                  : "—"}{" "}
-                                · Max:{" "}
-                                {result.meta?.max != null
-                                  ? Number(result.meta.max).toFixed(3)
-                                  : "—"}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <TestStandPanel matrix={matrix} />
                 </section>
               </>
             )}

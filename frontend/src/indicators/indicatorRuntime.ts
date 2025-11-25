@@ -1,17 +1,14 @@
-// frontend/src/indicators/indicatorRuntime.ts
+// src/indicators/indicatorRuntime.ts
 
 import type { IndicatorInstance } from "../lab/types";
-import {
-  getIndicatorDefinition,
-  type IndicatorDefinition,
-} from "../lab/indicatorCatalog";
+import { INDICATOR_CATALOG, type IndicatorOutputType } from "../lab/indicatorCatalog";
 
 /**
- * Basic OHLCV bar with optional short/dark-pool volume.
- * This matches what mockPriceData.ts is producing.
+ * Single OHLCV bar used by indicators.
+ * Optional shortVolume / darkPoolVolume support flow-based indicators.
  */
 export interface PriceBar {
-  time: string; // ISO
+  time: string; // ISO timestamp or date string
   open: number;
   high: number;
   low: number;
@@ -22,226 +19,304 @@ export interface PriceBar {
 }
 
 /**
- * Runtime context for indicators – later we can add things like
- * market regime, sector info, etc. For now it's just a stub.
+ * Context about where this indicator is being run.
+ * (Symbol, timeframe, maybe later: market regime, sector, etc.)
  */
 export interface IndicatorRuntimeContext {
   symbol: string;
-  timeframe: string; // e.g. "1d", "5m"
+  timeframe: string;
 }
 
 /**
- * How an indicator's output should be interpreted by the UI.
- *
- * - "numeric" → plain numeric line (MA, sOBV, etc.)
- * - "score"   → 0–100 or -1..+1 style score (bias, composite scores)
- * - "binary"  → 0 / 1 states (on/off, in-range/out-of-range)
- * - "regime"  → regime-like states (quiet / normal / expanding / crisis, etc.)
- */
-export type IndicatorOutputType = "numeric" | "score" | "binary" | "regime";
-
-/**
- * Standardized indicator output shape that the UI can render.
+ * Standardized indicator output shape for the whole platform.
  */
 export interface IndicatorResult {
-  /** How the values should be visualized/interpreted. */
   outputType: IndicatorOutputType;
-
-  /**
-   * One primary numeric series.
-   * For non-numeric things (like regime), we encode as numeric buckets
-   * just for the tiny preview (e.g. 0, 1, 2, 3).
-   */
   values: (number | null)[];
+  meta?: Record<string, any>;
+}
+
+/** Helper: find outputType from catalog (fallback to "numeric"). */
+function getOutputTypeForId(id: IndicatorInstance["id"]): IndicatorOutputType {
+  const def = INDICATOR_CATALOG.find((d) => d.id === id);
+  return def?.outputType ?? "numeric";
 }
 
 /**
- * Utility: simple moving average.
- */
-function simpleMovingAverage(values: number[], period: number): (number | null)[] {
-  const out: (number | null)[] = [];
-  let sum = 0;
-
-  for (let i = 0; i < values.length; i++) {
-    sum += values[i];
-    if (i >= period) {
-      sum -= values[i - period];
-    }
-
-    if (i >= period - 1) {
-      out.push(sum / period);
-    } else {
-      out.push(null);
-    }
-  }
-
-  return out;
-}
-
-/**
- * sOBV-like cumulative short-volume trend.
- * This is *not* production math, just a reasonable stand-in for preview.
- */
-function computeSobvTrend(bars: PriceBar[]): IndicatorResult {
-  const values: (number | null)[] = [];
-  let acc = 0;
-
-  for (let i = 0; i < bars.length; i++) {
-    const b = bars[i];
-    const vol = b.shortVolume ?? b.volume;
-    if (i === 0) {
-      values.push(0);
-      continue;
-    }
-
-    const prevClose = bars[i - 1].close;
-    if (b.close > prevClose) {
-      acc += vol;
-    } else if (b.close < prevClose) {
-      acc -= vol;
-    }
-    values.push(acc);
-  }
-
-  return {
-    outputType: "numeric",
-    values,
-  };
-}
-
-/**
- * Very lightweight "regime" proxy:
- * we look at a short ATR-like measure and bucket into 0..3
- * just for visualization.
- */
-function computeKamaRegime(bars: PriceBar[]): IndicatorResult {
-  if (bars.length === 0) {
-    return { outputType: "regime", values: [] };
-  }
-
-  const trueRanges: number[] = [];
-  for (let i = 0; i < bars.length; i++) {
-    const b = bars[i];
-    const prevClose = i > 0 ? bars[i - 1].close : b.close;
-    const tr = Math.max(
-      b.high - b.low,
-      Math.abs(b.high - prevClose),
-      Math.abs(b.low - prevClose)
-    );
-    trueRanges.push(tr);
-  }
-
-  const atr = simpleMovingAverage(trueRanges, 10);
-  const values: (number | null)[] = atr.map((v) => {
-    if (v == null) return null;
-    if (v < 0.5) return 0;   // quiet
-    if (v < 1.0) return 1;   // normal
-    if (v < 1.8) return 2;   // expanding
-    return 3;                // crisis
-  });
-
-  return {
-    outputType: "regime",
-    values,
-  };
-}
-
-/**
- * Dark Flow bias: rough "score" between -1 and +1
- * based on short vs dark pool volume.
- */
-function computeDarkFlowBias(bars: PriceBar[]): IndicatorResult {
-  const values: (number | null)[] = [];
-
-  for (const b of bars) {
-    const sv = b.shortVolume ?? b.volume * 0.4;
-    const dv = b.darkPoolVolume ?? b.volume * 0.2;
-    const total = sv + dv;
-    if (!total) {
-      values.push(null);
-      continue;
-    }
-
-    // positive if dark pool dominates, negative if short dominates
-    const score = (dv - sv) / total;
-    values.push(score); // ~ -1 .. +1
-  }
-
-  return {
-    outputType: "score",
-    values,
-  };
-}
-
-/**
- * Z-score of closing price over a rolling lookback.
- */
-function computeZScorePrice(
-  bars: PriceBar[],
-  lookback: number
-): IndicatorResult {
-  const closes = bars.map((b) => b.close);
-  const values: (number | null)[] = [];
-
-  for (let i = 0; i < closes.length; i++) {
-    if (i + 1 < lookback) {
-      values.push(null);
-      continue;
-    }
-
-    const window = closes.slice(i + 1 - lookback, i + 1);
-    const mean = window.reduce((sum, v) => sum + v, 0) / window.length;
-    const variance =
-      window.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) /
-      window.length;
-    const std = Math.sqrt(variance) || 1;
-    const z = (closes[i] - mean) / std;
-    values.push(z);
-  }
-
-  return {
-    outputType: "numeric",
-    values,
-  };
-}
-
-/**
- * Main runtime entrypoint.
- * Takes an IndicatorInstance + price series and produces
- * a standardized IndicatorResult for the UI.
+ * MAIN RUNTIME ENTRYPOINT
+ *
+ * Given:
+ *  - indicator instance (id + params)
+ *  - price bars
+ *  - runtime context
+ *
+ * Return:
+ *  - IndicatorResult with values aligned 1:1 to bars[]
  */
 export function computeIndicatorSeries(
-  instance: IndicatorInstance,
+  inst: IndicatorInstance,
   bars: PriceBar[],
   _ctx: IndicatorRuntimeContext
 ): IndicatorResult {
-  const def: IndicatorDefinition | undefined = getIndicatorDefinition(
-    instance.id
-  );
+  const outputType = getOutputTypeForId(inst.id);
 
-  switch (instance.id) {
+  if (bars.length === 0) {
+    return {
+      outputType,
+      values: [],
+      meta: { reason: "no-bars" },
+    };
+  }
+
+  switch (inst.id) {
     case "sobv_trend":
-      return computeSobvTrend(bars);
+      return computeSobvTrend(inst, bars, outputType);
 
     case "kama_regime":
-      // preview only, not real KAMA math
-      return computeKamaRegime(bars);
+      return computeKamaRegime(inst, bars, outputType);
 
     case "darkflow_bias":
-      return computeDarkFlowBias(bars);
+      return computeDarkflowBias(inst, bars, outputType);
 
-    case "zscore_price_lookback": {
-      const lookbackRaw =
-        (instance.params?.lookback as number | undefined) ?? 10;
-      const lookback = Math.max(5, Math.floor(lookbackRaw));
-      return computeZScorePrice(bars, lookback);
-    }
+    case "zscore_price_lookback":
+      return computeZscorePrice(inst, bars, outputType);
 
     default:
-      // Fallback: numeric line of closing prices so the UI has *something*
+      // Unknown indicator ID: return a null series, but keep the outputType.
       return {
-        outputType: "numeric",
-        values: bars.map((b) => b.close),
+        outputType,
+        values: bars.map(() => null),
+        meta: { reason: "unknown-indicator-id", id: inst.id },
       };
   }
+}
+
+/* ------------------------------------------------------------------------ */
+/* sOBV Trend (short-volume-based OBV-style indicator)                      */
+/* ------------------------------------------------------------------------ */
+
+function computeSobvTrend(
+  inst: IndicatorInstance,
+  bars: PriceBar[],
+  outputType: IndicatorOutputType
+): IndicatorResult {
+  // Lookback isn't strictly required for OBV, but you may want to
+  // smooth or normalize later. Kept here for future usage.
+  const lookback = Number(inst.params?.lookback ?? 20);
+
+  const values: (number | null)[] = Array(bars.length).fill(null);
+  let obv = 0;
+
+  for (let i = 1; i < bars.length; i++) {
+    const prev = bars[i - 1];
+    const curr = bars[i];
+
+    const short = curr.shortVolume ?? curr.volume ?? 0;
+
+    if (curr.close > prev.close) {
+      obv += short;
+    } else if (curr.close < prev.close) {
+      obv -= short;
+    } else {
+      // flat close, no change
+    }
+
+    values[i] = obv;
+  }
+
+  // Optionally, you could normalize by a rolling window of volume using `lookback`
+  // For now we return raw trend, which your preview + filters can interpret.
+
+  return {
+    outputType,
+    values,
+    meta: {
+      rawType: "obv-like",
+      usesShortVolume: true,
+      lookback,
+    },
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/* KAMA Regime: classify regime from KAMA slope                             */
+/* ------------------------------------------------------------------------ */
+
+function computeKamaRegime(
+  inst: IndicatorInstance,
+  bars: PriceBar[],
+  outputType: IndicatorOutputType
+): IndicatorResult {
+  const fast = Number(inst.params?.fast ?? 2);
+  const slow = Number(inst.params?.slow ?? 30);
+  const erPeriod = 10; // Efficiency Ratio window
+
+  const n = bars.length;
+  const closes = bars.map((b) => b.close);
+  const kama: (number | null)[] = Array(n).fill(null);
+  const regimes: (number | null)[] = Array(n).fill(null);
+
+  if (n <= erPeriod + 1) {
+    return {
+      outputType,
+      values: regimes,
+      meta: { reason: "not-enough-bars", erPeriod },
+    };
+  }
+
+  const fastSC = 2 / (fast + 1);
+  const slowSC = 2 / (slow + 1);
+
+  // Initialize KAMA at erPeriod
+  kama[erPeriod] = closes[erPeriod];
+
+  for (let i = erPeriod + 1; i < n; i++) {
+    // ER = ABS(Close(i) - Close(i-erPeriod)) / sum(|Close(k) - Close(k-1)|)
+    const change = Math.abs(closes[i] - closes[i - erPeriod]);
+
+    let volatility = 0;
+    for (let k = i - erPeriod + 1; k <= i; k++) {
+      volatility += Math.abs(closes[k] - closes[k - 1]);
+    }
+
+    const er = volatility === 0 ? 0 : change / volatility;
+    const sc = Math.pow(er * (fastSC - slowSC) + slowSC, 2);
+
+    const prevKama = kama[i - 1] ?? closes[i - 1];
+    const nextKama = prevKama + sc * (closes[i] - prevKama);
+    kama[i] = nextKama;
+
+    // Regime classification from KAMA slope (very compresssed):
+    const prev = kama[i - 1] ?? nextKama;
+    const slopePct = Math.abs((nextKama - prev) / prev) * 100;
+
+    // map slope to 0–3 regime code
+    let regimeCode: number;
+    if (slopePct < 0.15) {
+      regimeCode = 0; // quiet
+    } else if (slopePct < 0.45) {
+      regimeCode = 1; // normal
+    } else if (slopePct < 1.0) {
+      regimeCode = 2; // expanding
+    } else {
+      regimeCode = 3; // crisis / very strong move
+    }
+
+    regimes[i] = regimeCode;
+  }
+
+  return {
+    outputType, // should be "regime"
+    values: regimes,
+    meta: {
+      erPeriod,
+      fast,
+      slow,
+      interpretation: "0=quiet, 1=normal, 2=expanding, 3=crisis",
+    },
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/* Dark Flow Bias: score based on darkPoolVolume + bar direction            */
+/* ------------------------------------------------------------------------ */
+
+function computeDarkflowBias(
+  inst: IndicatorInstance,
+  bars: PriceBar[],
+  outputType: IndicatorOutputType
+): IndicatorResult {
+  const n = bars.length;
+  const values: (number | null)[] = Array(n).fill(null);
+
+  const baseline = 0.2; // "normal" dark share baseline (20%)
+  const alpha = 0.25;   // EMA smoothing for bias
+  let emaBias = 0;
+
+  for (let i = 0; i < n; i++) {
+    const b = bars[i];
+    const totalVol = b.volume || 1;
+    const darkVol = b.darkPoolVolume ?? 0;
+
+    const darkShare = darkVol / totalVol; // 0..1
+
+    let direction = 0;
+    if (b.close > b.open) direction = 1;
+    else if (b.close < b.open) direction = -1;
+
+    // raw bias around baseline
+    let rawBias = direction * (darkShare - baseline);
+
+    // scale rawBias into a soft range, e.g. -1..+1-ish
+    rawBias = Math.max(-1, Math.min(1, rawBias * 5));
+
+    // smooth it
+    emaBias = alpha * rawBias + (1 - alpha) * emaBias;
+
+    values[i] = emaBias;
+  }
+
+  return {
+    outputType, // should be "score"
+    values,
+    meta: {
+      baseline,
+      alpha,
+      interpretation: "Negative = distribution, Positive = accumulation-like",
+    },
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/* Price Z-Score over rolling lookback                                      */
+/* ------------------------------------------------------------------------ */
+
+function computeZscorePrice(
+  inst: IndicatorInstance,
+  bars: PriceBar[],
+  outputType: IndicatorOutputType
+): IndicatorResult {
+  const closes = bars.map((b) => b.close);
+  const defaultLookback = 10;
+  const lookback = Math.max(
+    2,
+    Number(inst.params?.lookback ?? defaultLookback)
+  );
+
+  const n = closes.length;
+  const values: (number | null)[] = Array(n).fill(null);
+
+  if (n < lookback) {
+    return {
+      outputType,
+      values,
+      meta: { reason: "not-enough-bars", lookback },
+    };
+  }
+
+  for (let i = lookback - 1; i < n; i++) {
+    const start = i - lookback + 1;
+    const window = closes.slice(start, i + 1);
+
+    const mean =
+      window.reduce((sum, v) => sum + v, 0) / window.length;
+
+    const variance =
+      window.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) /
+      window.length;
+
+    const std = Math.sqrt(variance);
+
+    if (std === 0) {
+      values[i] = 0;
+    } else {
+      values[i] = (closes[i] - mean) / std;
+    }
+  }
+
+  return {
+    outputType, // typically "numeric"
+    values,
+    meta: { lookback },
+  };
 }

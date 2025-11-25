@@ -8,10 +8,11 @@ from .config import CONFIG
 
 app = FastAPI(title="TradePopping Backend")
 
-# bring in lab routes AFTER app is created
-from .routes import lab  # noqa: E402
+# bring in lab, datahub routes AFTER app is created
+from .routes import lab, datahub  # noqa: E402
 
 app.include_router(lab.router, prefix="/api/lab")
+app.include_router(datahub.router, prefix="/api")
 
 # --- Config from environment ---
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")

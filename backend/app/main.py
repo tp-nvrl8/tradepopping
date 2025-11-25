@@ -95,7 +95,12 @@ def health():
 def api_health():
     return health()
 
-
+@app.get("/api/auth/debug-env", include_in_schema=False)
+def debug_auth_env():
+    return {
+        "ALLOWED_EMAIL": ALLOWED_EMAIL,
+        "ENTRY_CODE_set": bool(ENTRY_CODE),
+    }
 # --- Auth helpers ---
 
 

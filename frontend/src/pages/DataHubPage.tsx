@@ -1,6 +1,7 @@
+// frontend/src/pages/DataHubPage.tsx
 import React, { useEffect, useState } from "react";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
-import { apiClient } from "../api";
+import apiClient from "../api";
 
 interface DataSourceStatus {
   id: string;
@@ -20,7 +21,7 @@ interface DataSourceTestResponse {
 }
 
 interface PriceBarDTO {
-  time: string;   // ISO string from backend
+  time: string; // ISO string from backend
   open: number;
   high: number;
   low: number;
@@ -73,25 +74,9 @@ const PriceSparkline: React.FC<{ bars: PriceBarDTO[] }> = ({ bars }) => {
   }
 
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-    >
-      <rect
-        x={0}
-        y={0}
-        width={width}
-        height={height}
-        rx={6}
-        fill="#020617"
-      />
-      <path
-        d={d}
-        fill="none"
-        stroke="#38bdf8"
-        strokeWidth={1.6}
-      />
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <rect x={0} y={0} width={width} height={height} rx={6} fill="#020617" />
+      <path d={d} fill="none" stroke="#38bdf8" strokeWidth={1.6} />
       <rect
         x={padding}
         y={padding}
@@ -133,7 +118,7 @@ const DataHubPage: React.FC = () => {
         setSourcesError(null);
         const res = await apiClient.get<DataSourceStatus[]>("/data/sources");
         setSources(res.data);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Failed to load data sources", err);
         setSourcesError("Could not load data sources. Check backend logs.");
       } finally {
@@ -144,8 +129,6 @@ const DataHubPage: React.FC = () => {
     loadSources();
   }, []);
 
-  const polygonStatus = sources.find((s) => s.id === "polygon");
-
   const handleTestPolygon = async () => {
     setTesting(true);
     setTestResult(null);
@@ -155,7 +138,7 @@ const DataHubPage: React.FC = () => {
         { source_id: "polygon" }
       );
       setTestResult(res.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to test polygon source", err);
       setTestResult({
         id: "polygon",
@@ -187,7 +170,7 @@ const DataHubPage: React.FC = () => {
         }
       );
       setBars(res.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to fetch polygon OHLCV", err);
       setBarsError("Failed to fetch OHLCV from Polygon. Check backend logs.");
     } finally {
@@ -209,9 +192,7 @@ const DataHubPage: React.FC = () => {
         style={{ borderColor: tokens.border }}
       >
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            Data Hub
-          </h1>
+          <h1 className="text-lg font-semibold tracking-tight">Data Hub</h1>
           <p className="text-xs text-slate-400">
             Connect data sources, test API keys, and inspect raw OHLCV windows.
           </p>
@@ -222,7 +203,6 @@ const DataHubPage: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         <main className="flex-1 flex flex-col overflow-y-auto items-center">
           <div className="w-full max-w-5xl px-4 py-4 space-y-4">
-
             {/* Data sources overview */}
             <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
               <div className="flex items-center justify-between mb-2">
@@ -230,9 +210,7 @@ const DataHubPage: React.FC = () => {
                   Data Sources
                 </h2>
                 {sourcesLoading && (
-                  <span className="text-[11px] text-slate-500">
-                    Loading...
-                  </span>
+                  <span className="text-[11px] text-slate-500">Loading...</span>
                 )}
               </div>
 
@@ -287,7 +265,8 @@ const DataHubPage: React.FC = () => {
                     Polygon Connectivity Test
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    Checks whether the Polygon API key is present and recognized by the backend.
+                    Checks whether the Polygon API key is present and
+                    recognized by the backend.
                   </p>
                 </div>
                 <button
@@ -344,7 +323,9 @@ const DataHubPage: React.FC = () => {
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="mb-0.5 text-slate-400">Start (YYYY-MM-DD)</label>
+                  <label className="mb-0.5 text-slate-400">
+                    Start (YYYY-MM-DD)
+                  </label>
                   <input
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={start}
@@ -352,7 +333,9 @@ const DataHubPage: React.FC = () => {
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="mb-0.5 text-slate-400">End (YYYY-MM-DD)</label>
+                  <label className="mb-0.5 text-slate-400">
+                    End (YYYY-MM-DD)
+                  </label>
                   <input
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={end}
@@ -370,9 +353,7 @@ const DataHubPage: React.FC = () => {
               </div>
 
               {barsError && (
-                <div className="text-[11px] text-amber-400">
-                  {barsError}
-                </div>
+                <div className="text-[11px] text-amber-400">{barsError}</div>
               )}
 
               {bars.length > 0 && (
@@ -403,17 +384,32 @@ const DataHubPage: React.FC = () => {
                     <table className="w-full text-[11px]">
                       <thead className="bg-slate-900/80">
                         <tr className="text-left text-slate-300">
-                          <th className="px-2 py-1 border-b border-slate-800">Date</th>
-                          <th className="px-2 py-1 border-b border-slate-800 text-right">Open</th>
-                          <th className="px-2 py-1 border-b border-slate-800 text-right">High</th>
-                          <th className="px-2 py-1 border-b border-slate-800 text-right">Low</th>
-                          <th className="px-2 py-1 border-b border-slate-800 text-right">Close</th>
-                          <th className="px-2 py-1 border-b border-slate-800 text-right">Volume</th>
+                          <th className="px-2 py-1 border-b border-slate-800">
+                            Date
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Open
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            High
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Low
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Close
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Volume
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {bars.map((bar) => (
-                          <tr key={bar.time} className="odd:bg-slate-950 even:bg-slate-900/40">
+                          <tr
+                            key={bar.time}
+                            className="odd:bg-slate-950 even:bg-slate-900/40"
+                          >
                             <td className="px-2 py-1 border-b border-slate-900/40">
                               {bar.time.slice(0, 10)}
                             </td>

@@ -1,84 +1,111 @@
-import React, { useState } from "react";
+// frontend/src/pages/LoginPage.tsx
+import React, { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { loginRequest } from "../api";
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState("systems@tradepopping.com"); // default for convenience
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const auth = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
+    if (!email.trim() || !code.trim()) {
+      setError("Email and entry code are required.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const resp = await loginRequest(email, code);
-      auth.login(resp.token, resp.email);
+      const res = await loginRequest(email.trim(), code.trim());
+      // Save to AuthContext + localStorage
+      login(res.email, res.token);
       navigate("/", { replace: true });
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+    } catch (err) {
+      console.error("Login failed", err);
+      setError("Invalid email or entry code.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4">
-      <div className="border border-slate-700 rounded-xl px-8 py-6 shadow-lg w-full max-w-md">
-        <h1 className="text-2xl font-semibold mb-2 tracking-wide">
-          TradePopping Login
-        </h1>
-        <p className="text-xs text-slate-400 mb-4">
-          Private Access - No Entry Without Hardware Key
-        </p>
+      <div className="w-full max-w-sm rounded-lg border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+        <div className="mb-4">
+          <h1 className="text-lg font-semibold tracking-tight text-slate-50">
+            TradePopping Lab
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Enter your lab email and entry code to access the workspace.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1">Email</label>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1">
+            <label className="block text-[11px] font-semibold text-slate-300">
+              Email
+            </label>
             <input
               type="email"
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              autoComplete="email"
+              className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              placeholder="you@example.com"
             />
           </div>
 
-          <div>
-            <label className="block text-sm mb-1">Entry Code</label>
-            <input
-              type="password"
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              autoComplete="current-password"
-            />
+          <div className="space-y-1">
+            <label className="block text-[11px] font-semibold text-slate-300">
+              Entry code
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                type={showCode ? "text" : "password"}
+                autoComplete="current-password"
+                className="flex-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCode((v) => !v)}
+                className="text-[10px] px-2 py-1 rounded-md border border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                {showCode ? "Hide" : "Show"}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500">
+              Must match the <span className="font-mono">TP_ENTRY_CODE</span>{" "}
+              in your backend environment.
+            </p>
           </div>
 
           {error && (
-            <p className="text-sm text-red-400">
+            <div className="text-[11px] text-rose-300 bg-rose-950/40 border border-rose-700/70 rounded-md px-2 py-1">
               {error}
-            </p>
+            </div>
           )}
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full mt-2 rounded-md bg-emerald-500 text-slate-950 font-medium py-2 text-sm hover:bg-emerald-400 disabled:opacity-60"
+            disabled={submitting}
+            className="w-full mt-2 px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {submitting ? "Signing in…" : "Sign in to Lab"}
           </button>
         </form>
-
-        <p className="mt-4 text-[11px] text-slate-500">
-          Backend: /api/auth/login · token stored locally for this device only.
-        </p>
       </div>
     </div>
   );

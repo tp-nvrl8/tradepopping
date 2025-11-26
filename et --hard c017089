@@ -1,0 +1,23 @@
+* [33m1f83e16[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/backup-pre-rollback[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mbackup-pre-rollback[m[33m)[m bad main.py
+*   [33m39bd9a3[m Merge pull request #45 from tp-nvrl8/codex/fix-and-reset-backend/app/main.py
+[32m|[m[33m\[m  
+[32m|[m * [33m95e9a9b[m[33m ([m[1;31morigin/codex/fix-and-reset-backend/app/main.py[m[33m)[m Reset backend main for auth wiring
+[32m|[m[32m/[m  
+*   [33macc9505[m Merge pull request #44 from tp-nvrl8/codex/add-duckdb-data-lake-for-daily-bars
+[34m|[m[35m\[m  
+[34m|[m * [33maa92860[m[33m ([m[1;31morigin/codex/add-duckdb-data-lake-for-daily-bars[m[33m)[m Add DuckDB daily bars lake and endpoint
+[34m|[m[34m/[m  
+* [33mc017089[m Hooked test stand to datahub
+* [33m0b8ec93[m Debugged candel fetch on DataHub
+* [33m7480ab1[m Modified to upgrade datahub
+* [33m15367af[m Modified requirments
+* [33m9feaf8d[m modified main.py for datahub
+* [33mc3343b2[m Starting Polygon/data provider intergration
+* [33ma6996b8[m re-built test stand page
+*   [33mce26915[m Merge pull request #43 from tp-nvrl8/codex/update-test-stand-indicator-previews
+[36m|[m[1;31m\[m  
+[36m|[m *   [33mc30612f[m[33m ([m[1;31morigin/codex/update-test-stand-indicator-previews[m[33m)[m Merge branch 'main' into codex/update-test-stand-indicator-previews
+[36m|[m [1;32m|[m[36m\[m  
+[36m|[m [1;32m|[m[36m/[m  
+[36m|[m[36m/[m[1;32m|[m   
+* [1;32m|[m [33m633915d[m TestStand Up

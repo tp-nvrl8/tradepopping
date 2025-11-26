@@ -14,10 +14,12 @@ from .datahub.polygon_client import (
 
 app = FastAPI(title="TradePopping Backend")
 
-# bring in lab routes AFTER app is created
+# bring in routers AFTER app is created
 from .routes import lab  # noqa: E402
+from .routes import datahub_bars  # noqa: E402
 
 app.include_router(lab.router, prefix="/api/lab")
+app.include_router(datahub_bars.router, prefix="/api")
 
 # --- Config from environment ---
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")

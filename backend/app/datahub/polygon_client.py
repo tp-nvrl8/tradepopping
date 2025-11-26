@@ -1,107 +1,167 @@
 # backend/app/datahub/polygon_client.py
 
-from __future__ import annotations
-
 import os
 from datetime import date, datetime, timezone
-from typing import List
-
+from typing import List, TypedDict, Optional
+from pydantic import BaseModel
 import httpx
 
-from .schemas import PriceBar
+class PolygonClientError(Exception):
+    """Custom error type for Polygon client failures."""
+    pass
+
+class PriceBarDTO(TypedDict):
+  """
+  Shape sent back to the frontend Data Hub page.
+  """
+  time: str   # ISO-8601 string (UTC)
+  open: float
+  high: float
+  low: float
+  close: float
+  volume: float
 
 
-class PolygonConfigError(RuntimeError):
-  pass
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY", "").strip()
 
 
-def _get_polygon_api_key() -> str:
-  api_key = os.getenv("POLYGON_API_KEY")
-  if not api_key:
-    raise PolygonConfigError(
-      "POLYGON_API_KEY is not set in the environment. "
-      "Set it in your Codespaces/DO environment or .env file."
+def _ensure_api_key() -> str:
+  """
+  Return the Polygon API key or raise a clear error
+  if it's not configured.
+  """
+  if not POLYGON_API_KEY:
+    raise RuntimeError(
+      "POLYGON_API_KEY not set in environment. "
+      "Check your .env and docker-compose env_file config."
     )
-  return api_key
+  return POLYGON_API_KEY
 
 
-def _get_polygon_base_url() -> str:
-  # You can override with POLYGON_BASE_URL if you ever need to.
-  return os.getenv("POLYGON_BASE_URL", "https://api.polygon.io")
+def _clamp_dates(
+  start: date,
+  end: date,
+  today: Optional[date] = None,
+) -> tuple[date, date]:
+  """
+  Clamp input dates so we never go into the future, but allow
+  end == today (the key behavior we want for 'today's bar').
+
+  Rules:
+    - if start > today  -> error
+    - if end  > today   -> clamp end = today
+    - if end  < start   -> error
+  """
+  if today is None:
+    # Use UTC so we behave consistently inside the container
+    today = datetime.now(timezone.utc).date()
+
+  if start > today:
+    raise ValueError("Start date cannot be in the future.")
+
+  if end > today:
+    end = today
+
+  if end < start:
+    raise ValueError("End date cannot be before start date.")
+
+  return start, end
 
 
 async def fetch_polygon_daily_ohlcv(
   symbol: str,
-  start_date: date,
-  end_date: date,
-) -> List[PriceBar]:
+  start: date,
+  end: date,
+) -> List[PriceBarDTO]:
   """
-  Fetch daily OHLCV bars from Polygon aggregates API.
+  Fetch daily OHLCV bars from Polygon between [start, end], inclusive.
 
-  Uses:
-    GET /v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}
-
-  Returns normalized PriceBar objects.
+  - Uses /v2/aggs/ticker/{symbol}/range/1/day/{start}/{end}
+  - Allows end == today (no artificial block).
+  - Clamps any future end date back to today.
+  - Returns an empty list if Polygon has no bars in that window
+    (e.g. weekend, holiday, or truly no trading yet),
+    instead of throwing an error.
   """
 
-  api_key = _get_polygon_api_key()
-  base_url = _get_polygon_base_url()
+  api_key = _ensure_api_key()
+  start_clamped, end_clamped = _clamp_dates(start, end)
 
-  # Polygon expects YYYY-MM-DD for from/to
-  from_str = start_date.isoformat()
-  to_str = end_date.isoformat()
+  # Polygon wants YYYY-MM-DD in the path
+  start_str = start_clamped.isoformat()
+  end_str = end_clamped.isoformat()
 
   url = (
-    f"{base_url}/v2/aggs/ticker/{symbol}/range/1/day/"
-    f"{from_str}/{to_str}"
+    f"https://api.polygon.io/v2/aggs/ticker/"
+    f"{symbol.upper()}/range/1/day/{start_str}/{end_str}"
   )
 
   params = {
+    "apiKey": api_key,
     "adjusted": "true",
     "sort": "asc",
-    "limit": 50000,
-    "apiKey": api_key,
+    "limit": 5000,
   }
 
   async with httpx.AsyncClient(timeout=15.0) as client:
     resp = await client.get(url, params=params)
-    resp.raise_for_status()
-    data = resp.json()
 
-  # Basic sanity check
-  if data.get("status") != "OK":
-    message = data.get("message") or "Unknown Polygon error"
-    raise RuntimeError(f"Polygon error: {message}")
+  # If Polygon itself errors (401, 403, 5xx etc.), raise a clear error
+  if resp.status_code >= 400:
+    raise RuntimeError(
+      f"Polygon HTTP error {resp.status_code}: {resp.text}"
+    )
 
+  data = resp.json()
+
+  # Polygon returns:
+  # {
+  #   "ticker": "AAPL",
+  #   "queryCount": ...,
+  #   "resultsCount": ...,
+  #   "results": [
+  #       { "t": 1731542400000, "o": ..., "h": ..., "l": ..., "c": ..., "v": ... },
+  #       ...
+  #   ],
+  #   ...
+  # }
   results = data.get("results") or []
-  bars: List[PriceBar] = []
 
-  for item in results:
-    # Polygon aggregates use 't' = unix ms timestamp
-    ts_ms = item.get("t")
+  # IMPORTANT:
+  # Do NOT treat "no results" as an error.
+  # Just return [] so the frontend can show "No data to preview"
+  # without blowing up.
+  if not results:
+    return []
+
+  bars: List[PriceBarDTO] = []
+
+  for row in results:
+    # t is epoch millis in UTC
+    ts_ms = row.get("t")
     if ts_ms is None:
       continue
 
-    ts = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+    dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
 
-    o = item.get("o")
-    h = item.get("h")
-    l = item.get("l")
-    c = item.get("c")
-    v = item.get("v")
+    o = row.get("o")
+    h = row.get("h")
+    l = row.get("l")
+    c = row.get("c")
+    v = row.get("v")
 
-    # Skip incomplete rows
+    # basic sanity check
     if any(val is None for val in (o, h, l, c, v)):
       continue
 
     bars.append(
-      PriceBar(
-        time=ts,
+      PriceBarDTO(
+        time=dt.isoformat(),
         open=float(o),
         high=float(h),
         low=float(l),
         close=float(c),
-        volume=int(v),
+        volume=float(v),
       )
     )
 

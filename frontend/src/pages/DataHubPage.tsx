@@ -1,7 +1,6 @@
-// frontend/src/pages/DataHubPage.tsx
 import React, { useEffect, useState } from "react";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
-import apiClient from "../api";
+import { apiClient } from "../api";
 
 interface DataSourceStatus {
   id: string;
@@ -104,8 +103,10 @@ const DataHubPage: React.FC = () => {
   const [testing, setTesting] = useState(false);
 
   const [symbol, setSymbol] = useState("AAPL");
+  // NOTE: keep these as plain yyyy-mm-dd strings
   const [start, setStart] = useState("2024-01-02");
   const [end, setEnd] = useState("2024-01-31");
+
   const [bars, setBars] = useState<PriceBarDTO[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [barsError, setBarsError] = useState<string | null>(null);
@@ -118,7 +119,7 @@ const DataHubPage: React.FC = () => {
         setSourcesError(null);
         const res = await apiClient.get<DataSourceStatus[]>("/data/sources");
         setSources(res.data);
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("Failed to load data sources", err);
         setSourcesError("Could not load data sources. Check backend logs.");
       } finally {
@@ -129,6 +130,8 @@ const DataHubPage: React.FC = () => {
     loadSources();
   }, []);
 
+  const polygonStatus = sources.find((s) => s.id === "polygon");
+
   const handleTestPolygon = async () => {
     setTesting(true);
     setTestResult(null);
@@ -138,7 +141,7 @@ const DataHubPage: React.FC = () => {
         { source_id: "polygon" }
       );
       setTestResult(res.data);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to test polygon source", err);
       setTestResult({
         id: "polygon",
@@ -158,19 +161,23 @@ const DataHubPage: React.FC = () => {
     setBarsError(null);
     setBarsLoading(true);
 
+    // iPad / Safari safety: enforce clean yyyy-mm-dd strings
+    const safeStart = start.trim().slice(0, 10);
+    const safeEnd = end.trim().slice(0, 10);
+
     try {
       const res = await apiClient.get<PriceBarDTO[]>(
         "/datahub/polygon/daily-ohlcv",
         {
           params: {
             symbol: symbol.trim().toUpperCase(),
-            start,
-            end,
+            start: safeStart,
+            end: safeEnd,
           },
         }
       );
       setBars(res.data);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to fetch polygon OHLCV", err);
       setBarsError("Failed to fetch OHLCV from Polygon. Check backend logs.");
     } finally {
@@ -265,8 +272,8 @@ const DataHubPage: React.FC = () => {
                     Polygon Connectivity Test
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    Checks whether the Polygon API key is present and
-                    recognized by the backend.
+                    Checks whether the Polygon API key is present and recognized
+                    by the backend.
                   </p>
                 </div>
                 <button
@@ -327,9 +334,17 @@ const DataHubPage: React.FC = () => {
                     Start (YYYY-MM-DD)
                   </label>
                   <input
+                    type="date"
+                    inputMode="numeric"
+                    pattern="\d{4}-\d{2}-\d{2}"
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={start}
-                    onChange={(e) => setStart(e.target.value)}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                        setStart(raw);
+                      }
+                    }}
                   />
                 </div>
                 <div className="flex flex-col">
@@ -337,9 +352,17 @@ const DataHubPage: React.FC = () => {
                     End (YYYY-MM-DD)
                   </label>
                   <input
+                    type="date"
+                    inputMode="numeric"
+                    pattern="\d{4}-\d{2}-\d{2}"
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={end}
-                    onChange={(e) => setEnd(e.target.value)}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                        setEnd(raw);
+                      }
+                    }}
                   />
                 </div>
                 <button

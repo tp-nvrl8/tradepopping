@@ -2,17 +2,22 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List
+
 from .config import CONFIG
+from .datahub.polygon_client import (
+    fetch_polygon_daily_ohlcv,
+    PriceBarDTO,
+    PolygonClientError,  # currently not raised, but kept for future use
+)
 
 app = FastAPI(title="TradePopping Backend")
 
-# bring in lab, datahub routes AFTER app is created
-from .routes import lab, datahub  # noqa: E402
+# bring in lab routes AFTER app is created
+from .routes import lab  # noqa: E402
 
 app.include_router(lab.router, prefix="/api/lab")
-app.include_router(datahub.router, prefix="/api")
 
 # --- Config from environment ---
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")
@@ -95,12 +100,7 @@ def health():
 def api_health():
     return health()
 
-@app.get("/api/auth/debug-env", include_in_schema=False)
-def debug_auth_env():
-    return {
-        "ALLOWED_EMAIL": ALLOWED_EMAIL,
-        "ENTRY_CODE_set": bool(ENTRY_CODE),
-    }
+
 # --- Auth helpers ---
 
 
@@ -252,6 +252,26 @@ def get_user_settings(current_user: dict = Depends(get_current_user)):
     return UserSettings()
 
 
+@app.put("/api/user/settings", response_model=UserSettings)
+def update_user_settings(
+    settings: UserSettings,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Update settings for the current user.
+    Stores them in an in-memory dict for now.
+    """
+    email = current_user.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="User email not found")
+
+    USER_SETTINGS_STORE[email] = settings
+    return settings
+
+
+# --- Data source status + testing ---
+
+
 @app.get("/api/data/sources", response_model=List[DataSourceStatus])
 def get_data_sources(current_user: dict = Depends(get_current_user)):
     """
@@ -267,7 +287,7 @@ def get_data_ingest_status(current_user: dict = Depends(get_current_user)):
     Return ingest status for each data source.
     Currently stubbed: all sources are 'idle' with no timestamps.
     """
-    return build_data_ingest_status() 
+    return build_data_ingest_status()
 
 
 @app.post("/api/data/sources/test", response_model=DataSourceTestResponse)
@@ -306,21 +326,54 @@ def test_data_source(
     )
 
 
-@app.put("/api/user/settings", response_model=UserSettings)
-def update_user_settings(
-    settings: UserSettings,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Update settings for the current user.
-    Stores them in an in-memory dict for now.
-    """
-    email = current_user.get("email")
-    if not email:
-        raise HTTPException(status_code=400, detail="User email not found")
+# --- Polygon DataHub endpoint ---
 
-    USER_SETTINGS_STORE[email] = settings
-    return settings
+
+@app.get("/api/datahub/polygon/daily-ohlcv")
+async def api_polygon_daily_ohlcv(
+    symbol: str,
+    start: str,
+    end: str,
+    current_user: dict = Depends(get_current_user),
+) -> List[PriceBarDTO]:
+    """
+    Fetch a window of daily OHLCV bars from Polygon and return them
+    in a simple DTO shape for the Data Hub.
+
+    `start` and `end` must be YYYY-MM-DD (inclusive).
+    """
+
+    # Parse the date strings
+    try:
+        start_date = date.fromisoformat(start)
+        end_date = date.fromisoformat(end)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use YYYY-MM-DD for start and end.",
+        )
+
+    try:
+        bars = await fetch_polygon_daily_ohlcv(
+            symbol=symbol,
+            start=start_date,
+            end=end_date,
+        )
+        # `bars` is already a list[PriceBarDTO] (TypedDicts)
+        return bars
+    except RuntimeError as exc:
+        # Raised by polygon_client when API key missing or HTTP error
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        # Safety net so the frontend always gets a clear message
+        raise HTTPException(
+            status_code=500,
+            detail="Unexpected error while fetching data from Polygon.",
+        ) from exc
+
+
+# --- Data source registry ---
+
 
 DATA_SOURCES = [
     {"id": "polygon", "name": "Polygon.io", "env_key": "POLYGON_API_KEY"},

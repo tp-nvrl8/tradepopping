@@ -2,15 +2,10 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 import os
 import secrets
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional, List
 
 from .config import CONFIG
-from .datahub.polygon_client import (
-    fetch_polygon_daily_ohlcv,
-    PriceBarDTO,
-    PolygonClientError,  # currently not raised, but kept for future use
-)
 
 app = FastAPI(title="TradePopping Backend")
 
@@ -326,52 +321,6 @@ def test_data_source(
         has_api_key=has_key,
         message=message,
     )
-
-
-# --- Polygon DataHub endpoint ---
-
-
-@app.get("/api/datahub/polygon/daily-ohlcv")
-async def api_polygon_daily_ohlcv(
-    symbol: str,
-    start: str,
-    end: str,
-    current_user: dict = Depends(get_current_user),
-) -> List[PriceBarDTO]:
-    """
-    Fetch a window of daily OHLCV bars from Polygon and return them
-    in a simple DTO shape for the Data Hub.
-
-    `start` and `end` must be YYYY-MM-DD (inclusive).
-    """
-
-    # Parse the date strings
-    try:
-        start_date = date.fromisoformat(start)
-        end_date = date.fromisoformat(end)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid date format. Use YYYY-MM-DD for start and end.",
-        )
-
-    try:
-        bars = await fetch_polygon_daily_ohlcv(
-            symbol=symbol,
-            start=start_date,
-            end=end_date,
-        )
-        # `bars` is already a list[PriceBarDTO] (TypedDicts)
-        return bars
-    except RuntimeError as exc:
-        # Raised by polygon_client when API key missing or HTTP error
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    except Exception as exc:
-        # Safety net so the frontend always gets a clear message
-        raise HTTPException(
-            status_code=500,
-            detail="Unexpected error while fetching data from Polygon.",
-        ) from exc
 
 
 # --- Data source registry ---

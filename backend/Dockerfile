@@ -30,4 +30,4 @@ ENV API_ENV=development \
     API_PORT=8000
 
 # Start the FastAPI app with Uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000

@@ -1,158 +1,147 @@
+"""DuckDB-backed cache for daily OHLCV bars."""
+
+from __future__ import annotations
+
 import os
-from datetime import datetime, date, timezone
-from typing import List, Optional
+from datetime import date, datetime
+from typing import List, TypedDict
 
 import duckdb
 
-from .polygon_client import PriceBarDTO
+
+class BarStoreError(Exception):
+    """Errors raised by the bar store layer."""
 
 
-def _get_duckdb_path() -> str:
-    """
-    Resolve the DuckDB path from TP_DUCKDB_PATH env var, with a default
-    that works inside the backend container.
-    """
-    path = os.getenv("TP_DUCKDB_PATH", "/data/tradepopping.duckdb").strip()
-    if not path:
-        path = "/data/tradepopping.duckdb"
-    return path
+class BarRecord(TypedDict):
+    symbol: str
+    bar_date: date
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    source: str
 
 
 def _get_connection() -> duckdb.DuckDBPyConnection:
-    """
-    Return a DuckDB connection to the configured file.
-    DuckDB will create the file if it does not exist.
-    """
-    db_path = _get_duckdb_path()
-    conn = duckdb.connect(db_path, read_only=False)
-    return conn
+    """Create a DuckDB connection and ensure schema exists."""
 
+    data_dir = os.environ.get("TP_DATA_DIR", "/data")
+    os.makedirs(data_dir, exist_ok=True)
+    db_path = os.path.join(data_dir, "tradepopping.duckdb")
 
-def _init_schema() -> None:
-    """
-    Ensure the daily_bars table (our simple daily OHLCV 'lake') exists.
-    """
-    conn = _get_connection()
-    conn.execute(
+    con = duckdb.connect(db_path)
+    con.execute(
         """
-        CREATE TABLE IF NOT EXISTS daily_bars (
-            symbol TEXT NOT NULL,
-            trade_date DATE NOT NULL,
-            open DOUBLE,
-            high DOUBLE,
-            low DOUBLE,
-            close DOUBLE,
-            volume DOUBLE,
-            PRIMARY KEY(symbol, trade_date)
+        CREATE TABLE IF NOT EXISTS daily_bars(
+          symbol TEXT,
+          bar_date DATE,
+          open DOUBLE,
+          high DOUBLE,
+          low DOUBLE,
+          close DOUBLE,
+          volume DOUBLE,
+          source TEXT,
+          ingested_at TIMESTAMP DEFAULT current_timestamp
         );
         """
     )
-    conn.close()
+    return con
 
 
-# Initialize schema at import time
-_init_schema()
+def _parse_bar_date(time_value: str) -> date:
+    """Parse an ISO timestamp string into a date object."""
+
+    normalized = time_value.replace("Z", "+00:00")
+    return datetime.fromisoformat(normalized).date()
 
 
-def upsert_daily_bars(symbol: str, bars: List[PriceBarDTO]) -> None:
-    """
-    Insert or replace daily bars for a given symbol.
-    - trade_date is derived from the bar's "time" (ISO string, UTC)
-    - Uses INSERT OR REPLACE semantics on the PRIMARY KEY(symbol, trade_date)
-    """
+def upsert_daily_bars(symbol: str, bars: List[dict], source: str = "polygon") -> int:
+    """Insert or replace daily bars for a symbol within a date range."""
+
     if not bars:
-        return
+        return 0
 
-    conn = _get_connection()
+    con = None
     try:
-        rows = []
-        for bar in bars:
-            # bar["time"] is ISO-8601; parse and take date
-            t_str = bar["time"]
-            dt = datetime.fromisoformat(t_str.replace("Z", "+00:00"))
-            trade_date = dt.date()
+        con = _get_connection()
+        con.execute("BEGIN")
 
-            rows.append(
-                (
-                    symbol.upper(),
-                    trade_date,
-                    float(bar["open"]),
-                    float(bar["high"]),
-                    float(bar["low"]),
-                    float(bar["close"]),
-                    float(bar["volume"]),
-                )
-            )
+        first_date = _parse_bar_date(bars[0]["time"])
+        last_date = _parse_bar_date(bars[-1]["time"])
 
-        conn.executemany(
+        con.execute(
             """
-            INSERT OR REPLACE INTO daily_bars
-            (symbol, trade_date, open, high, low, close, volume)
-            VALUES (?, ?, ?, ?, ?, ?, ?);
+            DELETE FROM daily_bars
+            WHERE symbol = ?
+              AND bar_date BETWEEN ? AND ?
+              AND source = ?;
             """,
-            rows,
+            [symbol, first_date, last_date, source],
         )
-    finally:
-        conn.close()
 
-
-def read_daily_bars(
-    symbol: str,
-    start: date,
-    end: date,
-) -> List[PriceBarDTO]:
-    """
-    Read daily bars for a symbol in [start, end] inclusive from the lake.
-    Returns a list of PriceBarDTO with ISO datetime strings at midnight UTC.
-    If no rows exist, returns an empty list.
-    """
-    conn = _get_connection()
-    try:
-        symbol_up = symbol.upper()
-        result = conn.execute(
-            """
-            SELECT
+        insert_values = [
+            (
                 symbol,
-                trade_date,
-                open,
-                high,
-                low,
-                close,
-                volume
+                _parse_bar_date(bar["time"]),
+                bar["open"],
+                bar["high"],
+                bar["low"],
+                bar["close"],
+                bar["volume"],
+                source,
+            )
+            for bar in bars
+        ]
+
+        con.executemany(
+            """
+            INSERT INTO daily_bars(symbol, bar_date, open, high, low, close, volume, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            insert_values,
+        )
+
+        con.execute("COMMIT")
+        return len(insert_values)
+    except Exception as exc:  # noqa: BLE001
+        try:
+            if con is not None:
+                con.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise BarStoreError(str(exc)) from exc
+
+
+def read_daily_bars(symbol: str, start: date, end: date, source: str = "polygon") -> list[dict]:
+    """Read cached daily bars from DuckDB."""
+
+    try:
+        con = _get_connection()
+        result = con.execute(
+            """
+            SELECT symbol, bar_date, open, high, low, close, volume
             FROM daily_bars
             WHERE symbol = ?
-              AND trade_date BETWEEN ? AND ?
-            ORDER BY trade_date ASC;
+              AND bar_date BETWEEN ? AND ?
+              AND source = ?
+            ORDER BY bar_date ASC;
             """,
-            [symbol_up, start, end],
+            [symbol, start, end, source],
         ).fetchall()
 
-        bars: List[PriceBarDTO] = []
-        for row in result:
-            _, trade_date, o, h, l, c, v = row
-
-            # Convert date -> ISO datetime at midnight UTC
-            dt = datetime(
-                trade_date.year,
-                trade_date.month,
-                trade_date.day,
-                0,
-                0,
-                0,
-                tzinfo=timezone.utc,
-            )
-
-            bars.append(
-                PriceBarDTO(
-                    time=dt.isoformat(),
-                    open=float(o),
-                    high=float(h),
-                    low=float(l),
-                    close=float(c),
-                    volume=float(v),
-                )
-            )
-
-        return bars
-    finally:
-        conn.close()
+        return [
+            {
+                "symbol": row[0],
+                "bar_date": row[1],
+                "open": row[2],
+                "high": row[3],
+                "low": row[4],
+                "close": row[5],
+                "volume": row[6],
+            }
+            for row in result
+        ]
+    except Exception as exc:  # noqa: BLE001
+        raise BarStoreError(str(exc)) from exc

@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   backend:
     build: ./backend
@@ -6,6 +8,10 @@ services:
       - .env
     expose:
       - "8000"
+    volumes:
+      # Host folder ./backend/data → container folder /data
+      # DuckDB will create /data/tradepopping.duckdb here
+      - ./backend/data:/data
 
   frontend:
     build: ./frontend

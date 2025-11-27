@@ -82,6 +82,21 @@ def health():
 @app.get("/api/health", include_in_schema=False)
 def api_health():
     return health()
+class AppConfig(BaseModel):
+    environment: str
+    version: str
+
+
+@app.get("/api/config", response_model=AppConfig)
+def get_config():
+    """
+    Simple config endpoint the frontend can call on boot.
+    """
+    return AppConfig(
+        environment=CONFIG.app_env,
+        version=CONFIG.app_version,
+    )
+
 
 # --- DATA SOURCE HELPERS ---
 def build_data_source_status() -> List[DataSourceStatus]:

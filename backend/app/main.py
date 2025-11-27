@@ -13,6 +13,8 @@ from .routes import lab  # noqa: E402
 from .routes import datahub_bars  # noqa: E402
 from .routes import datahub_fmp  # noqa: E402
 
+from app.auth import get_current_user, ACTIVE_TOKENS
+
 app.include_router(lab.router, prefix="/api/lab")
 app.include_router(datahub_bars.router, prefix="/api")
 app.include_router(datahub_fmp.router, prefix="/api")
@@ -26,8 +28,6 @@ print(
     f"TP_ENTRY_CODE set={bool(ENTRY_CODE)}",
     flush=True,
 )
-
-ACTIVE_TOKENS: set[str] = set()
 
 # --- MODELS ---
 class LoginRequest(BaseModel):
@@ -82,16 +82,6 @@ def health():
 @app.get("/api/health", include_in_schema=False)
 def api_health():
     return health()
-
-# --- AUTH HELPERS ---
-def get_current_user(request: Request):
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = auth.split(" ", 1)[1]
-    if token not in ACTIVE_TOKENS:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return {"email": ALLOWED_EMAIL}
 
 # --- DATA SOURCE HELPERS ---
 def build_data_source_status() -> List[DataSourceStatus]:

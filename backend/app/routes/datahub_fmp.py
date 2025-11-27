@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.datahub.fmp_client import FmpSymbolDTO, fetch_fmp_symbol_universe
-from app.auth import get_current_userclear
+from app.auth import get_current_user
 
 router = APIRouter(
     tags=["datahub:fmp"],

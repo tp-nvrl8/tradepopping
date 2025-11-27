@@ -74,7 +74,14 @@ const PriceSparkline: React.FC<{ bars: PriceBarDTO[] }> = ({ bars }) => {
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <rect x={0} y={0} width={width} height={height} rx={6} fill="#020617" />
+      <rect
+        x={0}
+        y={0}
+        width={width}
+        height={height}
+        rx={6}
+        fill="#020617"
+      />
       <path d={d} fill="none" stroke="#38bdf8" strokeWidth={1.6} />
       <rect
         x={padding}
@@ -97,16 +104,15 @@ const DataHubPage: React.FC = () => {
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
 
-  const [testResult, setTestResult] = useState<DataSourceTestResponse | null>(
-    null
-  );
-  const [testing, setTesting] = useState(false);
+  // Per-source test state
+  const [testingSourceId, setTestingSourceId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<
+    Record<string, DataSourceTestResponse | null>
+  >({});
 
   const [symbol, setSymbol] = useState("AAPL");
-  // NOTE: keep these as plain yyyy-mm-dd strings
   const [start, setStart] = useState("2024-01-02");
   const [end, setEnd] = useState("2024-01-31");
-
   const [bars, setBars] = useState<PriceBarDTO[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [barsError, setBarsError] = useState<string | null>(null);
@@ -130,28 +136,29 @@ const DataHubPage: React.FC = () => {
     loadSources();
   }, []);
 
-  const polygonStatus = sources.find((s) => s.id === "polygon");
-
-  const handleTestPolygon = async () => {
-    setTesting(true);
-    setTestResult(null);
+  const handleTestSource = async (sourceId: string) => {
+    setTestingSourceId(sourceId);
+    setTestResults((prev) => ({ ...prev, [sourceId]: null }));
     try {
       const res = await apiClient.post<DataSourceTestResponse>(
         "/data/sources/test",
-        { source_id: "polygon" }
+        { source_id: sourceId }
       );
-      setTestResult(res.data);
+      setTestResults((prev) => ({ ...prev, [sourceId]: res.data }));
     } catch (err) {
-      console.error("Failed to test polygon source", err);
-      setTestResult({
-        id: "polygon",
-        name: "Polygon.io",
-        status: "error",
-        has_api_key: false,
-        message: "Test call failed. Check console / backend.",
-      });
+      console.error(`Failed to test source ${sourceId}`, err);
+      setTestResults((prev) => ({
+        ...prev,
+        [sourceId]: {
+          id: sourceId,
+          name: sourceId,
+          status: "error",
+          has_api_key: false,
+          message: "Test call failed. Check console / backend.",
+        },
+      }));
     } finally {
-      setTesting(false);
+      setTestingSourceId(null);
     }
   };
 
@@ -161,18 +168,14 @@ const DataHubPage: React.FC = () => {
     setBarsError(null);
     setBarsLoading(true);
 
-    // iPad / Safari safety: enforce clean yyyy-mm-dd strings
-    const safeStart = start.trim().slice(0, 10);
-    const safeEnd = end.trim().slice(0, 10);
-
     try {
       const res = await apiClient.get<PriceBarDTO[]>(
         "/datahub/polygon/daily-ohlcv",
         {
           params: {
             symbol: symbol.trim().toUpperCase(),
-            start: safeStart,
-            end: safeEnd,
+            start,
+            end,
           },
         }
       );
@@ -199,7 +202,9 @@ const DataHubPage: React.FC = () => {
         style={{ borderColor: tokens.border }}
       >
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Data Hub</h1>
+          <h1 className="text-lg font-semibold tracking-tight">
+            Data Hub
+          </h1>
           <p className="text-xs text-slate-400">
             Connect data sources, test API keys, and inspect raw OHLCV windows.
           </p>
@@ -217,7 +222,9 @@ const DataHubPage: React.FC = () => {
                   Data Sources
                 </h2>
                 {sourcesLoading && (
-                  <span className="text-[11px] text-slate-500">Loading...</span>
+                  <span className="text-[11px] text-slate-500">
+                    Loading...
+                  </span>
                 )}
               </div>
 
@@ -230,78 +237,69 @@ const DataHubPage: React.FC = () => {
                   No data sources reported. Check backend configuration.
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {sources.map((src) => (
-                    <div
-                      key={src.id}
-                      className="flex items-center justify-between text-[11px] py-1 border-b border-slate-800/40 last:border-b-0"
-                    >
-                      <div>
-                        <div className="font-semibold text-slate-200">
-                          {src.name}
-                        </div>
-                        <div className="text-slate-500">
-                          Env key present:{" "}
-                          <span className="font-mono">
-                            {src.has_api_key ? "yes" : "no"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right text-[10px]">
-                        <div
-                          className={
-                            src.enabled
-                              ? "inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/60"
-                              : "inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600/60"
-                          }
-                        >
-                          {src.enabled ? "ENABLED" : "DISABLED"}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                <div className="space-y-2">
+                  {sources.map((src) => {
+                    const test = testResults[src.id] ?? null;
+                    const isTesting = testingSourceId === src.id;
 
-            {/* Polygon connectivity test */}
-            <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-                    Polygon Connectivity Test
-                  </h2>
-                  <p className="text-[11px] text-slate-400">
-                    Checks whether the Polygon API key is present and recognized
-                    by the backend.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleTestPolygon}
-                  disabled={testing}
-                  className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
-                >
-                  {testing ? "Testing…" : "Test Polygon Source"}
-                </button>
-              </div>
+                    return (
+                      <div
+                        key={src.id}
+                        className="text-[11px] border-b border-slate-800/40 pb-2 last:border-b-0 last:pb-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold text-slate-200">
+                              {src.name}
+                            </div>
+                            <div className="text-slate-500">
+                              Env key present:{" "}
+                              <span className="font-mono">
+                                {src.has_api_key ? "yes" : "no"}
+                              </span>
+                            </div>
+                          </div>
 
-              {testResult && (
-                <div className="mt-2 text-[11px]">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={
-                        testResult.status === "ok"
-                          ? "px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/60 text-[10px]"
-                          : "px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/60 text-[10px]"
-                      }
-                    >
-                      {testResult.status.toUpperCase()}
-                    </span>
-                    <span className="text-slate-300">
-                      {testResult.message}
-                    </span>
-                  </div>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={
+                                src.enabled
+                                  ? "inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/60"
+                                  : "inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600/60"
+                              }
+                            >
+                              {src.enabled ? "ENABLED" : "DISABLED"}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleTestSource(src.id)}
+                              disabled={isTesting || !src.has_api_key}
+                              className="px-2 py-1 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold"
+                            >
+                              {isTesting ? "Testing…" : "Test source"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {test && (
+                          <div className="mt-1 flex items-center gap-2 text-[10px]">
+                            <span
+                              className={
+                                test.status === "ok"
+                                  ? "px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/60"
+                                  : "px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/60"
+                              }
+                            >
+                              {test.status.toUpperCase()}
+                            </span>
+                            <span className="text-slate-300">
+                              {test.message}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -334,17 +332,9 @@ const DataHubPage: React.FC = () => {
                     Start (YYYY-MM-DD)
                   </label>
                   <input
-                    type="date"
-                    inputMode="numeric"
-                    pattern="\d{4}-\d{2}-\d{2}"
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={start}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-                        setStart(raw);
-                      }
-                    }}
+                    onChange={(e) => setStart(e.target.value)}
                   />
                 </div>
                 <div className="flex flex-col">
@@ -352,17 +342,9 @@ const DataHubPage: React.FC = () => {
                     End (YYYY-MM-DD)
                   </label>
                   <input
-                    type="date"
-                    inputMode="numeric"
-                    pattern="\d{4}-\d{2}-\d{2}"
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={end}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-                        setEnd(raw);
-                      }
-                    }}
+                    onChange={(e) => setEnd(e.target.value)}
                   />
                 </div>
                 <button
@@ -384,7 +366,7 @@ const DataHubPage: React.FC = () => {
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <div>
                       Received{" "}
-                      <span className="font-semibold text-slate-200">
+                        <span className="font-semibold text-slate-200">
                         {bars.length}
                       </span>{" "}
                       bars for{" "}

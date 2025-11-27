@@ -167,7 +167,7 @@ const DataHubPage: React.FC = () => {
 
     try {
       const res = await apiClient.get<PriceBarDTO[]>(
-        "/data/bars/daily",
+        "/datahub/polygon/daily-ohlcv",
         {
           params: {
             symbol: symbol.trim().toUpperCase(),

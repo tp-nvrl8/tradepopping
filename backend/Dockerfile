@@ -11,6 +11,8 @@ WORKDIR /app
 # Install system dependencies (if we need them later, we’ll add more)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency file and install Python packages

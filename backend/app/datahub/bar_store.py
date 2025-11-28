@@ -8,13 +8,14 @@ Simple DuckDB-backed cache for daily OHLCV bars.
 - Used by the Polygon datahub endpoint as a write-through cache.
 """
 
+import asyncio
 import os
 from datetime import date, datetime
 from typing import List, Sequence
 
 import duckdb
 
-from app.datahub.polygon_client import PriceBarDTO
+from app.datahub.eodhd_client import fetch_eodhd_daily_ohlcv, PriceBarDTO
 
 # Where the DuckDB file lives inside the backend container
 TP_DUCKDB_PATH: str = os.getenv(
@@ -170,3 +171,25 @@ def read_daily_bars(symbol: str, start: date, end: date) -> List[PriceBarDTO]:
         )
 
     return dto_rows
+
+
+async def ingest_eodhd_window(symbol: str, start: date, end: date) -> None:
+    """
+    Fetch daily bars from EODHD for [start, end] and upsert into daily_bars.
+    """
+
+    _ensure_schema()
+    bars = await fetch_eodhd_daily_ohlcv(symbol=symbol, start=start, end=end)
+    upsert_daily_bars(symbol, bars)
+
+
+if __name__ == "__main__":
+    from datetime import date
+
+    asyncio.run(
+        ingest_eodhd_window(
+            symbol="AAPL",
+            start=date(2024, 1, 2),
+            end=date(2024, 1, 31),
+        )
+    )

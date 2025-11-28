@@ -196,6 +196,11 @@ DATA_SOURCES = [
     {"id": "fmp", "name": "Financial Modeling Prep", "env_key": "FMP_API_KEY"},
     {"id": "finnhub", "name": "Finnhub", "env_key": "FINNHUB_API_KEY"},
     {"id": "fintel", "name": "Fintel", "env_key": "FINTEL_API_KEY"},
+    {
+        "id": "eodhd",
+        "name": "EODHD (End-of-Day Historical Data)",
+        "env_key": "EODHD_API_TOKEN",
+    },
 ]
 
 if __name__ == "__main__":

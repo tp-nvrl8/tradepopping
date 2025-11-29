@@ -40,57 +40,52 @@ def _ensure_api_key() -> str:
 
 
 async def fetch_fmp_symbol_universe(
-    min_market_cap: int = 50_000_000,   # 50M default floor
-    max_market_cap: Optional[int] = None,
+    min_market_cap: int = 50_000_000,
+    max_market_cap: Optional[int] = 5_000_000_000,
     exchanges: str = "NYSE,NASDAQ,AMEX",
     country: str = "US",
+    is_etf: bool = False,
+    is_fund: bool = False,
+    is_actively_trading: bool = True,
+    include_all_share_classes: bool = False,
     limit: int = 10_000,
 ) -> List[FmpSymbolDTO]:
     """
-    Fetch a symbol universe from FMP *company screener*, including market cap.
+    Fetch a symbol universe from FMP company screener, including market cap,
+    sector, industry, etc.
 
-    New endpoint (non-legacy):
+    Endpoint:
       https://financialmodelingprep.com/stable/company-screener
-
-    Important query params (from your screenshot):
-      - marketCapMoreThan
-      - marketCapLowerThan
-      - exchange
-      - country
-      - isEtf
-      - isFund
-      - isActivelyTrading
-      - limit
     """
     api_key = _ensure_api_key()
 
     base_url = "https://financialmodelingprep.com/stable/company-screener"
-    params = {
-        "marketCapMoreThan": str(min_market_cap),
-        "exchange": exchanges,          # e.g. "NYSE,NASDAQ,AMEX"
-        "country": country,             # "US"
-        "isEtf": "false",
-        "isFund": "false",
-        "isActivelyTrading": "true",
-        "includeAllShareClasses": "false",
-        "limit": str(limit),
-        "apikey": api_key,
-    }
-    if max_market_cap is not None:
-        params["marketCapLowerThan"] = str(max_market_cap)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    params = {
+        "apikey": api_key,
+        "marketCapMoreThan": str(min_market_cap),
+        # FMP uses marketCapLowerThan for the upper bound
+        "marketCapLowerThan": str(max_market_cap) if max_market_cap is not None else None,
+        "exchange": exchanges,
+        "country": country,
+        "isEtf": str(is_etf).lower(),
+        "isFund": str(is_fund).lower(),
+        "isActivelyTrading": str(is_actively_trading).lower(),
+        "includeAllShareClasses": str(include_all_share_classes).lower(),
+        "limit": str(limit),
+    }
+
+    # Remove None values so we don't send empty params
+    params = {k: v for k, v in params.items() if v is not None}
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.get(base_url, params=params)
 
     if resp.status_code >= 400:
-        # Surface full text to the router so we see it in logs / UI
-        raise RuntimeError(
-            f"FMP HTTP error {resp.status_code}: {resp.text}"
-        )
+        raise RuntimeError(f"FMP HTTP error {resp.status_code}: {resp.text}")
 
     data = resp.json()
     if not isinstance(data, list):
-        # Be defensive
         raise FmpClientError(f"Unexpected FMP response: {data!r}")
 
     out: List[FmpSymbolDTO] = []

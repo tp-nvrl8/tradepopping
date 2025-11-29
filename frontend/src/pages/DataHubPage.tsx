@@ -132,6 +132,11 @@ const DataHubPage: React.FC = () => {
   const [barsLoading, setBarsLoading] = useState(false);
   const [barsError, setBarsError] = useState<string | null>(null);
 
+  // FMP filter controls (user editable)
+  const [minMarketCap, setMinMarketCap] = useState<string>("50000000"); // 50M
+  const [maxMarketCap, setMaxMarketCap] = useState<string>("5000000000"); // 5B
+  const [exchanges, setExchanges] = useState<string>("NYSE,NASDAQ,AMEX");
+
   // FMP universe ingest + stats
   const [ingestingUniverse, setIngestingUniverse] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
@@ -233,10 +238,28 @@ const DataHubPage: React.FC = () => {
     setIngestingUniverse(true);
     setIngestError(null);
     setIngestResult(null);
+
+    // Parse numeric caps from the text boxes
+    const minCapNum = Number(minMarketCap || "0");
+    const maxCapNum = maxMarketCap ? Number(maxMarketCap) : NaN;
+
+    const payload = {
+      min_market_cap:
+        Number.isFinite(minCapNum) && minCapNum > 0 ? minCapNum : 0,
+      max_market_cap:
+        Number.isFinite(maxCapNum) && maxCapNum > 0 ? maxCapNum : null,
+      exchanges: exchanges || "NYSE,NASDAQ,AMEX",
+      country: "US",
+      is_etf: false,
+      is_fund: false,
+      is_actively_trading: true,
+      include_all_share_classes: false,
+    };
+
     try {
       const res = await apiClient.post<UniverseIngestResult>(
         "/datalake/fmp/universe/ingest",
-        {}
+        payload
       );
       setIngestResult(res.data);
       // Refresh stats after ingest
@@ -384,6 +407,45 @@ const DataHubPage: React.FC = () => {
                 </button>
               </div>
 
+              {/* Filter controls */}
+              <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Min market cap (USD)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    type="number"
+                    inputMode="numeric"
+                    value={minMarketCap}
+                    onChange={(e) => setMinMarketCap(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Max market cap (USD)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    type="number"
+                    inputMode="numeric"
+                    value={maxMarketCap}
+                    onChange={(e) => setMaxMarketCap(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col min-w-[180px]">
+                  <label className="mb-0.5 text-slate-400">
+                    Exchanges (comma-separated)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={exchanges}
+                    onChange={(e) => setExchanges(e.target.value)}
+                    placeholder="NYSE,NASDAQ,AMEX"
+                  />
+                </div>
+              </div>
+
               {ingestError && (
                 <div className="text-[11px] text-amber-400 mt-1">
                   {ingestError}
@@ -406,7 +468,7 @@ const DataHubPage: React.FC = () => {
                   </div>
                   <div>
                     Rows upserted:{" "}
-                      <span className="font-semibold">
+                    <span className="font-semibold">
                       {ingestResult.rows_upserted}
                     </span>
                   </div>

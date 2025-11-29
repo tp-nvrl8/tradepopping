@@ -2,6 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
 import { apiClient } from "../api";
 
+// iPad-friendly error surface
+// (keeps us from staring at a blank white screen)
+window.onerror = function (msg) {
+  document.body.innerHTML =
+    "<pre style='color:red;font-size:20px;padding:20px;white-space:pre-wrap'>" +
+    msg +
+    "</pre>";
+};
+
 interface DataSourceStatus {
   id: string;
   name: string;
@@ -28,13 +37,25 @@ interface PriceBarDTO {
   volume: number;
 }
 
+interface UniverseIngestResult {
+  source: string; // "fmp"
+  symbols_received: number;
+  rows_upserted: number;
+}
+
+interface UniverseStats {
+  total_symbols: number;
+  by_exchange: Record<string, number>;
+  by_type: Record<string, number>;
+  by_sector: Record<string, number>;
+  by_cap_bucket: Record<string, number>;
+}
+
 // Simple sparkline renderer for close prices only
 const PriceSparkline: React.FC<{ bars: PriceBarDTO[] }> = ({ bars }) => {
   if (!bars.length) {
     return (
-      <div className="text-[10px] text-slate-500">
-        No data to preview.
-      </div>
+      <div className="text-[10px] text-slate-500">No data to preview.</div>
     );
   }
 
@@ -74,14 +95,7 @@ const PriceSparkline: React.FC<{ bars: PriceBarDTO[] }> = ({ bars }) => {
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <rect
-        x={0}
-        y={0}
-        width={width}
-        height={height}
-        rx={6}
-        fill="#020617"
-      />
+      <rect x={0} y={0} width={width} height={height} rx={6} fill="#020617" />
       <path d={d} fill="none" stroke="#38bdf8" strokeWidth={1.6} />
       <rect
         x={padding}
@@ -110,6 +124,7 @@ const DataHubPage: React.FC = () => {
     Record<string, DataSourceTestResponse | null>
   >({});
 
+  // Polygon OHLCV section
   const [symbol, setSymbol] = useState("AAPL");
   const [start, setStart] = useState("2024-01-02");
   const [end, setEnd] = useState("2024-01-31");
@@ -117,7 +132,17 @@ const DataHubPage: React.FC = () => {
   const [barsLoading, setBarsLoading] = useState(false);
   const [barsError, setBarsError] = useState<string | null>(null);
 
-  // Load data source status on mount
+  // FMP universe ingest + stats
+  const [ingestingUniverse, setIngestingUniverse] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [ingestResult, setIngestResult] =
+    useState<UniverseIngestResult | null>(null);
+
+  const [universeStats, setUniverseStats] = useState<UniverseStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  // Load data source status + universe stats on mount
   useEffect(() => {
     const loadSources = async () => {
       try {
@@ -134,6 +159,8 @@ const DataHubPage: React.FC = () => {
     };
 
     loadSources();
+    void fetchUniverseStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleTestSource = async (sourceId: string) => {
@@ -188,6 +215,40 @@ const DataHubPage: React.FC = () => {
     }
   };
 
+  const fetchUniverseStats = async () => {
+    try {
+      setStatsLoading(true);
+      setStatsError(null);
+      const res = await apiClient.get<UniverseStats>("/datalake/universe/stats");
+      setUniverseStats(res.data);
+    } catch (err) {
+      console.error("Failed to load universe stats", err);
+      setStatsError("Failed to load universe stats. Check backend logs.");
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const handleIngestUniverse = async () => {
+    setIngestingUniverse(true);
+    setIngestError(null);
+    setIngestResult(null);
+    try {
+      const res = await apiClient.post<UniverseIngestResult>(
+        "/datalake/fmp/universe/ingest",
+        {}
+      );
+      setIngestResult(res.data);
+      // Refresh stats after ingest
+      await fetchUniverseStats();
+    } catch (err) {
+      console.error("Failed to ingest FMP universe", err);
+      setIngestError("Failed to ingest symbol universe from FMP.");
+    } finally {
+      setIngestingUniverse(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-slate-950 text-slate-100 flex flex-col"
@@ -202,11 +263,10 @@ const DataHubPage: React.FC = () => {
         style={{ borderColor: tokens.border }}
       >
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            Data Hub
-          </h1>
+          <h1 className="text-lg font-semibold tracking-tight">Data Hub</h1>
           <p className="text-xs text-slate-400">
-            Connect data sources, test API keys, and inspect raw OHLCV windows.
+            Connect data sources, test API keys, ingest universes, and inspect
+            raw OHLCV windows.
           </p>
         </div>
       </header>
@@ -222,9 +282,7 @@ const DataHubPage: React.FC = () => {
                   Data Sources
                 </h2>
                 {sourcesLoading && (
-                  <span className="text-[11px] text-slate-500">
-                    Loading...
-                  </span>
+                  <span className="text-[11px] text-slate-500">Loading...</span>
                 )}
               </div>
 
@@ -304,6 +362,165 @@ const DataHubPage: React.FC = () => {
               )}
             </section>
 
+            {/* FMP Universe ingest + stats */}
+            <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                    FMP Symbol Universe → DuckDB
+                  </h2>
+                  <p className="text-[11px] text-slate-400">
+                    Pull the FMP symbol universe (with market cap, sector,
+                    industry) into the data lake.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleIngestUniverse}
+                  disabled={ingestingUniverse}
+                  className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
+                >
+                  {ingestingUniverse ? "Ingesting…" : "Ingest FMP Universe"}
+                </button>
+              </div>
+
+              {ingestError && (
+                <div className="text-[11px] text-amber-400 mt-1">
+                  {ingestError}
+                </div>
+              )}
+
+              {ingestResult && (
+                <div className="mt-1 text-[11px] text-slate-300">
+                  <div>
+                    Source:{" "}
+                    <span className="font-semibold uppercase">
+                      {ingestResult.source}
+                    </span>
+                  </div>
+                  <div>
+                    Symbols received:{" "}
+                    <span className="font-semibold">
+                      {ingestResult.symbols_received}
+                    </span>
+                  </div>
+                  <div>
+                    Rows upserted:{" "}
+                      <span className="font-semibold">
+                      {ingestResult.rows_upserted}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 border-t border-slate-800 pt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-slate-300">
+                    Universe Stats
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchUniverseStats}
+                    disabled={statsLoading}
+                    className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-[10px]"
+                  >
+                    {statsLoading ? "Refreshing…" : "Refresh stats"}
+                  </button>
+                </div>
+                {statsError && (
+                  <div className="text-[11px] text-amber-400">{statsError}</div>
+                )}
+                {universeStats && !statsError && (
+                  <div className="text-[11px] text-slate-300 space-y-2">
+                    <div>
+                      Total symbols:{" "}
+                      <span className="font-semibold">
+                        {universeStats.total_symbols}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-6">
+                      {/* Exchange breakdown */}
+                      <div>
+                        <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
+                          By exchange
+                        </div>
+                        <ul className="space-y-0.5">
+                          {Object.entries(universeStats.by_exchange).map(
+                            ([exch, count]) => (
+                              <li key={exch}>
+                                <span className="font-mono text-slate-400">
+                                  {exch}:
+                                </span>{" "}
+                                <span className="font-semibold">{count}</span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Type breakdown (equity vs ETF) */}
+                      <div>
+                        <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
+                          By type
+                        </div>
+                        <ul className="space-y-0.5">
+                          {Object.entries(universeStats.by_type).map(
+                            ([t, count]) => (
+                              <li key={t}>
+                                <span className="font-mono text-slate-400">
+                                  {t}:
+                                </span>{" "}
+                                <span className="font-semibold">{count}</span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Sector breakdown */}
+                      <div>
+                        <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
+                          By sector
+                        </div>
+                        <ul className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
+                          {Object.entries(universeStats.by_sector).map(
+                            ([sector, count]) => (
+                              <li key={sector}>
+                                <span className="font-mono text-slate-400">
+                                  {sector}:
+                                </span>{" "}
+                                <span className="font-semibold">{count}</span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Cap buckets */}
+                      <div>
+                        <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
+                          By cap bucket
+                        </div>
+                        <ul className="space-y-0.5">
+                          {Object.entries(universeStats.by_cap_bucket).map(
+                            ([bucket, count]) => (
+                              <li key={bucket}>
+                                <span className="font-mono text-slate-400">
+                                  {bucket}:
+                                </span>{" "}
+                                <span className="font-semibold">{count}</span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
             {/* Polygon OHLCV fetcher */}
             <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-3">
               <div className="flex items-center justify-between">
@@ -366,7 +583,7 @@ const DataHubPage: React.FC = () => {
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <div>
                       Received{" "}
-                        <span className="font-semibold text-slate-200">
+                      <span className="font-semibold text-slate-200">
                         {bars.length}
                       </span>{" "}
                       bars for{" "}

@@ -11,13 +11,13 @@ app = FastAPI(title="TradePopping Backend")
 # Register routers
 from .routes import lab  # noqa: E402
 from .routes import datahub_bars  # noqa: E402
-from .routes import datahub_fmp  # noqa: E402
+from .routes import datalake_fmp
 
 from app.auth import get_current_user, ACTIVE_TOKENS
 
 app.include_router(lab.router, prefix="/api/lab")
 app.include_router(datahub_bars.router, prefix="/api")
-app.include_router(datahub_fmp.router, prefix="/api")
+app.include_router(datalake_fmp.router, prefix="/api")
 
 # --- AUTH CONFIG ---
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")

@@ -1,11 +1,11 @@
-# backend/app/datahub/bar_store.py
+# backend/app/datalake/bar_store.py
 
 """
 Simple DuckDB-backed cache for daily OHLCV bars.
 
 - Stores one table: daily_bars
 - Keyed by (symbol, trade_date)
-- Used by the Polygon datahub endpoint as a write-through cache.
+- Used as a write-through cache for EODHD daily OHLCV.
 """
 
 import asyncio
@@ -15,7 +15,7 @@ from typing import List, Sequence
 
 import duckdb
 
-from app.datahub.eodhd_client import fetch_eodhd_daily_ohlcv, PriceBarDTO
+from app.datalake.eodhd_client import fetch_eodhd_daily_ohlcv, PriceBarDTO
 
 # Where the DuckDB file lives inside the backend container
 TP_DUCKDB_PATH: str = os.getenv(
@@ -42,8 +42,7 @@ def _ensure_schema() -> None:
     """
     Create the daily_bars table if it does not exist yet.
 
-    NOTE: We use `trade_date` as the date column name to match our
-    earlier experiments so we don't fight column name mismatches.
+    NOTE: we use trade_date as the date column name.
     """
     con = _get_connection(read_only=False)
     try:
@@ -77,7 +76,7 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
     """
     Insert / update daily bars for a symbol into DuckDB.
 
-    - `bars` uses the same shape as PolygonClient's PriceBarDTO.
+    - `bars` uses the same shape as EODHD PriceBarDTO.
     - We normalise the ISO `time` into a `trade_date` (DATE).
     - Uses INSERT OR REPLACE on (symbol, trade_date).
     """
@@ -88,7 +87,7 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
 
     records = []
     for b in bars:
-        # b["time"] is ISO8601 string, e.g. "2024-01-02T00:00:00+00:00"
+        # b["time"] is ISO8601, e.g. "2024-01-02T00:00:00+00:00"
         dt = datetime.fromisoformat(b["time"])
         trade_date = dt.date()
 
@@ -117,7 +116,6 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
         )
         con.execute("COMMIT")
     except Exception:
-        # Best effort rollback; if it fails we just re-raise.
         try:
             con.execute("ROLLBACK")
         except Exception:
@@ -132,7 +130,7 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
 def read_daily_bars(symbol: str, start: date, end: date) -> List[PriceBarDTO]:
     """
     Read cached daily bars for `symbol` in [start, end] (inclusive)
-    from DuckDB, returning the same DTO shape as PolygonClient.
+    from DuckDB, returning a PriceBarDTO list.
     """
     symbol = symbol.upper()
 
@@ -161,7 +159,7 @@ def read_daily_bars(symbol: str, start: date, end: date) -> List[PriceBarDTO]:
     for trade_date, o, h, l, c, v in rows:
         dto_rows.append(
             PriceBarDTO(
-                time=trade_date.isoformat(),
+                time=f"{trade_date.isoformat()}T00:00:00+00:00",
                 open=float(o),
                 high=float(h),
                 low=float(l),
@@ -177,19 +175,19 @@ async def ingest_eodhd_window(symbol: str, start: date, end: date) -> None:
     """
     Fetch daily bars from EODHD for [start, end] and upsert into daily_bars.
     """
-
     _ensure_schema()
     bars = await fetch_eodhd_daily_ohlcv(symbol=symbol, start=start, end=end)
     upsert_daily_bars(symbol, bars)
 
 
 if __name__ == "__main__":
-    from datetime import date
+    # Simple manual test when running this module directly
+    from datetime import date as _date
 
     asyncio.run(
         ingest_eodhd_window(
             symbol="AAPL",
-            start=date(2024, 1, 2),
-            end=date(2024, 1, 31),
+            start=_date(2024, 1, 2),
+            end=_date(2024, 1, 31),
         )
     )

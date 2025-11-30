@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, ReactNode } from "react";
 import { useUiScopedTokens } from "../config/useUiScopedTokens";
 import { apiClient } from "../api";
 
-// iPad-friendly error surface
-// (keeps us from staring at a blank white screen)
+// iPad-friendly error surface (avoids blank white screen)
 window.onerror = function (msg) {
   document.body.innerHTML =
     "<pre style='color:red;font-size:20px;padding:20px;white-space:pre-wrap'>" +
@@ -29,7 +28,7 @@ interface DataSourceTestResponse {
 }
 
 interface PriceBarDTO {
-  time: string; // ISO string from backend
+  time: string; // ISO from backend
   open: number;
   high: number;
   low: number;
@@ -50,6 +49,108 @@ interface UniverseStats {
   by_sector: Record<string, number>;
   by_cap_bucket: Record<string, number>;
 }
+
+interface EodhdIngestResponse {
+  requested_start: string;
+  requested_end: string;
+  universe_symbols_considered: number;
+  symbols_selected: number;
+  symbols_attempted: number;
+  symbols_succeeded: number;
+  symbols_failed: number;
+  rows_observed_after_ingest: number;
+  failed_symbols: string[];
+  job_id: string;
+  job_state: "running" | "succeeded" | "failed";
+}
+
+interface EodhdJobStatus {
+  id: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  state: "running" | "succeeded" | "failed";
+  requested_start: string;
+  requested_end: string;
+  universe_symbols_considered: number;
+  symbols_attempted: number;
+  symbols_succeeded: number;
+  symbols_failed: number;
+  last_error: string | null;
+}
+
+interface EodhdFullHistoryResponse {
+  start: string;
+  end: string;
+  window_days: number;
+  num_windows: number;
+
+  universe_symbols_considered: number;
+  symbols_selected: number;
+
+  total_symbols_attempted: number;
+  total_symbols_succeeded: number;
+  total_symbols_failed: number;
+
+  total_rows_observed: number;
+}
+
+// --- Collapsible section helper with localStorage persistence ---
+
+interface CollapsibleSectionProps {
+  storageKey: string;
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
+  storageKey,
+  title,
+  defaultOpen = true,
+  children,
+}) => {
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw === "true") return true;
+      if (raw === "false") return false;
+      return defaultOpen;
+    } catch {
+      return defaultOpen;
+    }
+  });
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(storageKey, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  return (
+    <section className="rounded-md border border-slate-800 bg-slate-900/40">
+      <button
+        type="button"
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-3 py-2 text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+          {title}
+        </span>
+        <span className="text-slate-400 text-xs font-mono">
+          {open ? "−" : "+"}
+        </span>
+      </button>
+      {open && <div className="px-3 pb-3 pt-1 space-y-2">{children}</div>}
+    </section>
+  );
+};
 
 // Simple sparkline renderer for close prices only
 const PriceSparkline: React.FC<{ bars: PriceBarDTO[] }> = ({ bars }) => {
@@ -114,17 +215,17 @@ const PriceSparkline: React.FC<{ bars: PriceBarDTO[] }> = ({ bars }) => {
 const DataHubPage: React.FC = () => {
   const tokens = useUiScopedTokens(["global", "page:datahub"]);
 
+  // --- Data source status ---
   const [sources, setSources] = useState<DataSourceStatus[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
 
-  // Per-source test state
   const [testingSourceId, setTestingSourceId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
     Record<string, DataSourceTestResponse | null>
   >({});
 
-  // Polygon OHLCV section
+  // --- Polygon OHLCV demo ---
   const [symbol, setSymbol] = useState("AAPL");
   const [start, setStart] = useState("2024-01-02");
   const [end, setEnd] = useState("2024-01-31");
@@ -132,12 +233,7 @@ const DataHubPage: React.FC = () => {
   const [barsLoading, setBarsLoading] = useState(false);
   const [barsError, setBarsError] = useState<string | null>(null);
 
-  // FMP filter controls (user editable)
-  const [minMarketCap, setMinMarketCap] = useState<string>("50000000"); // 50M
-  const [maxMarketCap, setMaxMarketCap] = useState<string>("5000000000"); // 5B
-  const [exchanges, setExchanges] = useState<string>("NYSE,NASDAQ,AMEX");
-
-  // FMP universe ingest + stats
+  // --- FMP universe ingest + stats ---
   const [ingestingUniverse, setIngestingUniverse] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [ingestResult, setIngestResult] =
@@ -147,7 +243,40 @@ const DataHubPage: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  // Load data source status + universe stats on mount
+  // FMP universe filters (for screener)
+  const [fmpMinCap, setFmpMinCap] = useState("50000000");
+  const [fmpMaxCap, setFmpMaxCap] = useState("");
+  const [fmpExchanges, setFmpExchanges] = useState("NYSE,NASDAQ,AMEX");
+  const [fmpIncludeEtfs, setFmpIncludeEtfs] = useState(false);
+  const [fmpActiveOnly, setFmpActiveOnly] = useState(true);
+  const [fmpLimit, setFmpLimit] = useState("5000");
+
+  // --- EODHD window ingest ---
+  const [eodStart, setEodStart] = useState("2024-01-02");
+  const [eodEnd, setEodEnd] = useState("2024-01-31");
+  const [eodMinCap, setEodMinCap] = useState("50000000"); // 50M
+  const [eodMaxCap, setEodMaxCap] = useState("");
+  const [eodExchanges, setEodExchanges] = useState("NYSE,NASDAQ,AMEX");
+  const [eodIncludeEtfs, setEodIncludeEtfs] = useState(false);
+  const [eodActiveOnly, setEodActiveOnly] = useState(true);
+  const [eodMaxSymbols, setEodMaxSymbols] = useState("25");
+
+  const [eodLoading, setEodLoading] = useState(false);
+  const [eodError, setEodError] = useState<string | null>(null);
+  const [eodResult, setEodResult] = useState<EodhdIngestResponse | null>(null);
+
+  // Background-style job status for EODHD ingest
+  const [eodJobStatus, setEodJobStatus] = useState<EodhdJobStatus | null>(null);
+  const [eodJobRefreshing, setEodJobRefreshing] = useState(false);
+
+  // --- EODHD full-history ingest (chunked) ---
+  const [fhWindowDays, setFhWindowDays] = useState("365");
+  const [fhLoading, setFhLoading] = useState(false);
+  const [fhError, setFhError] = useState<string | null>(null);
+  const [fhResult, setFhResult] =
+    useState<EodhdFullHistoryResponse | null>(null);
+
+  // --- On mount: load sources + universe stats ---
   useEffect(() => {
     const loadSources = async () => {
       try {
@@ -167,6 +296,8 @@ const DataHubPage: React.FC = () => {
     void fetchUniverseStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- Handlers ---
 
   const handleTestSource = async (sourceId: string) => {
     setTestingSourceId(sourceId);
@@ -238,31 +369,35 @@ const DataHubPage: React.FC = () => {
     setIngestingUniverse(true);
     setIngestError(null);
     setIngestResult(null);
-
-    // Parse numeric caps from the text boxes
-    const minCapNum = Number(minMarketCap || "0");
-    const maxCapNum = maxMarketCap ? Number(maxMarketCap) : NaN;
-
-    const payload = {
-      min_market_cap:
-        Number.isFinite(minCapNum) && minCapNum > 0 ? minCapNum : 0,
-      max_market_cap:
-        Number.isFinite(maxCapNum) && maxCapNum > 0 ? maxCapNum : null,
-      exchanges: exchanges || "NYSE,NASDAQ,AMEX",
-      country: "US",
-      is_etf: false,
-      is_fund: false,
-      is_actively_trading: true,
-      include_all_share_classes: false,
-    };
-
     try {
+      const minCap = parseInt(fmpMinCap || "0", 10);
+      const maxCap =
+        fmpMaxCap.trim().length > 0 ? parseInt(fmpMaxCap, 10) : null;
+      const limit = parseInt(fmpLimit || "0", 10) || 0;
+
+      const exchangesParam = fmpExchanges
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+        .join(",");
+
+      const params: Record<string, any> = {
+        min_market_cap: minCap,
+        exchanges: exchangesParam,
+        limit,
+        include_etfs: fmpIncludeEtfs,
+        active_only: fmpActiveOnly,
+      };
+      if (maxCap !== null) {
+        params.max_market_cap = maxCap;
+      }
+
       const res = await apiClient.post<UniverseIngestResult>(
         "/datalake/fmp/universe/ingest",
-        payload
+        {},
+        { params }
       );
       setIngestResult(res.data);
-      // Refresh stats after ingest
       await fetchUniverseStats();
     } catch (err) {
       console.error("Failed to ingest FMP universe", err);
@@ -271,6 +406,126 @@ const DataHubPage: React.FC = () => {
       setIngestingUniverse(false);
     }
   };
+
+  const refreshEodJobStatus = async () => {
+    setEodJobRefreshing(true);
+    try {
+      const res = await apiClient.get<EodhdJobStatus>(
+        "/datalake/eodhd/jobs/latest"
+      );
+      setEodJobStatus(res.data);
+    } catch (err) {
+      console.error("Failed to refresh EODHD job status", err);
+    } finally {
+      setEodJobRefreshing(false);
+    }
+  };
+
+  const handleIngestEodhdWindow = async () => {
+    setEodLoading(true);
+    setEodError(null);
+    setEodResult(null);
+
+    try {
+      const minCap = parseInt(eodMinCap || "0", 10);
+      const maxCap =
+        eodMaxCap.trim().length > 0 ? parseInt(eodMaxCap, 10) : null;
+      const maxSymbols = parseInt(eodMaxSymbols || "0", 10) || 0;
+
+      const payload = {
+        start: eodStart,
+        end: eodEnd,
+        min_market_cap: minCap,
+        max_market_cap: maxCap,
+        exchanges: eodExchanges
+          .split(",")
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean),
+        include_etfs: eodIncludeEtfs,
+        active_only: eodActiveOnly,
+        max_symbols: maxSymbols,
+      };
+
+      const res = await apiClient.post<EodhdIngestResponse>(
+        "/datalake/eodhd/ingest-window",
+        payload
+      );
+      setEodResult(res.data);
+
+      // Snapshot job info from the response
+      setEodJobStatus((prev) => ({
+        id: res.data.job_id,
+        created_at: prev?.created_at ?? new Date().toISOString(),
+        started_at: prev?.started_at ?? new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        state: res.data.job_state,
+        requested_start: res.data.requested_start,
+        requested_end: res.data.requested_end,
+        universe_symbols_considered: res.data.universe_symbols_considered,
+        symbols_attempted: res.data.symbols_attempted,
+        symbols_succeeded: res.data.symbols_succeeded,
+        symbols_failed: res.data.symbols_failed,
+        last_error:
+          res.data.symbols_failed > 0
+            ? "Some symbols failed during ingest."
+            : null,
+      }));
+
+      // Also sync from backend registry (most recent job)
+      void refreshEodJobStatus();
+    } catch (err) {
+      console.error("Failed to ingest EODHD window", err);
+      setEodError(
+        "Failed to ingest EODHD bars for that window. Check backend logs."
+      );
+    } finally {
+      setEodLoading(false);
+    }
+  };
+
+  const handleFullHistoryIngest = async () => {
+    setFhLoading(true);
+    setFhError(null);
+    setFhResult(null);
+
+    try {
+      const minCap = parseInt(eodMinCap || "0", 10);
+      const maxCap =
+        eodMaxCap.trim().length > 0 ? parseInt(eodMaxCap, 10) : null;
+      const maxSymbols = parseInt(eodMaxSymbols || "0", 10) || 0;
+      const windowDays = parseInt(fhWindowDays || "365", 10) || 365;
+
+      const payload = {
+        start: eodStart,
+        end: eodEnd,
+        min_market_cap: minCap,
+        max_market_cap: maxCap,
+        exchanges: eodExchanges
+          .split(",")
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean),
+        include_etfs: eodIncludeEtfs,
+        active_only: eodActiveOnly,
+        max_symbols: maxSymbols,
+        window_days: windowDays,
+      };
+
+      const res = await apiClient.post<EodhdFullHistoryResponse>(
+        "/datalake/eodhd/full-history/ingest",
+        payload
+      );
+      setFhResult(res.data);
+    } catch (err) {
+      console.error("Failed to run full-history EODHD ingest", err);
+      setFhError(
+        "Failed to run full-history ingest. Check backend logs for details."
+      );
+    } finally {
+      setFhLoading(false);
+    }
+  };
+
+  // --- Render ---
 
   return (
     <div
@@ -299,11 +554,12 @@ const DataHubPage: React.FC = () => {
         <main className="flex-1 flex flex-col overflow-y-auto items-center">
           <div className="w-full max-w-5xl px-4 py-4 space-y-4">
             {/* Data sources overview */}
-            <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-                  Data Sources
-                </h2>
+            <CollapsibleSection
+              storageKey="tp_datahub_section_sources"
+              title="Data Sources"
+              defaultOpen={true}
+            >
+              <div className="flex items-center justify-between mb-1">
                 {sourcesLoading && (
                   <span className="text-[11px] text-slate-500">Loading...</span>
                 )}
@@ -363,7 +619,8 @@ const DataHubPage: React.FC = () => {
                         </div>
 
                         {test && (
-                          <div className="mt-1 flex items-center gap-2 text-[10px]">
+                          <div className="mt-1 flex items
+                            gap-2 text-[10px]">
                             <span
                               className={
                                 test.status === "ok"
@@ -383,20 +640,94 @@ const DataHubPage: React.FC = () => {
                   })}
                 </div>
               )}
-            </section>
+            </CollapsibleSection>
 
             {/* FMP Universe ingest + stats */}
-            <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-                    FMP Symbol Universe → DuckDB
-                  </h2>
-                  <p className="text-[11px] text-slate-400">
-                    Pull the FMP symbol universe (with market cap, sector,
-                    industry) into the data lake.
-                  </p>
+            <CollapsibleSection
+              storageKey="tp_datahub_section_fmp_universe"
+              title="FMP Symbol Universe → DuckDB"
+              defaultOpen={true}
+            >
+              <p className="text-[11px] text-slate-400 mb-2">
+                Pull the FMP symbol universe (with market cap, sector,
+                industry) into the data lake using the company screener
+                filters below.
+              </p>
+
+              {/* FMP screener controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-[11px] mb-2">
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Min market cap (USD)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={fmpMinCap}
+                    onChange={(e) =>
+                      setFmpMinCap(e.target.value.replace(/,/g, ""))
+                    }
+                    placeholder="50000000"
+                  />
                 </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Max market cap (optional)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={fmpMaxCap}
+                    onChange={(e) =>
+                      setFmpMaxCap(e.target.value.replace(/,/g, ""))
+                    }
+                    placeholder=""
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Exchanges (comma-separated)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={fmpExchanges}
+                    onChange={(e) => setFmpExchanges(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Max symbols (limit)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={fmpLimit}
+                    onChange={(e) =>
+                      setFmpLimit(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    placeholder="5000"
+                  />
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  <label className="flex items-center gap-1 text-slate-300">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={fmpIncludeEtfs}
+                      onChange={(e) => setFmpIncludeEtfs(e.target.checked)}
+                    />
+                    <span className="text-[11px]">Include ETFs</span>
+                  </label>
+                  <label className="flex items-center gap-1 text-slate-300">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={fmpActiveOnly}
+                      onChange={(e) => setFmpActiveOnly(e.target.checked)}
+                    />
+                    <span className="text-[11px]">Active only</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
                   onClick={handleIngestUniverse}
@@ -405,45 +736,6 @@ const DataHubPage: React.FC = () => {
                 >
                   {ingestingUniverse ? "Ingesting…" : "Ingest FMP Universe"}
                 </button>
-              </div>
-
-              {/* Filter controls */}
-              <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
-                <div className="flex flex-col">
-                  <label className="mb-0.5 text-slate-400">
-                    Min market cap (USD)
-                  </label>
-                  <input
-                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    type="number"
-                    inputMode="numeric"
-                    value={minMarketCap}
-                    onChange={(e) => setMinMarketCap(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="mb-0.5 text-slate-400">
-                    Max market cap (USD)
-                  </label>
-                  <input
-                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    type="number"
-                    inputMode="numeric"
-                    value={maxMarketCap}
-                    onChange={(e) => setMaxMarketCap(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col min-w-[180px]">
-                  <label className="mb-0.5 text-slate-400">
-                    Exchanges (comma-separated)
-                  </label>
-                  <input
-                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    value={exchanges}
-                    onChange={(e) => setExchanges(e.target.value)}
-                    placeholder="NYSE,NASDAQ,AMEX"
-                  />
-                </div>
               </div>
 
               {ingestError && (
@@ -521,7 +813,7 @@ const DataHubPage: React.FC = () => {
                         </ul>
                       </div>
 
-                      {/* Type breakdown (equity vs ETF) */}
+                      {/* Type breakdown */}
                       <div>
                         <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
                           By type
@@ -581,14 +873,331 @@ const DataHubPage: React.FC = () => {
                   </div>
                 )}
               </div>
-            </section>
+            </CollapsibleSection>
+
+            {/* EODHD window ingest */}
+            <CollapsibleSection
+              storageKey="tp_datahub_section_eodhd_window"
+              title="EODHD Bars → Daily Window Ingest"
+              defaultOpen={true}
+            >
+              <p className="text-[11px] text-slate-400 mb-2">
+                Use the FMP symbol universe in DuckDB to bulk-ingest daily bars
+                from EODHD for a specific date range. This runs as a tracked
+                “job” so you can inspect the latest ingest status.
+              </p>
+
+              {/* Controls row */}
+              <div className="mt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-[11px]">
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">Start date</label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={eodStart}
+                    onChange={(e) => setEodStart(e.target.value)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">End date</label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={eodEnd}
+                    onChange={(e) => setEodEnd(e.target.value)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Min market cap (USD)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={eodMinCap}
+                    onChange={(e) =>
+                      setEodMinCap(e.target.value.replace(/,/g, ""))
+                    }
+                    placeholder="50000000"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Max market cap (optional)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={eodMaxCap}
+                    onChange={(e) =>
+                      setEodMaxCap(e.target.value.replace(/,/g, ""))
+                    }
+                    placeholder=""
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Exchanges (comma-separated)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={eodExchanges}
+                    onChange={(e) => setEodExchanges(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">Max symbols</label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={eodMaxSymbols}
+                    onChange={(e) =>
+                      setEodMaxSymbols(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    placeholder="25"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="flex items-center gap-1 text-slate-300">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={eodIncludeEtfs}
+                      onChange={(e) => setEodIncludeEtfs(e.target.checked)}
+                    />
+                    <span className="text-[11px]">Include ETFs</span>
+                  </label>
+                  <label className="flex items-center gap-1 text-slate-300">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={eodActiveOnly}
+                      onChange={(e) => setEodActiveOnly(e.target.checked)}
+                    />
+                    <span className="text-[11px]">Active only</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleIngestEodhdWindow}
+                  disabled={eodLoading}
+                  className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
+                >
+                  {eodLoading ? "Ingesting window…" : "Ingest EODHD window"}
+                </button>
+                <div className="flex items-center gap-2">
+                  {eodLoading && (
+                    <span className="text-[11px] text-slate-500">
+                      Talking to EODHD and DuckDB…
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={refreshEodJobStatus}
+                    disabled={eodJobRefreshing}
+                    className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-[10px]"
+                  >
+                    {eodJobRefreshing ? "Refreshing…" : "Refresh job status"}
+                  </button>
+                </div>
+              </div>
+
+              {eodError && (
+                <div className="text-[11px] text-amber-400 mt-1">{eodError}</div>
+              )}
+
+              {eodResult && (
+                <div className="mt-2 text-[11px] text-slate-300 border border-slate-800 rounded-md p-2 bg-slate-950/40">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-slate-200">
+                        Latest EODHD ingest
+                      </span>
+                      <span className="font-mono text-slate-400">
+                        {eodResult.requested_start} →{" "}
+                        {eodResult.requested_end}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {eodJobStatus && (
+                        <span className="text-[10px]">
+                          Job{" "}
+                          <span className="font-mono">
+                            {eodJobStatus.id.slice(0, 8)}…
+                          </span>{" "}
+                          <span
+                            className={
+                              eodJobStatus.state === "succeeded"
+                                ? "text-emerald-300"
+                                : eodJobStatus.state === "running"
+                                ? "text-sky-300"
+                                : "text-rose-300"
+                            }
+                          >
+                            ({eodJobStatus.state})
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Universe symbols
+                      </div>
+                      <div className="font-semibold">
+                        {eodResult.universe_symbols_considered}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Symbols attempted
+                      </div>
+                      <div className="font-semibold">
+                        {eodResult.symbols_attempted}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Succeeded / Failed
+                      </div>
+                      <div className="font-semibold">
+                        {eodResult.symbols_succeeded} /{" "}
+                        {eodResult.symbols_failed}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Rows observed
+                      </div>
+                      <div className="font-semibold">
+                        {eodResult.rows_observed_after_ingest.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  {eodResult.failed_symbols.length > 0 && (
+                    <div className="mt-1 text-[10px] text-amber-300">
+                      Failed symbols: {eodResult.failed_symbols.join(", ")}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CollapsibleSection>
+
+            {/* EODHD full-history ingest (chunked) */}
+            <CollapsibleSection
+              storageKey="tp_datahub_section_eodhd_full_history"
+              title="EODHD Full History → Chunked Ingest"
+              defaultOpen={false}
+            >
+              <p className="text-[11px] text-slate-400 mb-2">
+                Use the same filters above to ingest a full history range,
+                split into date windows, for your selected FMP universe.
+              </p>
+              <p className="text-[10px] text-slate-500 mb-2">
+                Reuses: start / end dates, min / max market cap, exchanges, ETF
+                + active flags, and max symbols.
+              </p>
+
+              <div className="mt-1 flex flex-wrap gap-3 items-end text-[11px]">
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Window size (days)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={fhWindowDays}
+                    onChange={(e) =>
+                      setFhWindowDays(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    placeholder="365"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFullHistoryIngest}
+                  disabled={fhLoading}
+                  className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
+                >
+                  {fhLoading
+                    ? "Running full-history ingest…"
+                    : "Run full-history ingest"}
+                </button>
+
+                {fhLoading && (
+                  <span className="text-[11px] text-slate-500">
+                    This may take a while for larger universes…
+                  </span>
+                )}
+              </div>
+
+              {fhError && (
+                <div className="text-[11px] text-amber-400 mt-1">
+                  {fhError}
+                </div>
+              )}
+
+              {fhResult && (
+                <div className="mt-2 text-[11px] text-slate-300 border border-slate-800 rounded-md p-2 bg-slate-950/40">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-slate-200">
+                      Full-history ingest summary
+                    </span>
+                    <span className="font-mono text-slate-400">
+                      {fhResult.start} → {fhResult.end} •{" "}
+                      {fhResult.window_days}-day windows (
+                      {fhResult.num_windows})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Universe symbols
+                      </div>
+                      <div className="font-semibold">
+                        {fhResult.universe_symbols_considered}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Total attempts (sym × window)
+                      </div>
+                      <div className="font-semibold">
+                        {fhResult.total_symbols_attempted}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Succeeded / Failed
+                      </div>
+                      <div className="font-semibold">
+                        {fhResult.total_symbols_succeeded} /{" "}
+                        {fhResult.total_symbols_failed}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">
+                        Rows observed
+                      </div>
+                      <div className="font-semibold">
+                        {fhResult.total_rows_observed.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CollapsibleSection>
 
             {/* Polygon OHLCV fetcher */}
-            <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-                  Polygon Daily OHLCV Window
-                </h2>
+            <CollapsibleSection
+              storageKey="tp_datahub_section_polygon_ohlcv"
+              title="Polygon Daily OHLCV Window"
+              defaultOpen={false}
+            >
+              <div className="flex items-center justify-between mb-1">
                 {barsLoading && (
                   <span className="text-[11px] text-slate-500">
                     Fetching bars…
@@ -642,7 +1251,7 @@ const DataHubPage: React.FC = () => {
 
               {bars.length > 0 && (
                 <>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2">
                     <div>
                       Received{" "}
                       <span className="font-semibold text-slate-200">
@@ -719,7 +1328,7 @@ const DataHubPage: React.FC = () => {
                   </div>
                 </>
               )}
-            </section>
+            </CollapsibleSection>
           </div>
         </main>
       </div>

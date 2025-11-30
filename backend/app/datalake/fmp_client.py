@@ -41,8 +41,8 @@ def _ensure_api_key() -> str:
 
 async def fetch_fmp_symbol_universe(
     min_market_cap: int = 50_000_000,
-    max_market_cap: Optional[int] = 5_000_000_000,
-    exchanges: str = "NYSE,NASDAQ,AMEX",
+    max_market_cap: Optional[int] = 200_000_000_000,
+    exchanges: str = "NYSE,NASDAQ",
     country: str = "US",
     is_etf: bool = False,
     is_fund: bool = False,

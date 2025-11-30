@@ -1,17 +1,15 @@
-version: "3.9"
-
 services:
   backend:
     build: ./backend
     container_name: tp-backend
     env_file:
       - .env
+    environment:
+      - TP_DUCKDB_PATH=/data/tradepopping.duckdb
+    volumes:
+      - ./backend/data:/data
     expose:
       - "8000"
-    volumes:
-      # Host folder ./backend/data → container folder /data
-      # DuckDB will create /data/tradepopping.duckdb here
-      - ./backend/data:/data
 
   frontend:
     build: ./frontend

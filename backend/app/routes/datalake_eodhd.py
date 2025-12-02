@@ -34,7 +34,7 @@ class EodhdIngestRequest(BaseModel):
     min_market_cap: int = 50_000_000      # 50M default floor
     max_market_cap: Optional[int] = None  # no cap if None
 
-    exchanges: List[str] = ["NYSE", "NASDAQ", "AMEX"]
+    exchanges: List[str] = ["NYSE", "NASDAQ"]
     include_etfs: bool = False
     active_only: bool = True
 

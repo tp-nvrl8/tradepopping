@@ -246,7 +246,7 @@ const DataHubPage: React.FC = () => {
   // FMP universe filters (for screener)
   const [fmpMinCap, setFmpMinCap] = useState("50000000");
   const [fmpMaxCap, setFmpMaxCap] = useState("");
-  const [fmpExchanges, setFmpExchanges] = useState("NYSE,NASDAQ,AMEX");
+  const [fmpExchanges, setFmpExchanges] = useState("NYSE,NASDAQ");
   const [fmpIncludeEtfs, setFmpIncludeEtfs] = useState(false);
   const [fmpActiveOnly, setFmpActiveOnly] = useState(true);
   const [fmpLimit, setFmpLimit] = useState("5000");
@@ -256,7 +256,7 @@ const DataHubPage: React.FC = () => {
   const [eodEnd, setEodEnd] = useState("2024-01-31");
   const [eodMinCap, setEodMinCap] = useState("50000000"); // 50M
   const [eodMaxCap, setEodMaxCap] = useState("");
-  const [eodExchanges, setEodExchanges] = useState("NYSE,NASDAQ,AMEX");
+  const [eodExchanges, setEodExchanges] = useState("NYSE,NASDAQ");
   const [eodIncludeEtfs, setEodIncludeEtfs] = useState(false);
   const [eodActiveOnly, setEodActiveOnly] = useState(true);
   const [eodMaxSymbols, setEodMaxSymbols] = useState("25");

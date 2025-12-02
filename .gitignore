@@ -1,15 +1,20 @@
+# ============================
 # Python
+# ============================
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.sqlite3
+
 .env
+.env.local
 .venv/
 venv/
-.env.local
 
+# ============================
 # Node / JS
+# ============================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -18,12 +23,30 @@ pnpm-lock.yaml
 dist/
 build/
 
+# ============================
 # Editors / OS
+# ============================
 .DS_Store
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Docker
+# ============================
+# Docker / Logs
+# ============================
 *.log
+
+# ============================
+# DuckDB files (IMPORTANT)
+# ============================
+# Prevent local dev databases from being committed
+backend/data/*.duckdb
+backend/data/*.wal
+backend/data/*.tmp
+
+# ============================
+# Keep .env.production (DO wants this)
+# ============================
+# DO NOT ignore .env.production.
+# Only ignore local .env files.

@@ -9,10 +9,11 @@ import duckdb
 
 from app.datalake.fmp_client import FmpSymbolDTO
 
-# Use the same DuckDB file as bars so everything lives together
+# Use the same DuckDB file as the rest of the datalake
+# IMPORTANT: this matches the container path /data/tradepopping.duckdb
 TP_DUCKDB_PATH = os.getenv(
     "TP_DUCKDB_PATH",
-    "/app/data/tradepopping_bars.duckdb",
+    "/data/tradepopping.duckdb",
 )
 
 TABLE_NAME = "symbol_universe"

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import Any, Dict, List, Optional
 
 import duckdb
@@ -12,6 +12,11 @@ from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.datalake.bar_store import ingest_eodhd_window, read_daily_bars
+from app.datalake.ingest_jobs import (
+    create_ingest_job,
+    finalize_ingest_job,
+    get_latest_ingest_job,
+)
 
 router = APIRouter(tags=["datalake-eodhd"])
 
@@ -44,7 +49,8 @@ class EodhdIngestRequest(BaseModel):
 
 class EodhdIngestResponse(BaseModel):
     """
-    Summary of what we ingested for a single [start, end] window.
+    Summary of what we ingested for a single [start, end] window,
+    plus job tracking info for the UI.
     """
     requested_start: date
     requested_end: date
@@ -57,6 +63,9 @@ class EodhdIngestResponse(BaseModel):
 
     rows_observed_after_ingest: int
     failed_symbols: List[str]
+
+    job_id: str
+    job_state: str  # "running" | "succeeded" | "failed"
 
 
 class EodhdFullHistoryRequest(BaseModel):
@@ -96,6 +105,21 @@ class EodhdFullHistoryResponse(BaseModel):
     total_symbols_failed: int
 
     total_rows_observed: int
+
+
+class EodhdJobStatus(BaseModel):
+    id: str
+    created_at: datetime
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    state: str  # "running" | "succeeded" | "failed"
+    requested_start: date
+    requested_end: date
+    universe_symbols_considered: int
+    symbols_attempted: int
+    symbols_succeeded: int
+    symbols_failed: int
+    last_error: Optional[str]
 
 
 def _get_duckdb_connection(read_only: bool = True) -> duckdb.DuckDBPyConnection:
@@ -209,32 +233,62 @@ async def ingest_eodhd_for_universe(
             ),
         )
 
-    # 2) Ingest bars from EODHD for each symbol, one by one
+    # 2) Create a job row so we can track this ingest
+    job_id = create_ingest_job(
+        requested_start=payload.start,
+        requested_end=payload.end,
+        universe_symbols_considered=universe_count,
+    )
+
+    # 3) Ingest bars from EODHD for each symbol, one by one
     succeeded = 0
     failed = 0
     failed_symbols: List[str] = []
     total_rows_observed = 0
 
-    for sym in symbols:
-        try:
-            # Write-through ingest into daily_bars
-            await ingest_eodhd_window(
-                symbol=sym,
-                start=payload.start,
-                end=payload.end,
-            )
+    try:
+        for sym in symbols:
+            try:
+                # Write-through ingest into daily_bars
+                await ingest_eodhd_window(
+                    symbol=sym,
+                    start=payload.start,
+                    end=payload.end,
+                )
 
-            # Read back what we have for this symbol / window to count rows.
-            bars = read_daily_bars(
-                symbol=sym,
-                start=payload.start,
-                end=payload.end,
-            )
-            total_rows_observed += len(bars)
-            succeeded += 1
-        except Exception as e:
-            failed += 1
-            failed_symbols.append(f"{sym}: {e}")
+                # Read back what we have for this symbol / window to count rows.
+                bars = read_daily_bars(
+                    symbol=sym,
+                    start=payload.start,
+                    end=payload.end,
+                )
+                total_rows_observed += len(bars)
+                succeeded += 1
+            except Exception as e:
+                failed += 1
+                failed_symbols.append(f"{sym}: {e}")
+
+        job_state = "succeeded" if failed == 0 else "failed"
+        finalize_ingest_job(
+            job_id=job_id,
+            state=job_state,
+            symbols_attempted=universe_count,
+            symbols_succeeded=succeeded,
+            symbols_failed=failed,
+            last_error=None if failed == 0 else "One or more symbols failed.",
+        )
+
+    except Exception as e:
+        # catastrophic error → mark job failed and re-raise
+        finalize_ingest_job(
+            job_id=job_id,
+            state="failed",
+            symbols_attempted=universe_count,
+            symbols_succeeded=succeeded,
+            symbols_failed=failed,
+            last_error=str(e),
+        )
+        raise
 
     return EodhdIngestResponse(
         requested_start=payload.start,
@@ -246,6 +300,8 @@ async def ingest_eodhd_for_universe(
         symbols_failed=failed,
         rows_observed_after_ingest=total_rows_observed,
         failed_symbols=failed_symbols,
+        job_id=job_id,
+        job_state="succeeded" if failed == 0 else "failed",
     )
 
 
@@ -345,4 +401,34 @@ async def ingest_eodhd_full_history(
         total_symbols_succeeded=total_succeeded,
         total_symbols_failed=total_failed,
         total_rows_observed=total_rows_observed,
+    )
+
+
+@router.get(
+    "/datalake/eodhd/jobs/latest",
+    response_model=EodhdJobStatus,
+)
+def latest_eodhd_job(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Return the most recent EODHD ingest job for display in the Data Hub.
+    """
+    row = get_latest_ingest_job()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No EODHD ingest jobs found.")
+
+    return EodhdJobStatus(
+        id=row["id"],
+        created_at=row["created_at"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+        state=row["state"],
+        requested_start=row["requested_start"],
+        requested_end=row["requested_end"],
+        universe_symbols_considered=row["universe_symbols_considered"],
+        symbols_attempted=row["symbols_attempted"],
+        symbols_succeeded=row["symbols_succeeded"],
+        symbols_failed=row["symbols_failed"],
+        last_error=row["last_error"],
     )

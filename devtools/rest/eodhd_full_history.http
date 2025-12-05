@@ -1,0 +1,17 @@
+@auth_token = YCKrjt1t_pONEXyh6LpoQqWns-aL_SZU6S2JQa6QrCQ
+@host = https://miniature-palm-tree-g46w96gprgjqh9wjx-8080.app.github.dev
+POST {{host}}/datalake/eodhd/full-history/start
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "start": "2015-01-01",
+  "end": "2025-12-04",
+  "min_market_cap": 50000000,
+  "max_market_cap": null,
+  "exchanges": ["NYSE", "NASDAQ"],
+  "include_etfs": false,
+  "active_only": true,
+  "max_symbols": 1000,
+  "window_days": 365
+}

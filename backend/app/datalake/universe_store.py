@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, TypedDict
+from typing import Dict, List, TypedDict, Optional, Tuple, Any
 
 import duckdb
 
 from app.datalake.fmp_client import FmpSymbolDTO
 
-# Use the same DuckDB file as the rest of the datalake
-# IMPORTANT: this matches the container path /data/tradepopping.duckdb
+# Use the same DuckDB file everywhere (env wins, default is DO/dev-friendly)
 TP_DUCKDB_PATH = os.getenv(
     "TP_DUCKDB_PATH",
     "/data/tradepopping.duckdb",
@@ -28,8 +27,14 @@ class UniverseStats(TypedDict):
 
 
 def _get_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    return duckdb.connect(TP_DUCKDB_PATH, read_only=read_only)
+    """
+    Always open DuckDB with a single consistent configuration.
 
+    DuckDB does not like multiple connections to the same file with
+    different configs (including read_only), so we ignore the flag and
+    enforce "read-only" at the application level instead.
+    """
+    return duckdb.connect(TP_DUCKDB_PATH)
 
 def _ensure_schema() -> None:
     """
@@ -213,5 +218,173 @@ def get_universe_stats() -> UniverseStats:
             by_sector=by_sector,
             by_cap_bucket=by_cap_bucket,
         )
+    finally:
+        con.close()
+
+
+# ---------- Universe browser helpers ----------
+
+def browse_universe(
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    sector: Optional[str] = None,
+    min_market_cap: Optional[float] = None,
+    max_market_cap: Optional[float] = None,
+    exchanges: Optional[List[str]] = None,
+    sort_by: str = "symbol",
+    sort_dir: str = "asc",
+) -> Tuple[List[Dict[str, Any]], int, List[str], List[str], Optional[float], Optional[float]]:
+    """
+    Server-side browsing helper:
+
+    - paging
+    - search (symbol/name)
+    - sector filter
+    - cap filters
+    - exchange filter
+    - sorting
+    """
+    _ensure_schema()
+    con = _get_conn(read_only=True)
+    try:
+        # Clamp page + page_size
+        page = max(1, page)
+        page_size = max(1, min(page_size, 500))
+
+        # Build WHERE
+        where_clauses: List[str] = []
+        params: List[Any] = []
+
+        if search:
+            s = f"%{search.strip().upper()}%"
+            where_clauses.append(
+                "(UPPER(symbol) LIKE ? OR UPPER(name) LIKE ?)"
+            )
+            params.extend([s, s])
+
+        if sector:
+            where_clauses.append(
+                "COALESCE(NULLIF(TRIM(sector), ''), 'UNKNOWN') = ?"
+            )
+            params.append(sector)
+
+        if exchanges:
+            exch_clean = [ex.strip().upper() for ex in exchanges if ex.strip()]
+            if exch_clean:
+                placeholders = ", ".join(["?"] * len(exch_clean))
+                where_clauses.append(f"exchange IN ({placeholders})")
+                params.extend(exch_clean)
+
+        if min_market_cap is not None:
+            where_clauses.append("market_cap >= ?")
+            params.append(float(min_market_cap))
+
+        if max_market_cap is not None:
+            where_clauses.append("market_cap <= ?")
+            params.append(float(max_market_cap))
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = " WHERE " + " AND ".join(where_clauses)
+
+        # Sorting
+        sort_map = {
+            "symbol": "symbol",
+            "name": "name",
+            "sector": "sector",
+            "exchange": "exchange",
+            "market_cap": "market_cap",
+            "price": "price",
+        }
+        sort_column = sort_map.get(sort_by, "symbol")
+        sort_dir_sql = "DESC" if sort_dir.lower() == "desc" else "ASC"
+
+        # Total count
+        total_row = con.execute(
+            f"SELECT COUNT(*) FROM {TABLE_NAME}{where_sql}",
+            params,
+        ).fetchone()
+        total_items = int(total_row[0]) if total_row else 0
+
+        # Page slice
+        offset = (page - 1) * page_size
+
+        rows = con.execute(
+            f"""
+            SELECT
+              symbol,
+              name,
+              exchange,
+              sector,
+              industry,
+              market_cap,
+              price,
+              is_etf,
+              is_actively_trading
+            FROM {TABLE_NAME}
+            {where_sql}
+            ORDER BY {sort_column} {sort_dir_sql}
+            LIMIT ? OFFSET ?
+            """,
+            params + [page_size, offset],
+        ).fetchall()
+
+        items: List[Dict[str, Any]] = []
+        for (
+            symbol,
+            name,
+            exchange,
+            sector_val,
+            industry,
+            market_cap,
+            price,
+            is_etf,
+            is_actively_trading,
+        ) in rows:
+            items.append(
+                {
+                    "symbol": symbol,
+                    "name": name,
+                    "exchange": exchange,
+                    "sector": sector_val,
+                    "industry": industry,
+                    "market_cap": float(market_cap),
+                    "price": float(price),
+                    "is_etf": bool(is_etf),
+                    "is_actively_trading": bool(is_actively_trading),
+                }
+            )
+
+        # Available sectors (full table, not filtered)
+        sector_rows = con.execute(
+            f"""
+            SELECT DISTINCT
+              COALESCE(NULLIF(TRIM(sector), ''), 'UNKNOWN') AS s
+            FROM {TABLE_NAME}
+            ORDER BY s ASC
+            """
+        ).fetchall()
+        sectors = [s for (s,) in sector_rows]
+
+        # Available exchanges (full table)
+        exch_rows = con.execute(
+            f"""
+            SELECT DISTINCT
+              COALESCE(NULLIF(TRIM(exchange), ''), 'UNKNOWN') AS e
+            FROM {TABLE_NAME}
+            ORDER BY e ASC
+            """
+        ).fetchall()
+        exch_list = [e for (e,) in exch_rows]
+
+        # Global cap range
+        cap_row = con.execute(
+            f"SELECT MIN(market_cap), MAX(market_cap) FROM {TABLE_NAME}"
+        ).fetchone()
+        min_cap_global = float(cap_row[0]) if cap_row and cap_row[0] is not None else None
+        max_cap_global = float(cap_row[1]) if cap_row and cap_row[1] is not None else None
+
+        return items, total_items, sectors, exch_list, min_cap_global, max_cap_global
     finally:
         con.close()

@@ -1,3 +1,4 @@
+// frontend/src/App.tsx
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
@@ -12,6 +13,7 @@ import TestStandPage from "./pages/TestStandPage";
 import DataHubPage from "./pages/DataHubPage";
 import SettingsPage from "./pages/SettingsPage";
 import AppShell from "./layout/AppShell";
+import DevToolsPage from "./pages/DevToolsPage";
 
 const App: React.FC = () => {
   return (
@@ -84,6 +86,18 @@ const App: React.FC = () => {
                 <ProtectedRoute>
                   <AppShell>
                     <SettingsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ✅ New: Dev Tools route */}
+            <Route
+              path="/devtools"
+              element={
+                <ProtectedRoute>
+                  <AppShell>
+                    <DevToolsPage />
                   </AppShell>
                 </ProtectedRoute>
               }

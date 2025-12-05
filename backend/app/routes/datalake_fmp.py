@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.datalake.fmp_client import fetch_fmp_symbol_universe
-from app.datalake.universe_store import upsert_universe, get_universe_stats
+from app.datalake.universe_store import (upsert_universe, get_universe_stats, browse_universe, UniverseStats,)
 
 router = APIRouter(tags=["datalake-fmp"])
 
@@ -81,3 +81,97 @@ def universe_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
             status_code=500,
             detail=f"Error reading universe stats: {e}",
         )
+
+# ---------- Universe browser API ----------
+
+class UniverseRowModel(BaseModel):
+  symbol: str
+  name: str
+  exchange: str
+  sector: Optional[str] = None
+  industry: Optional[str] = None
+  market_cap: float
+  price: float
+  is_etf: bool
+  is_actively_trading: bool
+
+
+class UniverseBrowseResponse(BaseModel):
+  items: List[UniverseRowModel]
+  total_items: int
+  page: int
+  page_size: int
+  total_pages: int
+  sectors: List[str]
+  exchanges: List[str]
+  min_market_cap: Optional[float]
+  max_market_cap: Optional[float]
+
+
+@router.get(
+  "/datalake/universe/browse",
+  response_model=UniverseBrowseResponse,
+)
+async def browse_symbol_universe(
+  page: int = Query(1, ge=1),
+  page_size: int = Query(50, ge=1, le=500),
+  search: Optional[str] = Query(None, description="Search by symbol or name"),
+  sector: Optional[str] = Query(None),
+  min_market_cap: Optional[float] = Query(None),
+  max_market_cap: Optional[float] = Query(None),
+  exchanges: Optional[str] = Query(
+    None,
+    description="Comma-separated exchanges (e.g. NYSE,NASDAQ)"
+  ),
+  sort_by: str = Query(
+    "symbol",
+    regex="^(symbol|name|sector|exchange|market_cap|price)$"
+  ),
+  sort_dir: str = Query(
+    "asc",
+    regex="^(asc|desc)$"
+  ),
+  current_user: Dict[str, Any] = Depends(get_current_user),
+):
+  """
+  Browse the stored symbol_universe with paging, sorting, and filters.
+  """
+
+  exch_list: Optional[List[str]] = None
+  if exchanges:
+    exch_list = [e.strip().upper() for e in exchanges.split(",") if e.strip()]
+
+  (
+    items,
+    total_items,
+    sectors,
+    exch_all,
+    min_cap_global,
+    max_cap_global,
+  ) = browse_universe(
+    page=page,
+    page_size=page_size,
+    search=search,
+    sector=sector,
+    min_market_cap=min_market_cap,
+    max_market_cap=max_market_cap,
+    exchanges=exch_list,
+    sort_by=sort_by,
+    sort_dir=sort_dir,
+  )
+
+  total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
+
+  item_models = [UniverseRowModel(**row) for row in items]
+
+  return UniverseBrowseResponse(
+    items=item_models,
+    total_items=total_items,
+    page=page,
+    page_size=page_size,
+    total_pages=total_pages,
+    sectors=sectors,
+    exchanges=exch_all,
+    min_market_cap=min_cap_global,
+    max_market_cap=max_cap_global,
+  )

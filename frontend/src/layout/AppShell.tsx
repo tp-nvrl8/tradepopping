@@ -1,3 +1,4 @@
+// frontend/src/layout/AppShell.tsx
 import React, { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -13,6 +14,9 @@ const navItems = [
   { label: "Test Stand", path: "/test-stand" },
   { label: "DataHub", path: "/datahub" },
   { label: "Settings", path: "/settings" },
+
+  // ✅ New: Dev Tools entry
+  { label: "Dev Tools", path: "/devtools" },
 ];
 
 const AppShell: React.FC<AppShellProps> = ({ children }) => {

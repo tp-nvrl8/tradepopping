@@ -14,7 +14,7 @@ from .routes import datahub_bars  # noqa: E402
 from .routes import datalake_fmp
 from .routes import datalake_bars
 from .routes import datalake_eodhd  # noqa: E402
-
+from .routes import datahub
 
 from app.auth import get_current_user, ACTIVE_TOKENS
 
@@ -23,6 +23,7 @@ app.include_router(datahub_bars.router, prefix="/api")
 app.include_router(datalake_fmp.router, prefix="/api")
 app.include_router(datalake_bars.router, prefix="/api")
 app.include_router(datalake_eodhd.router, prefix="/api")
+app.include_router(datahub.router, prefix="/api")
 
 # --- AUTH CONFIG ---
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")
@@ -102,6 +103,17 @@ def get_config():
         version=CONFIG.app_version,
     )
 
+DATA_SOURCES = [
+    {"id": "polygon", "name": "Polygon.io", "env_key": "POLYGON_API_KEY"},
+    {"id": "fmp", "name": "Financial Modeling Prep", "env_key": "FMP_API_KEY"},
+    {"id": "finnhub", "name": "Finnhub", "env_key": "FINNHUB_API_KEY"},
+    {"id": "fintel", "name": "Fintel", "env_key": "FINTEL_API_KEY"},
+    {
+        "id": "eodhd",
+        "name": "EODHD (End-of-Day Historical Data)",
+        "env_key": "EODHD_API_TOKEN",
+    },
+]
 
 # --- DATA SOURCE HELPERS ---
 def build_data_source_status() -> List[DataSourceStatus]:
@@ -195,18 +207,6 @@ def test_api_source(payload: DataSourceTestRequest, current_user: dict = Depends
         has_api_key=True,
         message="API key is present.",
     )
-
-DATA_SOURCES = [
-    {"id": "polygon", "name": "Polygon.io", "env_key": "POLYGON_API_KEY"},
-    {"id": "fmp", "name": "Financial Modeling Prep", "env_key": "FMP_API_KEY"},
-    {"id": "finnhub", "name": "Finnhub", "env_key": "FINNHUB_API_KEY"},
-    {"id": "fintel", "name": "Fintel", "env_key": "FINTEL_API_KEY"},
-    {
-        "id": "eodhd",
-        "name": "EODHD (End-of-Day Historical Data)",
-        "env_key": "EODHD_API_TOKEN",
-    },
-]
 
 if __name__ == "__main__":
     import uvicorn

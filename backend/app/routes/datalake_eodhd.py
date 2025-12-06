@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -25,6 +25,11 @@ TP_DUCKDB_PATH: str = os.getenv(
     "TP_DUCKDB_PATH",
     "/data/tradepopping.duckdb",
 )
+
+
+# ---------------------------------------------------------------------------
+# Request / response models
+# ---------------------------------------------------------------------------
 
 
 class EodhdIngestRequest(BaseModel):
@@ -70,7 +75,7 @@ class EodhdIngestResponse(BaseModel):
 
 class EodhdFullHistoryRequest(BaseModel):
     """
-    Request for a full-history ingest, chunked by windows of `window_days`.
+    Request for a multi-window full-history ingest, chunked by `window_days`.
     Reuses the same universe filters, but walks multiple date windows.
     """
     start: date
@@ -106,6 +111,7 @@ class EodhdFullHistoryResponse(BaseModel):
 
     total_rows_observed: int
 
+
 class EodhdFullHistoryStartResponse(BaseModel):
     """
     Lightweight response when we *start* a full-history ingest
@@ -116,6 +122,7 @@ class EodhdFullHistoryStartResponse(BaseModel):
     start: date
     end: date
     window_days: int
+
 
 class EodhdJobStatusResponse(BaseModel):
     """
@@ -138,17 +145,26 @@ class EodhdJobStatusResponse(BaseModel):
 
     last_error: Optional[str]
 
+
 class EodhdIngestFullHistoryRequest(BaseModel):
     """
-    Same filters as the window request, but without explicit start/end.
-    Backend will decide the historical range (e.g. 1980-01-01 to today).
+    Simple full-history ingest driven by the UI:
+    UI supplies the earliest `start` date and filters,
+    backend uses today's date as the end.
     """
-    min_market_cap: int = 0
-    max_market_cap: int | None = None
-    exchanges: list[str]
+    start: date
+    min_market_cap: int = 50_000_000
+    max_market_cap: Optional[int] = None
+    exchanges: List[str] = ["NYSE", "NASDAQ"]
     include_etfs: bool = False
     active_only: bool = True
-    max_symbols: int = 0  # 0 or None = no explicit limit
+    max_symbols: int = 500
+
+
+# ---------------------------------------------------------------------------
+# DuckDB helpers
+# ---------------------------------------------------------------------------
+
 
 def _get_duckdb_connection(read_only: bool = True) -> duckdb.DuckDBPyConnection:
     """
@@ -158,6 +174,7 @@ def _get_duckdb_connection(read_only: bool = True) -> duckdb.DuckDBPyConnection:
     across all connections in this process.
     """
     return duckdb.connect(TP_DUCKDB_PATH)
+
 
 def _select_universe_symbols(
     min_market_cap: int,
@@ -223,6 +240,11 @@ def _select_universe_symbols(
         return [r[0] for r in rows]
     finally:
         con.close()
+
+
+# ---------------------------------------------------------------------------
+# Single-window ingest (UI: "Ingest window")
+# ---------------------------------------------------------------------------
 
 
 @router.post(
@@ -339,33 +361,33 @@ async def ingest_eodhd_for_universe(
         job_state="succeeded" if failed == 0 else "failed",
     )
 
-from datetime import date
 
-# ...
+# ---------------------------------------------------------------------------
+# Simple full-history ingest (UI: "Ingest full history")
+# ---------------------------------------------------------------------------
+
 
 @router.post(
-    "/ingest-full-history",
+    "/datalake/eodhd/ingest-full-history",
     response_model=EodhdIngestResponse,
     summary="Ingest full EODHD daily-bar history for a filtered universe",
 )
 async def ingest_eodhd_full_history_route(
     body: EodhdIngestFullHistoryRequest,
-    user=Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
-    Kick off a full-history ingest using the same engine as ingest-window,
-    but with a very wide date range. You can refine the start date later.
+    Full-history ingest driven by the same mechanics as /datalake/eodhd/ingest-window,
+    but with:
+      - start: provided by the UI (body.start)
+      - end:   today's date
     """
-    # TODO: tune this lower bound if you don't want ultra-old history
-    start = date(2015, 1, 1)
-    end = date.today()
 
-    # Re-use the existing ingest implementation for a big window.
-    # IMPORTANT: keep the argument list here identical to the one used in
-    # your existing /ingest-window route, just swapping start/end.
-    return await ingest_eodhd_window(
-        start=start,
-        end=end,
+    start_date = body.start
+    end_date = date.today()
+
+    # 1) Pick symbols from the existing universe in DuckDB
+    symbols = _select_universe_symbols(
         min_market_cap=body.min_market_cap,
         max_market_cap=body.max_market_cap,
         exchanges=body.exchanges,
@@ -373,6 +395,100 @@ async def ingest_eodhd_full_history_route(
         active_only=body.active_only,
         max_symbols=body.max_symbols,
     )
+
+    universe_count = len(symbols)
+    if universe_count == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No symbols matched from symbol_universe. "
+                "Make sure you have ingested the FMP universe "
+                "and that your filters are not too strict."
+            ),
+        )
+
+    # 2) Create a job record
+    job_id = create_ingest_job(
+        requested_start=start_date,
+        requested_end=end_date,
+        universe_symbols_considered=universe_count,
+    )
+
+    succeeded = 0
+    failed = 0
+    failed_symbols: List[str] = []
+    total_rows_observed = 0
+
+    # 3) Ingest bars from EODHD for each symbol, one by one
+    try:
+        for sym in symbols:
+            try:
+                await ingest_eodhd_window(
+                    symbol=sym,
+                    start=start_date,
+                    end=end_date,
+                )
+                bars = read_daily_bars(
+                    symbol=sym,
+                    start=start_date,
+                    end=end_date,
+                )
+                total_rows_observed += len(bars)
+                succeeded += 1
+            except Exception as e:
+                failed += 1
+                failed_symbols.append(f"{sym}: {e}")
+
+        # Decide final job state
+        if failed == 0:
+            job_state = "succeeded"
+            last_error = None
+        else:
+            job_state = "failed"
+            last_error = "Some symbols failed during ingest."
+
+        update_ingest_job(
+            job_id,
+            state=job_state,
+            symbols_attempted=universe_count,
+            symbols_succeeded=succeeded,
+            symbols_failed=failed,
+            last_error=last_error,
+        )
+    except Exception as e:
+        update_ingest_job(
+            job_id,
+            state="failed",
+            symbols_attempted=universe_count,
+            symbols_succeeded=succeeded,
+            symbols_failed=max(universe_count - succeeded, failed),
+            last_error=str(e),
+        )
+        raise
+
+    return EodhdIngestResponse(
+        requested_start=start_date,
+        requested_end=end_date,
+        universe_symbols_considered=universe_count,
+        symbols_selected=universe_count,
+        symbols_attempted=universe_count,
+        symbols_succeeded=succeeded,
+        symbols_failed=failed,
+        rows_observed_after_ingest=total_rows_observed,
+        failed_symbols=failed_symbols,
+        job_id=job_id,
+        job_state="succeeded" if failed == 0 else "failed",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Advanced multi-window full-history ingest (existing design)
+#   - /datalake/eodhd/full-history/ingest
+#   - /datalake/eodhd/full-history/start
+#   - background worker _run_full_history_ingest
+#   - /datalake/eodhd/jobs/latest
+# ---------------------------------------------------------------------------
+
 
 @router.post(
     "/datalake/eodhd/full-history/ingest",
@@ -423,7 +539,7 @@ async def ingest_eodhd_full_history(
         )
 
     # 2) Build windows
-    windows: List[tuple[date, date]] = []
+    windows: List[Tuple[date, date]] = []
     cur = payload.start
     while cur <= payload.end:
         window_end = cur + timedelta(days=payload.window_days - 1)
@@ -472,14 +588,12 @@ async def ingest_eodhd_full_history(
         total_rows_observed=total_rows_observed,
     )
 
+
 async def _run_full_history_ingest(job_id: str, payload_dict: Dict[str, Any]) -> None:
     """
     Background task that walks multiple windows from [start, end],
     calling ingest_eodhd_window() for each (symbol, window) pair
     and updating the eodhd_ingest_jobs row as we go.
-
-    This is basically the old ingest_eodhd_full_history logic,
-    but decoupled from the HTTP request.
     """
     try:
         payload = EodhdFullHistoryRequest(**payload_dict)
@@ -512,7 +626,7 @@ async def _run_full_history_ingest(job_id: str, payload_dict: Dict[str, Any]) ->
             return
 
         # 2) Build windows [start, end] in chunks of window_days
-        windows: List[tuple[date, date]] = []
+        windows: List[Tuple[date, date]] = []
         cur = payload.start
         while cur <= payload.end:
             window_end = cur + timedelta(days=payload.window_days - 1)
@@ -548,7 +662,6 @@ async def _run_full_history_ingest(job_id: str, payload_dict: Dict[str, Any]) ->
                         start=w_start,
                         end=w_end,
                     )
-
                     bars = read_daily_bars(
                         symbol=sym,
                         start=w_start,
@@ -556,8 +669,7 @@ async def _run_full_history_ingest(job_id: str, payload_dict: Dict[str, Any]) ->
                     )
                     total_rows_observed += len(bars)
                     total_succeeded += 1
-                except Exception as exc:
-                    # Just count the failure; errors are summarized in last_error
+                except Exception:
                     total_failed += 1
 
         # 4) Final job update — mark success
@@ -582,6 +694,7 @@ async def _run_full_history_ingest(job_id: str, payload_dict: Dict[str, Any]) ->
             symbols_failed=0,
             last_error=f"Background full-history ingest crashed: {exc}",
         )
+
 
 @router.post(
     "/datalake/eodhd/full-history/start",
@@ -636,6 +749,7 @@ async def start_eodhd_full_history(
         end=payload.end,
         window_days=payload.window_days,
     )
+
 
 @router.get(
     "/datalake/eodhd/jobs/latest",

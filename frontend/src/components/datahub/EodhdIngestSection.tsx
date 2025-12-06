@@ -5,9 +5,17 @@ import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
 import { EodhdIngestResponse, EodhdJobStatus } from "./types";
 
+type IngestMode = "window" | "full";
+
 const EodhdIngestSection: React.FC = () => {
+  // Window-only dates
   const [start, setStart] = useState("2024-01-02");
   const [end, setEnd] = useState("2024-01-31");
+
+  // Full-history start override
+  const [fullHistoryStart, setFullHistoryStart] = useState("2015-01-01");
+
+  // Filters shared by both window + full history
   const [minCap, setMinCap] = useState("50000000");
   const [maxCap, setMaxCap] = useState("");
   const [exchanges, setExchanges] = useState("NYSE,NASDAQ");
@@ -39,13 +47,12 @@ const EodhdIngestSection: React.FC = () => {
       setJobStatus(data);
     } catch (err) {
       console.error("Failed to refresh EODHD job status", err);
-      // soft-fail, no UI error required
     } finally {
       setJobRefreshing(false);
     }
   };
 
-  const buildPayload = (withWindow: boolean) => {
+  const buildPayload = (mode: IngestMode) => {
     const minCapNum = parseInt(minCap || "0", 10);
     const maxCapNum =
       maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
@@ -63,14 +70,22 @@ const EodhdIngestSection: React.FC = () => {
       max_symbols: maxSymbolsNum,
     };
 
-    if (withWindow) {
+    if (mode === "window") {
       return {
         ...base,
         start,
         end,
       };
     }
-    return base;
+
+    // mode === "full"
+    const startOverride =
+      fullHistoryStart.trim().length > 0 ? fullHistoryStart.trim() : start;
+
+    return {
+      ...base,
+      start: startOverride,
+    };
   };
 
   const handleIngestWindow = async () => {
@@ -79,7 +94,7 @@ const EodhdIngestSection: React.FC = () => {
     setResult(null);
 
     try {
-      const payload = buildPayload(true);
+      const payload = buildPayload("window");
       const data = await apiClient.post<EodhdIngestResponse>(
         "/datalake/eodhd/ingest-window",
         payload,
@@ -122,12 +137,12 @@ const EodhdIngestSection: React.FC = () => {
     setResult(null);
 
     try {
-      const payload = buildPayload(false);
-      // NOTE: adjust the path/body if your backend differs
+      const payload = buildPayload("full");
       const data = await apiClient.post<EodhdIngestResponse>(
         "/datalake/eodhd/ingest-full-history",
         payload,
       );
+
       setResult(data);
       void refreshJobStatus();
     } catch (err) {
@@ -148,13 +163,14 @@ const EodhdIngestSection: React.FC = () => {
     >
       <p className="mb-2 text-xs text-slate-300">
         Ingest daily OHLCV bars from EODHD into the data lake. Use a small
-        window for testing, then a full-history run when you’re confident.
+        window for testing, then a full-history run from a chosen start date.
       </p>
 
       {/* Filters / controls */}
       <div className="grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
+        {/* Window start/end */}
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Start date (YYYY-MM-DD)</span>
+          <span className="text-slate-200">Window start (YYYY-MM-DD)</span>
           <input
             value={start}
             onChange={(e) => setStart(e.target.value)}
@@ -162,13 +178,31 @@ const EodhdIngestSection: React.FC = () => {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">End date (YYYY-MM-DD)</span>
+          <span className="text-slate-200">Window end (YYYY-MM-DD)</span>
           <input
             value={end}
             onChange={(e) => setEnd(e.target.value)}
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
         </label>
+
+        {/* Full-history start override */}
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">
+            Full-history start (YYYY-MM-DD)
+          </span>
+          <input
+            value={fullHistoryStart}
+            onChange={(e) => setFullHistoryStart(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+            placeholder="2015-01-01"
+          />
+          <span className="mt-0.5 text-[10px] text-slate-400">
+            Used only for “Ingest full history”. End date is always “today”.
+          </span>
+        </label>
+
+        {/* Cap filters */}
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Min market cap (USD)</span>
           <input
@@ -177,6 +211,7 @@ const EodhdIngestSection: React.FC = () => {
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
         </label>
+
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Max market cap (optional)</span>
           <input

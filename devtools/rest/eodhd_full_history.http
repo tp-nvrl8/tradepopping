@@ -1,4 +1,4 @@
-@auth_token = YCKrjt1t_pONEXyh6LpoQqWns-aL_SZU6S2JQa6QrCQ
+@auth_token = SkjnCJvWXsel2GtwEA6ucH42WGuOtnglmbp2UigK9Gc
 @host = https://miniature-palm-tree-g46w96gprgjqh9wjx-8080.app.github.dev
 POST {{host}}/datalake/eodhd/full-history/start
 Content-Type: application/json

@@ -14,7 +14,6 @@ from .routes import datahub_bars  # noqa: E402
 from .routes import datalake_fmp
 from .routes import datalake_bars
 from .routes import datalake_eodhd  # noqa: E402
-from .routes import datahub
 
 from app.auth import get_current_user, ACTIVE_TOKENS
 
@@ -23,7 +22,6 @@ app.include_router(datahub_bars.router, prefix="/api")
 app.include_router(datalake_fmp.router, prefix="/api")
 app.include_router(datalake_bars.router, prefix="/api")
 app.include_router(datalake_eodhd.router, prefix="/api")
-app.include_router(datahub.router, prefix="/api")
 
 # --- AUTH CONFIG ---
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")

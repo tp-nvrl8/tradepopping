@@ -34,6 +34,8 @@ interface PriceBarDTO {
   low: number;
   close: number;
   volume: number;
+  // backend MAY include more optional fields (vwap, turnover, etc.)
+  // which we just ignore in the UI unless we choose to show them.
 }
 
 interface UniverseIngestResult {
@@ -234,13 +236,21 @@ const DataHubPage: React.FC = () => {
     Record<string, DataSourceTestResponse | null>
   >({});
 
-  // --- Polygon OHLCV demo ---
+  // --- Polygon OHLCV demo (live from Polygon) ---
   const [symbol, setSymbol] = useState("AAPL");
   const [start, setStart] = useState("2024-01-02");
   const [end, setEnd] = useState("2024-01-31");
   const [bars, setBars] = useState<PriceBarDTO[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [barsError, setBarsError] = useState<string | null>(null);
+
+  // --- Cached daily bars (from DuckDB, no external call) ---
+  const [cachedSymbol, setCachedSymbol] = useState("AAPL");
+  const [cachedStart, setCachedStart] = useState("2024-01-02");
+  const [cachedEnd, setCachedEnd] = useState("2024-01-31");
+  const [cachedBars, setCachedBars] = useState<PriceBarDTO[]>([]);
+  const [cachedLoading, setCachedLoading] = useState(false);
+  const [cachedError, setCachedError] = useState<string | null>(null);
 
   // --- FMP universe ingest + stats ---
   const [ingestingUniverse, setIngestingUniverse] = useState(false);
@@ -268,10 +278,11 @@ const DataHubPage: React.FC = () => {
   const [browserMinCap, setBrowserMinCap] = useState("");
   const [browserMaxCap, setBrowserMaxCap] = useState("");
   const [browserSortBy, setBrowserSortBy] =
-    useState<
-      "symbol" | "name" | "sector" | "exchange" | "market_cap" | "price"
-    >("symbol");
-  const [browserSortDir, setBrowserSortDir] = useState<"asc" | "desc">("asc");
+    useState<"symbol" | "name" | "sector" | "exchange" | "market_cap" | "price">(
+      "symbol"
+    );
+  const [browserSortDir, setBrowserSortDir] =
+    useState<"asc" | "desc">("asc");
   const [browserData, setBrowserData] =
     useState<UniverseBrowseResponse | null>(null);
   const [browserLoading, setBrowserLoading] = useState(false);
@@ -302,7 +313,7 @@ const DataHubPage: React.FC = () => {
         setSourcesLoading(true);
         setSourcesError(null);
         const res = await apiClient.get<DataSourceStatus[]>("/data/sources");
-        setSources(res);
+        setSources(res.data);
       } catch (err) {
         console.error("Failed to load data sources", err);
         setSourcesError("Could not load data sources. Check backend logs.");
@@ -327,7 +338,7 @@ const DataHubPage: React.FC = () => {
         "/data/sources/test",
         { source_id: sourceId }
       );
-      setTestResults((prev) => ({ ...prev, [sourceId]: res }));
+      setTestResults((prev) => ({ ...prev, [sourceId]: res.data }));
     } catch (err) {
       console.error(`Failed to test source ${sourceId}`, err);
       setTestResults((prev) => ({
@@ -362,7 +373,7 @@ const DataHubPage: React.FC = () => {
           },
         }
       );
-      setBars(res);
+      setBars(res.data);
     } catch (err) {
       console.error("Failed to fetch polygon OHLCV", err);
       setBarsError("Failed to fetch OHLCV from Polygon. Check backend logs.");
@@ -371,14 +382,40 @@ const DataHubPage: React.FC = () => {
     }
   };
 
+  const handleFetchCachedBars = async () => {
+    if (!cachedSymbol.trim()) return;
+    setCachedBars([]);
+    setCachedError(null);
+    setCachedLoading(true);
+
+    try {
+      const res = await apiClient.get<PriceBarDTO[]>(
+        "/datalake/bars/cached",
+        {
+          params: {
+            symbol: cachedSymbol.trim().toUpperCase(),
+            start: cachedStart,
+            end: cachedEnd,
+          },
+        }
+      );
+      setCachedBars(res.data);
+    } catch (err) {
+      console.error("Failed to fetch cached bars", err);
+      setCachedError(
+        "Failed to read cached bars from DuckDB. Did you ingest this symbol?"
+      );
+    } finally {
+      setCachedLoading(false);
+    }
+  };
+
   const fetchUniverseStats = async () => {
     try {
       setStatsLoading(true);
       setStatsError(null);
-      const res = await apiClient.get<UniverseStats>(
-        "/datalake/universe/stats"
-      );
-      setUniverseStats(res);
+      const res = await apiClient.get<UniverseStats>("/datalake/universe/stats");
+      setUniverseStats(res.data);
     } catch (err) {
       console.error("Failed to load universe stats", err);
       setStatsError("Failed to load universe stats. Check backend logs.");
@@ -419,7 +456,7 @@ const DataHubPage: React.FC = () => {
         {},
         { params }
       );
-      setIngestResult(res);
+      setIngestResult(res.data);
       await fetchUniverseStats();
       // Refresh browser view as well
       await fetchUniverseBrowse(1);
@@ -469,8 +506,8 @@ const DataHubPage: React.FC = () => {
         "/datalake/universe/browse",
         { params }
       );
-      setBrowserData(res);
-      setBrowserPage(res.page);
+      setBrowserData(res.data);
+      setBrowserPage(res.data.page);
     } catch (err) {
       console.error("Failed to load universe browser page", err);
       setBrowserError(
@@ -487,7 +524,7 @@ const DataHubPage: React.FC = () => {
       const res = await apiClient.get<EodhdJobStatus>(
         "/datalake/eodhd/jobs/latest"
       );
-      setEodJobStatus(res);
+      setEodJobStatus(res.data);
     } catch (err) {
       console.error("Failed to refresh EODHD job status", err);
     } finally {
@@ -524,23 +561,23 @@ const DataHubPage: React.FC = () => {
         "/datalake/eodhd/ingest-window",
         payload
       );
-      setEodResult(res);
+      setEodResult(res.data);
 
       // Snapshot job info from the response
       setEodJobStatus((prev) => ({
-        id: res.job_id,
+        id: res.data.job_id,
         created_at: prev?.created_at ?? new Date().toISOString(),
         started_at: prev?.started_at ?? new Date().toISOString(),
         finished_at: new Date().toISOString(),
-        state: res.job_state,
-        requested_start: res.requested_start,
-        requested_end: res.requested_end,
-        universe_symbols_considered: res.universe_symbols_considered,
-        symbols_attempted: res.symbols_attempted,
-        symbols_succeeded: res.symbols_succeeded,
-        symbols_failed: res.symbols_failed,
+        state: res.data.job_state,
+        requested_start: res.data.requested_start,
+        requested_end: res.data.requested_end,
+        universe_symbols_considered: res.data.universe_symbols_considered,
+        symbols_attempted: res.data.symbols_attempted,
+        symbols_succeeded: res.data.symbols_succeeded,
+        symbols_failed: res.data.symbols_failed,
         last_error:
-          res.symbols_failed > 0
+          res.data.symbols_failed > 0
             ? "Some symbols failed during ingest."
             : null,
       }));
@@ -1009,9 +1046,7 @@ const DataHubPage: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col">
-                  <label className="mb-0.5 text-slate-400">
-                    Sort direction
-                  </label>
+                  <label className="mb-0.5 text-slate-400">Sort direction</label>
                   <select
                     className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     value={browserSortDir}
@@ -1158,7 +1193,9 @@ const DataHubPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        disabled={browserLoading || browserData.page <= 1}
+                        disabled={
+                          browserLoading || browserData.page <= 1
+                        }
                         onClick={() =>
                           fetchUniverseBrowse(browserData.page - 1)
                         }
@@ -1402,6 +1439,159 @@ const DataHubPage: React.FC = () => {
                   )}
                 </div>
               )}
+            </CollapsibleSection>
+
+            {/* NEW: Cached daily bars inspector (DuckDB only) */}
+            <CollapsibleSection
+              storageKey="tp_datahub_section_cached_bars"
+              title="Cached Daily Bars (DuckDB)"
+              defaultOpen={false}
+            >
+              <p className="text-[11px] text-slate-400 mb-2">
+                Inspect what&apos;s currently stored in the{" "}
+                <span className="font-mono">daily_bars</span> table for a
+                symbol and date window. This does <span className="font-semibold">
+                  not
+                </span>{" "}
+                call EODHD – it only reads from DuckDB.
+              </p>
+
+              <div className="flex flex-wrap gap-2 items-end text-[11px]">
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">Symbol</label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={cachedSymbol}
+                    onChange={(e) => setCachedSymbol(e.target.value)}
+                    placeholder="AAPL"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    Start (YYYY-MM-DD)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={cachedStart}
+                    onChange={(e) => setCachedStart(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-0.5 text-slate-400">
+                    End (YYYY-MM-DD)
+                  </label>
+                  <input
+                    className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={cachedEnd}
+                    onChange={(e) => setCachedEnd(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFetchCachedBars}
+                  disabled={cachedLoading}
+                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
+                >
+                  {cachedLoading ? "Loading cached…" : "Load cached bars"}
+                </button>
+              </div>
+
+              {cachedError && (
+                <div className="text-[11px] text-amber-400 mt-1">
+                  {cachedError}
+                </div>
+              )}
+
+              {cachedBars.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2">
+                    <div>
+                      Found{" "}
+                      <span className="font-semibold text-slate-200">
+                        {cachedBars.length}
+                      </span>{" "}
+                      cached bars for{" "}
+                      <span className="font-semibold text-slate-200">
+                        {cachedSymbol.toUpperCase()}
+                      </span>
+                      .
+                    </div>
+                    <div className="font-mono">
+                      {cachedBars[0].time.slice(0, 10)} →{" "}
+                      {
+                        cachedBars[cachedBars.length - 1].time.slice(0, 10)
+                      }
+                    </div>
+                  </div>
+
+                  <div className="mt-2">
+                    <PriceSparkline bars={cachedBars} />
+                  </div>
+
+                  <div className="mt-3 max-h-64 overflow-y-auto border border-slate-800 rounded-md">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-slate-900/80">
+                        <tr className="text-left text-slate-300">
+                          <th className="px-2 py-1 border-b border-slate-800">
+                            Date
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Open
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            High
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Low
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Close
+                          </th>
+                          <th className="px-2 py-1 border-b border-slate-800 text-right">
+                            Volume
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cachedBars.map((bar) => (
+                          <tr
+                            key={bar.time}
+                            className="odd:bg-slate-950 even:bg-slate-900/40"
+                          >
+                            <td className="px-2 py-1 border-b border-slate-900/40">
+                              {bar.time.slice(0, 10)}
+                            </td>
+                            <td className="px-2 py-1 border-b border-slate-900/40 text-right">
+                              {bar.open.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-1 border-b border-slate-900/40 text-right">
+                              {bar.high.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-1 border-b border-slate-900/40 text-right">
+                              {bar.low.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-1 border-b border-slate-900/40 text-right">
+                              {bar.close.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-1 border-b border-slate-900/40 text-right">
+                              {bar.volume.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {!cachedLoading &&
+                !cachedError &&
+                cachedBars.length === 0 && (
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    No cached bars for that symbol / window yet. Try ingesting
+                    from EODHD first, then reload.
+                  </div>
+                )}
             </CollapsibleSection>
 
             {/* Polygon OHLCV fetcher */}

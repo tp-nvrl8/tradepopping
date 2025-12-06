@@ -20,7 +20,8 @@ from app.datalake.eodhd_client import fetch_eodhd_daily_ohlcv, PriceBarDTO
 # Where the DuckDB file lives inside the backend container
 TP_DUCKDB_PATH: str = os.getenv(
     "TP_DUCKDB_PATH",
-    "/app/data/tradepopping_bars.duckdb",
+    # IMPORTANT: keep this default in sync with other datalake modules
+    "/data/tradepopping.duckdb",
 )
 
 # Ensure directory exists
@@ -198,7 +199,7 @@ def read_daily_bars(symbol: str, start: date, end: date) -> List[PriceBarDTO]:
         adj_low,
         adj_close,
     ) in rows:
-        bar: PriceBarDTO = {
+        bar = {
             "time": f"{trade_date.isoformat()}T00:00:00+00:00",
             "open": float(o),
             "high": float(h),

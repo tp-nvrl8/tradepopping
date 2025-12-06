@@ -136,7 +136,7 @@ def get_universe_stats() -> UniverseStats:
     """
 
     _ensure_schema()
-    con = _get_conn(read_only=True)
+    con = _get_conn()
     try:
         # Total rows
         total_row = con.execute(
@@ -246,7 +246,7 @@ def browse_universe(
     - sorting
     """
     _ensure_schema()
-    con = _get_conn(read_only=True)
+    con = _get_conn()
     try:
         # Clamp page + page_size
         page = max(1, page)

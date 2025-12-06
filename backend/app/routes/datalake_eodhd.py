@@ -138,6 +138,17 @@ class EodhdJobStatusResponse(BaseModel):
 
     last_error: Optional[str]
 
+class EodhdIngestFullHistoryRequest(BaseModel):
+    """
+    Same filters as the window request, but without explicit start/end.
+    Backend will decide the historical range (e.g. 1980-01-01 to today).
+    """
+    min_market_cap: int = 0
+    max_market_cap: int | None = None
+    exchanges: list[str]
+    include_etfs: bool = False
+    active_only: bool = True
+    max_symbols: int = 0  # 0 or None = no explicit limit
 
 def _get_duckdb_connection(read_only: bool = True) -> duckdb.DuckDBPyConnection:
     """
@@ -328,6 +339,40 @@ async def ingest_eodhd_for_universe(
         job_state="succeeded" if failed == 0 else "failed",
     )
 
+from datetime import date
+
+# ...
+
+@router.post(
+    "/ingest-full-history",
+    response_model=EodhdIngestResponse,
+    summary="Ingest full EODHD daily-bar history for a filtered universe",
+)
+async def ingest_eodhd_full_history_route(
+    body: EodhdIngestFullHistoryRequest,
+    user=Depends(get_current_user),
+):
+    """
+    Kick off a full-history ingest using the same engine as ingest-window,
+    but with a very wide date range. You can refine the start date later.
+    """
+    # TODO: tune this lower bound if you don't want ultra-old history
+    start = date(2015, 1, 1)
+    end = date.today()
+
+    # Re-use the existing ingest implementation for a big window.
+    # IMPORTANT: keep the argument list here identical to the one used in
+    # your existing /ingest-window route, just swapping start/end.
+    return await ingest_eodhd_window(
+        start=start,
+        end=end,
+        min_market_cap=body.min_market_cap,
+        max_market_cap=body.max_market_cap,
+        exchanges=body.exchanges,
+        include_etfs=body.include_etfs,
+        active_only=body.active_only,
+        max_symbols=body.max_symbols,
+    )
 
 @router.post(
     "/datalake/eodhd/full-history/ingest",

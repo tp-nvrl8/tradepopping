@@ -1,6 +1,7 @@
 // frontend/src/components/datahub/DataSourcesSection.tsx
+
 import React, { useEffect, useState } from "react";
-import { apiClient } from "../api";
+import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
 import {
   DataSourceStatus,
@@ -9,133 +10,164 @@ import {
 
 const DataSourcesSection: React.FC = () => {
   const [sources, setSources] = useState<DataSourceStatus[]>([]);
-  const [sourcesLoading, setSourcesLoading] = useState(false);
-  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [testingSourceId, setTestingSourceId] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
     Record<string, DataSourceTestResponse | null>
   >({});
 
   useEffect(() => {
-    const loadSources = async () => {
+    const load = async () => {
       try {
-        setSourcesLoading(true);
-        setSourcesError(null);
-        const res = await apiClient.get<DataSourceStatus[]>("/data/sources");
-        setSources(res.data);
+        setLoading(true);
+        setError(null);
+        const data = await apiClient.get<DataSourceStatus[]>("/data/sources");
+        setSources(data);
       } catch (err) {
         console.error("Failed to load data sources", err);
-        setSourcesError("Could not load data sources. Check backend logs.");
+        setError("Could not load data sources. Check backend logs.");
       } finally {
-        setSourcesLoading(false);
+        setLoading(false);
       }
     };
 
-    void loadSources();
+    void load();
   }, []);
 
-  const handleTestSource = async (sourceId: string) => {
-    setTestingSourceId(sourceId);
-    setTestResults((prev) => ({ ...prev, [sourceId]: null }));
+  const handleTest = async (id: string) => {
+    setTestingId(id);
+    setTestResults((prev) => ({ ...prev, [id]: null }));
     try {
-      const res = await apiClient.post<DataSourceTestResponse>(
+      const result = await apiClient.post<DataSourceTestResponse>(
         "/data/sources/test",
-        { source_id: sourceId },
+        { source_id: id },
       );
-      setTestResults((prev) => ({ ...prev, [sourceId]: res.data }));
+      setTestResults((prev) => ({ ...prev, [id]: result }));
     } catch (err) {
-      console.error(`Failed to test source ${sourceId}`, err);
+      console.error("Failed to test data source", err);
       setTestResults((prev) => ({
         ...prev,
-        [sourceId]: {
-          id: sourceId,
-          name: sourceId,
+        [id]: {
+          id,
+          name: id,
           status: "error",
           has_api_key: false,
           message: "Test call failed. Check console / backend.",
         },
       }));
     } finally {
-      setTestingSourceId(null);
+      setTestingId(null);
     }
   };
 
+  const Spinner = ({ label }: { label?: string }) => (
+    <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+      <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+      {label && <span>{label}</span>}
+    </div>
+  );
+
   return (
     <CollapsibleSection
-      storageKey="tp_datahub_section_sources"
-      title="Data Sources"
-      defaultOpen={true}
+      storageKey="tp_datahub_sources_open"
+      title="Data Sources & API Keys"
+      defaultOpen
     >
-      <div className="flex items-center justify-between mb-1">
-        {sourcesLoading && (
-          <span className="text-[11px] text-slate-500">Loading...</span>
-        )}
-      </div>
+      <p className="mb-2 text-xs text-slate-300">
+        Status of upstream providers and whether env keys are present. Use{" "}
+        <span className="font-semibold text-slate-100">Test source</span> to
+        verify connectivity.
+      </p>
 
-      {sourcesError ? (
-        <div className="text-[11px] text-amber-400">{sourcesError}</div>
-      ) : sources.length === 0 ? (
-        <div className="text-[11px] text-slate-500">
-          No data sources reported. Check backend configuration.
+      {loading && <Spinner label="Loading data sources…" />}
+
+      {error && !loading && (
+        <div className="mt-2 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
+          {error}
         </div>
-      ) : (
-        <div className="space-y-2">
+      )}
+
+      {!loading && !error && sources.length === 0 && (
+        <p className="mt-2 text-xs text-slate-400">
+          No data sources reported. Check backend configuration.
+        </p>
+      )}
+
+      {!loading && !error && sources.length > 0 && (
+        <div className="mt-2 space-y-2 text-xs">
           {sources.map((src) => {
             const test = testResults[src.id] ?? null;
-            const isTesting = testingSourceId === src.id;
+            const isTesting = testingId === src.id;
 
             return (
               <div
                 key={src.id}
-                className="text-[11px] border-b border-slate-800/40 pb-2 last:border-b-0 last:pb-0"
+                className="flex flex-col gap-1 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <div className="font-semibold text-slate-200">
+                    <div className="font-semibold text-slate-100">
                       {src.name}
                     </div>
-                    <div className="text-slate-500">
-                      Env key present:{" "}
-                      <span className="font-mono">
-                        {src.has_api_key ? "yes" : "no"}
+                    <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-slate-300">
+                      <span>
+                        Env key:{" "}
+                        <span className="font-semibold">
+                          {src.has_api_key ? "present" : "missing"}
+                        </span>
+                      </span>
+                      <span>
+                        Status:{" "}
+                        <span
+                          className={
+                            src.enabled
+                              ? "font-semibold text-emerald-300"
+                              : "font-semibold text-yellow-300"
+                          }
+                        >
+                          {src.enabled ? "ENABLED" : "DISABLED"}
+                        </span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={
-                        src.enabled
-                          ? "inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/60"
-                          : "inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600/60"
-                      }
-                    >
-                      {src.enabled ? "ENABLED" : "DISABLED"}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleTestSource(src.id)}
-                      disabled={isTesting || !src.has_api_key}
-                      className="px-2 py-1 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold"
-                    >
-                      {isTesting ? "Testing…" : "Test source"}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleTest(src.id)}
+                    disabled={isTesting || !src.has_api_key}
+                    className="shrink-0 rounded-md bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isTesting ? "Testing…" : "Test source"}
+                  </button>
+                </div>
+
+                <div className="mt-0.5 flex flex-wrap gap-2 text-[11px]">
+                  {src.last_success && (
+                    <span className="text-slate-400">
+                      Last success: {src.last_success}
+                    </span>
+                  )}
+                  {src.last_error && (
+                    <span className="text-red-300">
+                      Last error: {src.last_error}
+                    </span>
+                  )}
                 </div>
 
                 {test && (
-                  <div className="mt-1 flex items-center gap-2 text-[10px]">
+                  <div className="mt-1 text-[11px]">
                     <span
                       className={
                         test.status === "ok"
-                          ? "px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/60"
-                          : "px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/60"
+                          ? "font-semibold text-emerald-300"
+                          : "font-semibold text-red-300"
                       }
                     >
                       {test.status.toUpperCase()}
-                    </span>
-                    <span className="text-slate-300">{test.message}</span>
+                    </span>{" "}
+                    <span className="text-slate-100">{test.message}</span>
                   </div>
                 )}
               </div>

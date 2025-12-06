@@ -1,41 +1,49 @@
 // frontend/src/components/datahub/FmpUniverseSection.tsx
+
 import React, { useState } from "react";
 import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
 import { UniverseIngestResult, UniverseStats } from "./types";
 
 interface FmpUniverseSectionProps {
-  onUniverseChanged?: () => void; // optional callback to refresh browser
+  onUniverseChanged?: () => void; // optional hook if you want to refresh browser
 }
 
 const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
   onUniverseChanged,
 }) => {
-  const [ingestingUniverse, setIngestingUniverse] = useState(false);
-  const [ingestError, setIngestError] = useState<string | null>(null);
-  const [ingestResult, setIngestResult] =
-    useState<UniverseIngestResult | null>(null);
+  const [minCap, setMinCap] = useState("50000000");
+  const [maxCap, setMaxCap] = useState("");
+  const [exchanges, setExchanges] = useState("NYSE,NASDAQ");
+  const [limit, setLimit] = useState("5000");
+  const [includeEtfs, setIncludeEtfs] = useState(false);
+  const [activeOnly, setActiveOnly] = useState(true);
 
-  const [universeStats, setUniverseStats] = useState<UniverseStats | null>(
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [ingestResult, setIngestResult] = useState<UniverseIngestResult | null>(
     null,
   );
+
+  const [stats, setStats] = useState<UniverseStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  // Screener controls
-  const [fmpMinCap, setFmpMinCap] = useState("50000000");
-  const [fmpMaxCap, setFmpMaxCap] = useState("");
-  const [fmpExchanges, setFmpExchanges] = useState("NYSE,NASDAQ");
-  const [fmpIncludeEtfs, setFmpIncludeEtfs] = useState(false);
-  const [fmpActiveOnly, setFmpActiveOnly] = useState(true);
-  const [fmpLimit, setFmpLimit] = useState("5000");
+  const Spinner = ({ label }: { label?: string }) => (
+    <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+      <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+      {label && <span>{label}</span>}
+    </div>
+  );
 
-  const fetchUniverseStats = async () => {
+  const loadStats = async () => {
     try {
       setStatsLoading(true);
       setStatsError(null);
-      const res = await apiClient.get<UniverseStats>("/datalake/universe/stats");
-      setUniverseStats(res.data);
+      const data = await apiClient.get<UniverseStats>(
+        "/datalake/universe/stats",
+      );
+      setStats(data);
     } catch (err) {
       console.error("Failed to load universe stats", err);
       setStatsError("Failed to load universe stats. Check backend logs.");
@@ -44,272 +52,260 @@ const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
     }
   };
 
-  const handleIngestUniverse = async () => {
-    setIngestingUniverse(true);
+  const handleIngest = async () => {
+    setIngesting(true);
     setIngestError(null);
     setIngestResult(null);
-    try {
-      const minCap = parseInt(fmpMinCap || "0", 10);
-      const maxCap =
-        fmpMaxCap.trim().length > 0 ? parseInt(fmpMaxCap, 10) : null;
-      const limit = parseInt(fmpLimit || "0", 10) || 0;
 
-      const exchangesParam = fmpExchanges
+    try {
+      const minCapNum = parseInt(minCap || "0", 10);
+      const maxCapNum =
+        maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
+      const limitNum = parseInt(limit || "0", 10) || 0;
+
+      const exchangesParam = exchanges
         .split(",")
         .map((s) => s.trim().toUpperCase())
         .filter(Boolean)
         .join(",");
 
-      const params: Record<string, any> = {
-        min_market_cap: minCap,
+      const params: Record<string, unknown> = {
+        min_market_cap: minCapNum,
         exchanges: exchangesParam,
-        limit,
-        include_etfs: fmpIncludeEtfs,
-        active_only: fmpActiveOnly,
+        limit: limitNum,
+        include_etfs: includeEtfs,
+        active_only: activeOnly,
       };
-      if (maxCap !== null) {
-        params.max_market_cap = maxCap;
+
+      if (maxCapNum !== null) {
+        params.max_market_cap = maxCapNum;
       }
 
-      const res = await apiClient.post<UniverseIngestResult>(
+      const data = await apiClient.post<UniverseIngestResult>(
         "/datalake/fmp/universe/ingest",
         {},
         { params },
       );
-      setIngestResult(res.data);
 
-      await fetchUniverseStats();
-      if (onUniverseChanged) {
-        onUniverseChanged();
-      }
+      setIngestResult(data);
+      await loadStats();
+      if (onUniverseChanged) onUniverseChanged();
     } catch (err) {
       console.error("Failed to ingest FMP universe", err);
       setIngestError("Failed to ingest symbol universe from FMP.");
     } finally {
-      setIngestingUniverse(false);
+      setIngesting(false);
     }
   };
 
   return (
     <CollapsibleSection
-      storageKey="tp_datahub_section_fmp_universe"
-      title="FMP Symbol Universe → DuckDB"
-      defaultOpen={true}
+      storageKey="tp_datahub_fmp_universe_open"
+      title="FMP Universe Ingest + Stats"
+      defaultOpen
     >
-      <p className="text-[11px] text-slate-400 mb-2">
-        Pull the FMP symbol universe (with market cap, sector, industry) into
-        the data lake using the company screener filters below.
+      <p className="mb-2 text-xs text-slate-300">
+        Pull the FMP symbol universe (with market cap, sector, etc.) into the
+        data lake. This becomes the core stock list for TradePopping.
       </p>
 
-      {/* FMP screener controls */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-[11px] mb-2">
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">Min market cap (USD)</label>
+      {/* Controls */}
+      <div className="grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Min market cap (USD)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={fmpMinCap}
-            onChange={(e) => setFmpMinCap(e.target.value.replace(/,/g, ""))}
+            value={minCap}
+            onChange={(e) => setMinCap(e.target.value.replace(/,/g, ""))}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
             placeholder="50000000"
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">
-            Max market cap (optional)
-          </label>
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Max market cap (optional)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={fmpMaxCap}
-            onChange={(e) => setFmpMaxCap(e.target.value.replace(/,/g, ""))}
+            value={maxCap}
+            onChange={(e) => setMaxCap(e.target.value.replace(/,/g, ""))}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
             placeholder=""
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">
-            Exchanges (comma-separated)
-          </label>
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Exchanges (comma-separated)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={fmpExchanges}
-            onChange={(e) => setFmpExchanges(e.target.value)}
+            value={exchanges}
+            onChange={(e) => setExchanges(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+            placeholder="NYSE,NASDAQ"
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">Max symbols (limit)</label>
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Max symbols (limit)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={fmpLimit}
+            value={limit}
             onChange={(e) =>
-              setFmpLimit(e.target.value.replace(/[^0-9]/g, ""))
+              setLimit(e.target.value.replace(/[^0-9]/g, ""))
             }
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
             placeholder="5000"
           />
-        </div>
-        <div className="flex items-center gap-3 mt-2">
-          <label className="flex items-center gap-1 text-slate-300">
-            <input
-              type="checkbox"
-              className="h-3 w-3"
-              checked={fmpIncludeEtfs}
-              onChange={(e) => setFmpIncludeEtfs(e.target.checked)}
-            />
-            <span className="text-[11px]">Include ETFs</span>
-          </label>
-          <label className="flex items-center gap-1 text-slate-300">
-            <input
-              type="checkbox"
-              className="h-3 w-3"
-              checked={fmpActiveOnly}
-              onChange={(e) => setFmpActiveOnly(e.target.checked)}
-            />
-            <span className="text-[11px]">Active only</span>
-          </label>
-        </div>
+        </label>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+        <label className="inline-flex items-center gap-1 text-slate-200">
+          <input
+            type="checkbox"
+            checked={includeEtfs}
+            onChange={(e) => setIncludeEtfs(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Include ETFs
+        </label>
+
+        <label className="inline-flex items-center gap-1 text-slate-200">
+          <input
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => setActiveOnly(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Active only
+        </label>
+
         <button
           type="button"
-          onClick={handleIngestUniverse}
-          disabled={ingestingUniverse}
-          className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
+          onClick={handleIngest}
+          disabled={ingesting}
+          className="ml-auto rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
         >
-          {ingestingUniverse ? "Ingesting…" : "Ingest FMP Universe"}
+          {ingesting ? "Ingesting…" : "Ingest FMP Universe"}
         </button>
       </div>
 
       {ingestError && (
-        <div className="text-[11px] text-amber-400 mt-1">{ingestError}</div>
+        <div className="mt-2 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
+          {ingestError}
+        </div>
       )}
 
       {ingestResult && (
-        <div className="mt-1 text-[11px] text-slate-300">
+        <div className="mt-3 grid gap-2 text-xs text-slate-100 sm:grid-cols-3">
           <div>
-            Source:{" "}
-            <span className="font-semibold uppercase">
-              {ingestResult.source}
-            </span>
+            <div className="text-slate-400">Source</div>
+            <div className="font-semibold">{ingestResult.source}</div>
           </div>
           <div>
-            Symbols received:{" "}
-            <span className="font-semibold">
-              {ingestResult.symbols_received}
-            </span>
+            <div className="text-slate-400">Symbols received</div>
+            <div className="font-semibold">
+              {ingestResult.symbols_received.toLocaleString()}
+            </div>
           </div>
           <div>
-            Rows upserted:{" "}
-            <span className="font-semibold">
-              {ingestResult.rows_upserted}
-            </span>
+            <div className="text-slate-400">Rows upserted</div>
+            <div className="font-semibold">
+              {ingestResult.rows_upserted.toLocaleString()}
+            </div>
           </div>
         </div>
       )}
 
-      <div className="mt-2 border-t border-slate-800 pt-2">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-semibold text-slate-300">
-            Universe Stats
-          </span>
-          <button
-            type="button"
-            onClick={fetchUniverseStats}
-            disabled={statsLoading}
-            className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-[10px]"
-          >
-            {statsLoading ? "Refreshing…" : "Refresh stats"}
-          </button>
+      {/* Stats */}
+      <div className="mt-4 flex items-center gap-3 text-xs">
+        <span className="font-semibold text-slate-100">Universe stats</span>
+        <button
+          type="button"
+          onClick={loadStats}
+          className="rounded-md border border-slate-600 px-2 py-1 text-[11px] hover:bg-slate-800"
+        >
+          {statsLoading ? "Refreshing…" : "Refresh stats"}
+        </button>
+      </div>
+
+      {statsError && (
+        <div className="mt-2 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
+          {statsError}
         </div>
-        {statsError && (
-          <div className="text-[11px] text-amber-400">{statsError}</div>
-        )}
-        {universeStats && !statsError && (
-          <div className="text-[11px] text-slate-300 space-y-2">
-            <div>
+      )}
+
+      {statsLoading && <Spinner label="Loading universe stats…" />}
+
+      {stats && !statsLoading && !statsError && (
+        <div className="mt-3 grid gap-4 text-xs text-slate-100 md:grid-cols-2">
+          <div>
+            <div className="mb-1 text-slate-300">
               Total symbols:{" "}
               <span className="font-semibold">
-                {universeStats.total_symbols}
+                {stats.total_symbols.toLocaleString()}
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-6">
-              {/* Exchange breakdown */}
-              <div>
-                <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
-                  By exchange
-                </div>
-                <ul className="space-y-0.5">
-                  {Object.entries(universeStats.by_exchange).map(
-                    ([exch, count]) => (
-                      <li key={exch}>
-                        <span className="font-mono text-slate-400">
-                          {exch}:
-                        </span>{" "}
-                        <span className="font-semibold">{count}</span>
-                      </li>
-                    ),
-                  )}
-                </ul>
+            <div className="mt-2">
+              <div className="mb-1 font-semibold text-slate-200">
+                By exchange
               </div>
-
-              {/* Type breakdown */}
-              <div>
-                <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
-                  By type
-                </div>
-                <ul className="space-y-0.5">
-                  {Object.entries(universeStats.by_type).map(
-                    ([t, count]) => (
-                      <li key={t}>
-                        <span className="font-mono text-slate-400">
-                          {t}:
-                        </span>{" "}
-                        <span className="font-semibold">{count}</span>
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </div>
-
-              {/* Sector breakdown */}
-              <div>
-                <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
-                  By sector
-                </div>
-                <ul className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
-                  {Object.entries(universeStats.by_sector).map(
-                    ([sector, count]) => (
-                      <li key={sector}>
-                        <span className="font-mono text-slate-400">
-                          {sector}:
-                        </span>{" "}
-                        <span className="font-semibold">{count}</span>
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </div>
-
-              {/* Cap buckets */}
-              <div>
-                <div className="font-semibold text-slate-200 text-[10px] mb-0.5">
-                  By cap bucket
-                </div>
-                <ul className="space-y-0.5">
-                  {Object.entries(universeStats.by_cap_bucket).map(
-                    ([bucket, count]) => (
-                      <li key={bucket}>
-                        <span className="font-mono text-slate-400">
-                          {bucket}:
-                        </span>{" "}
-                        <span className="font-semibold">{count}</span>
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </div>
+              <ul className="space-y-0.5 text-slate-300">
+                {Object.entries(stats.by_exchange).map(([exch, count]) => (
+                  <li key={exch}>
+                    {exch}:{" "}
+                    <span className="font-semibold">
+                      {count.toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <div className="mb-1 font-semibold text-slate-200">By type</div>
+              <ul className="space-y-0.5 text-slate-300">
+                {Object.entries(stats.by_type).map(([t, count]) => (
+                  <li key={t}>
+                    {t}:{" "}
+                    <span className="font-semibold">
+                      {count.toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <div className="mb-1 font-semibold text-slate-200">By sector</div>
+              <ul className="max-h-40 space-y-0.5 overflow-y-auto pr-1 text-slate-300">
+                {Object.entries(stats.by_sector).map(([sector, count]) => (
+                  <li key={sector}>
+                    {sector}:{" "}
+                    <span className="font-semibold">
+                      {count.toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="mb-1 font-semibold text-slate-200">
+                By cap bucket
+              </div>
+              <ul className="space-y-0.5 text-slate-300">
+                {Object.entries(stats.by_cap_bucket).map(([bucket, count]) => (
+                  <li key={bucket}>
+                    {bucket}:{" "}
+                    <span className="font-semibold">
+                      {count.toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </CollapsibleSection>
   );
 };

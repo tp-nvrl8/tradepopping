@@ -1,4 +1,7 @@
 // frontend/src/components/datahub/types.ts
+
+// ---------- Data sources ----------
+
 export interface DataSourceStatus {
   id: string;
   name: string;
@@ -11,13 +14,15 @@ export interface DataSourceStatus {
 export interface DataSourceTestResponse {
   id: string;
   name: string;
-  status: "ok" | "error";
+  status: "ok" | "error" | string;
   has_api_key: boolean;
   message: string;
 }
 
+// ---------- Polygon / OHLCV preview ----------
+
 export interface PriceBarDTO {
-  time: string; // ISO string
+  time: string; // ISO date string from backend
   open: number;
   high: number;
   low: number;
@@ -25,9 +30,10 @@ export interface PriceBarDTO {
   volume: number;
 }
 
-// FMP universe ingest result
+// ---------- FMP universe ingest + stats ----------
+
 export interface UniverseIngestResult {
-  source: string; // "fmp"
+  source: string; // e.g. "fmp"
   symbols_received: number;
   rows_upserted: number;
 }
@@ -40,7 +46,8 @@ export interface UniverseStats {
   by_cap_bucket: Record<string, number>;
 }
 
-// Universe browsing
+// ---------- Universe browser ----------
+
 export interface UniverseRow {
   symbol: string;
   name: string;
@@ -65,7 +72,10 @@ export interface UniverseBrowseResponse {
   max_market_cap: number | null;
 }
 
-// EODHD ingest + job status
+// ---------- EODHD ingest + job status ----------
+
+export type JobState = "running" | "succeeded" | "failed";
+
 export interface EodhdIngestResponse {
   requested_start: string;
   requested_end: string;
@@ -77,7 +87,7 @@ export interface EodhdIngestResponse {
   rows_observed_after_ingest: number;
   failed_symbols: string[];
   job_id: string;
-  job_state: "running" | "succeeded" | "failed";
+  job_state: JobState;
 }
 
 export interface EodhdJobStatus {
@@ -85,7 +95,7 @@ export interface EodhdJobStatus {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
-  state: "running" | "succeeded" | "failed";
+  state: JobState;
   requested_start: string;
   requested_end: string;
   universe_symbols_considered: number;

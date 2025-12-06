@@ -163,7 +163,7 @@ def get_latest_ingest_job() -> Optional[Dict[str, Any]]:
     """
     _ensure_schema()
 
-    con = _get_conn(read_only=True)
+    con = _get_conn()
     try:
         row = con.execute(
             f"""

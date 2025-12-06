@@ -1,309 +1,345 @@
 // frontend/src/components/datahub/EodhdIngestSection.tsx
+
 import React, { useState } from "react";
-import { apiClient } from "../api";
+import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
 import { EodhdIngestResponse, EodhdJobStatus } from "./types";
 
 const EodhdIngestSection: React.FC = () => {
-  const [eodStart, setEodStart] = useState("2024-01-02");
-  const [eodEnd, setEodEnd] = useState("2024-01-31");
-  const [eodMinCap, setEodMinCap] = useState("50000000"); // 50M
-  const [eodMaxCap, setEodMaxCap] = useState("");
-  const [eodExchanges, setEodExchanges] = useState("NYSE,NASDAQ");
-  const [eodIncludeEtfs, setEodIncludeEtfs] = useState(false);
-  const [eodActiveOnly, setEodActiveOnly] = useState(true);
-  const [eodMaxSymbols, setEodMaxSymbols] = useState("25");
+  const [start, setStart] = useState("2024-01-02");
+  const [end, setEnd] = useState("2024-01-31");
+  const [minCap, setMinCap] = useState("50000000");
+  const [maxCap, setMaxCap] = useState("");
+  const [exchanges, setExchanges] = useState("NYSE,NASDAQ");
+  const [includeEtfs, setIncludeEtfs] = useState(false);
+  const [activeOnly, setActiveOnly] = useState(true);
+  const [maxSymbols, setMaxSymbols] = useState("25");
 
-  const [eodLoading, setEodLoading] = useState(false);
-  const [eodError, setEodError] = useState<string | null>(null);
-  const [eodResult, setEodResult] = useState<EodhdIngestResponse | null>(null);
+  const [loadingWindow, setLoadingWindow] = useState(false);
+  const [loadingFull, setLoadingFull] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<EodhdIngestResponse | null>(null);
 
-  const [eodJobStatus, setEodJobStatus] = useState<EodhdJobStatus | null>(
-    null,
+  const [jobStatus, setJobStatus] = useState<EodhdJobStatus | null>(null);
+  const [jobRefreshing, setJobRefreshing] = useState(false);
+
+  const Spinner = ({ label }: { label?: string }) => (
+    <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+      <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+      {label && <span>{label}</span>}
+    </div>
   );
-  const [eodJobRefreshing, setEodJobRefreshing] = useState(false);
 
-  const refreshEodJobStatus = async () => {
-    setEodJobRefreshing(true);
+  const refreshJobStatus = async () => {
+    setJobRefreshing(true);
     try {
-      const res = await apiClient.get<EodhdJobStatus>(
+      const data = await apiClient.get<EodhdJobStatus>(
         "/datalake/eodhd/jobs/latest",
       );
-      setEodJobStatus(res.data);
+      setJobStatus(data);
     } catch (err) {
       console.error("Failed to refresh EODHD job status", err);
+      // soft-fail, no UI error required
     } finally {
-      setEodJobRefreshing(false);
+      setJobRefreshing(false);
     }
   };
 
-  const handleIngestEodhdWindow = async () => {
-    setEodLoading(true);
-    setEodError(null);
-    setEodResult(null);
+  const buildPayload = (withWindow: boolean) => {
+    const minCapNum = parseInt(minCap || "0", 10);
+    const maxCapNum =
+      maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
+    const maxSymbolsNum = parseInt(maxSymbols || "0", 10) || 0;
+
+    const base = {
+      min_market_cap: minCapNum,
+      max_market_cap: maxCapNum,
+      exchanges: exchanges
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean),
+      include_etfs: includeEtfs,
+      active_only: activeOnly,
+      max_symbols: maxSymbolsNum,
+    };
+
+    if (withWindow) {
+      return {
+        ...base,
+        start,
+        end,
+      };
+    }
+    return base;
+  };
+
+  const handleIngestWindow = async () => {
+    setLoadingWindow(true);
+    setError(null);
+    setResult(null);
 
     try {
-      const minCap = parseInt(eodMinCap || "0", 10);
-      const maxCap =
-        eodMaxCap.trim().length > 0 ? parseInt(eodMaxCap, 10) : null;
-      const maxSymbols = parseInt(eodMaxSymbols || "0", 10) || 0;
-
-      const payload = {
-        start: eodStart,
-        end: eodEnd,
-        min_market_cap: minCap,
-        max_market_cap: maxCap,
-        exchanges: eodExchanges
-          .split(",")
-          .map((s) => s.trim().toUpperCase())
-          .filter(Boolean),
-        include_etfs: eodIncludeEtfs,
-        active_only: eodActiveOnly,
-        max_symbols: maxSymbols,
-      };
-
-      const res = await apiClient.post<EodhdIngestResponse>(
+      const payload = buildPayload(true);
+      const data = await apiClient.post<EodhdIngestResponse>(
         "/datalake/eodhd/ingest-window",
         payload,
       );
-      setEodResult(res.data);
 
-      // Snapshot job info from the response
-      setEodJobStatus((prev) => ({
-        id: res.data.job_id,
+      setResult(data);
+
+      setJobStatus((prev) => ({
+        id: data.job_id,
         created_at: prev?.created_at ?? new Date().toISOString(),
         started_at: prev?.started_at ?? new Date().toISOString(),
         finished_at: new Date().toISOString(),
-        state: res.data.job_state,
-        requested_start: res.data.requested_start,
-        requested_end: res.data.requested_end,
-        universe_symbols_considered: res.data.universe_symbols_considered,
-        symbols_attempted: res.data.symbols_attempted,
-        symbols_succeeded: res.data.symbols_succeeded,
-        symbols_failed: res.data.symbols_failed,
+        state: data.job_state,
+        requested_start: data.requested_start,
+        requested_end: data.requested_end,
+        universe_symbols_considered: data.universe_symbols_considered,
+        symbols_attempted: data.symbols_attempted,
+        symbols_succeeded: data.symbols_succeeded,
+        symbols_failed: data.symbols_failed,
         last_error:
-          res.data.symbols_failed > 0
+          data.symbols_failed > 0
             ? "Some symbols failed during ingest."
             : null,
       }));
 
-      // Also sync from backend registry (most recent job)
-      void refreshEodJobStatus();
+      void refreshJobStatus();
     } catch (err) {
       console.error("Failed to ingest EODHD window", err);
-      setEodError(
-        "Failed to ingest EODHD bars for that window. Check backend logs.",
+      setError(
+        "Failed to ingest EODHD daily bars for that window. Check backend logs.",
       );
     } finally {
-      setEodLoading(false);
+      setLoadingWindow(false);
+    }
+  };
+
+  const handleIngestFullHistory = async () => {
+    setLoadingFull(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const payload = buildPayload(false);
+      // NOTE: adjust the path/body if your backend differs
+      const data = await apiClient.post<EodhdIngestResponse>(
+        "/datalake/eodhd/ingest-full-history",
+        payload,
+      );
+      setResult(data);
+      void refreshJobStatus();
+    } catch (err) {
+      console.error("Failed to ingest EODHD full history", err);
+      setError(
+        "Failed to ingest full EODHD history. Confirm the backend route path and payload.",
+      );
+    } finally {
+      setLoadingFull(false);
     }
   };
 
   return (
     <CollapsibleSection
-      storageKey="tp_datahub_section_eodhd_window"
-      title="EODHD Bars → Daily Window Ingest"
-      defaultOpen={true}
+      storageKey="tp_datahub_eodhd_ingest_open"
+      title="EODHD Daily Bar Ingest"
+      defaultOpen
     >
-      <p className="text-[11px] text-slate-400 mb-2">
-        Use the FMP symbol universe in DuckDB to bulk-ingest daily bars from
-        EODHD for a specific date range. This runs as a tracked “job” so you can
-        inspect the latest ingest status.
+      <p className="mb-2 text-xs text-slate-300">
+        Ingest daily OHLCV bars from EODHD into the data lake. Use a small
+        window for testing, then a full-history run when you’re confident.
       </p>
 
-      {/* Controls row */}
-      <div className="mt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-[11px]">
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">Start date</label>
+      {/* Filters / controls */}
+      <div className="grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Start date (YYYY-MM-DD)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={eodStart}
-            onChange={(e) => setEodStart(e.target.value)}
-            placeholder="YYYY-MM-DD"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">End date</label>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">End date (YYYY-MM-DD)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={eodEnd}
-            onChange={(e) => setEodEnd(e.target.value)}
-            placeholder="YYYY-MM-DD"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">
-            Min market cap (USD)
-          </label>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Min market cap (USD)</span>
           <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={eodMinCap}
+            value={minCap}
+            onChange={(e) => setMinCap(e.target.value.replace(/,/g, ""))}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Max market cap (optional)</span>
+          <input
+            value={maxCap}
+            onChange={(e) => setMaxCap(e.target.value.replace(/,/g, ""))}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Exchanges (comma-separated)</span>
+          <input
+            value={exchanges}
+            onChange={(e) => setExchanges(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+            placeholder="NYSE,NASDAQ"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-slate-200">Max symbols (sample limit)</span>
+          <input
+            value={maxSymbols}
             onChange={(e) =>
-              setEodMinCap(e.target.value.replace(/,/g, ""))
+              setMaxSymbols(e.target.value.replace(/[^0-9]/g, ""))
             }
-            placeholder="50000000"
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">
-            Max market cap (optional)
-          </label>
-          <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={eodMaxCap}
-            onChange={(e) =>
-              setEodMaxCap(e.target.value.replace(/,/g, ""))
-            }
-            placeholder=""
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">
-            Exchanges (comma-separated)
-          </label>
-          <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={eodExchanges}
-            onChange={(e) => setEodExchanges(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="mb-0.5 text-slate-400">Max symbols</label>
-          <input
-            className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-            value={eodMaxSymbols}
-            onChange={(e) =>
-              setEodMaxSymbols(e.target.value.replace(/[^0-9]/g, ""))
-            }
-            placeholder="25"
-          />
-        </div>
-        <div className="flex items-center gap-2 mt-2">
-          <label className="flex items-center gap-1 text-slate-300">
+        </label>
+
+        <div className="flex flex-col justify-end gap-1 text-xs">
+          <label className="inline-flex items-center gap-1 text-slate-200">
             <input
               type="checkbox"
+              checked={includeEtfs}
+              onChange={(e) => setIncludeEtfs(e.target.checked)}
               className="h-3 w-3"
-              checked={eodIncludeEtfs}
-              onChange={(e) => setEodIncludeEtfs(e.target.checked)}
             />
-            <span className="text-[11px]">Include ETFs</span>
+            Include ETFs
           </label>
-          <label className="flex items-center gap-1 text-slate-300">
+          <label className="inline-flex items-center gap-1 text-slate-200">
             <input
               type="checkbox"
+              checked={activeOnly}
+              onChange={(e) => setActiveOnly(e.target.checked)}
               className="h-3 w-3"
-              checked={eodActiveOnly}
-              onChange={(e) => setEodActiveOnly(e.target.checked)}
             />
-            <span className="text-[11px]">Active only</span>
+            Active only
           </label>
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between">
+      {/* Action buttons */}
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
         <button
           type="button"
-          onClick={handleIngestEodhdWindow}
-          disabled={eodLoading}
-          className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-[11px] font-semibold"
+          onClick={handleIngestWindow}
+          disabled={loadingWindow || loadingFull}
+          className="rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
         >
-          {eodLoading ? "Ingesting window…" : "Ingest EODHD window"}
+          {loadingWindow ? "Ingesting window…" : "Ingest window"}
         </button>
-        <div className="flex items-center gap-2">
-          {eodLoading && (
-            <span className="text-[11px] text-slate-500">
-              Talking to EODHD and DuckDB…
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={refreshEodJobStatus}
-            disabled={eodJobRefreshing}
-            className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-[10px]"
-          >
-            {eodJobRefreshing ? "Refreshing…" : "Refresh job status"}
-          </button>
-        </div>
+
+        <button
+          type="button"
+          onClick={handleIngestFullHistory}
+          disabled={loadingWindow || loadingFull}
+          className="rounded-md bg-sky-700 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-600 disabled:opacity-60"
+        >
+          {loadingFull ? "Ingesting full history…" : "Ingest full history"}
+        </button>
+
+        <button
+          type="button"
+          onClick={refreshJobStatus}
+          disabled={jobRefreshing}
+          className="ml-auto rounded-md border border-slate-600 px-2 py-1 text-[11px] hover:bg-slate-800 disabled:opacity-60"
+        >
+          {jobRefreshing ? "Refreshing job…" : "Refresh job status"}
+        </button>
       </div>
 
-      {eodError && (
-        <div className="text-[11px] text-amber-400 mt-1">{eodError}</div>
+      {error && (
+        <div className="mt-2 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
+          {error}
+        </div>
       )}
 
-      {eodResult && (
-        <div className="mt-2 text-[11px] text-slate-300 border border-slate-800 rounded-md p-2 bg-slate-950/40">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex flex-col">
-              <span className="font-semibold text-slate-200">
-                Latest EODHD ingest
-              </span>
-              <span className="font-mono text-slate-400">
-                {eodResult.requested_start} → {eodResult.requested_end}
-              </span>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              {eodJobStatus && (
-                <span className="text-[10px]">
-                  Job{" "}
-                  <span className="font-mono">
-                    {eodJobStatus.id.slice(0, 8)}…
-                  </span>{" "}
-                  <span
-                    className={
-                      eodJobStatus.state === "succeeded"
-                        ? "text-emerald-300"
-                        : eodJobStatus.state === "running"
-                        ? "text-sky-300"
-                        : "text-rose-300"
-                    }
-                  >
-                    ({eodJobStatus.state})
-                  </span>
-                </span>
-              )}
+      {result && (
+        <div className="mt-3 grid gap-2 text-xs text-slate-100 sm:grid-cols-3">
+          <div>
+            <div className="text-slate-400">Requested window</div>
+            <div className="font-semibold">
+              {result.requested_start} → {result.requested_end}
             </div>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div>
-              <div className="text-slate-400 text-[10px]">
-                Universe symbols
-              </div>
-              <div className="font-semibold">
-                {eodResult.universe_symbols_considered}
-              </div>
-            </div>
-            <div>
-              <div className="text-slate-400 text-[10px]">
-                Symbols attempted
-              </div>
-              <div className="font-semibold">
-                {eodResult.symbols_attempted}
-              </div>
-            </div>
-            <div>
-              <div className="text-slate-400 text-[10px]">
-                Succeeded / Failed
-              </div>
-              <div className="font-semibold">
-                {eodResult.symbols_succeeded} / {eodResult.symbols_failed}
-              </div>
-            </div>
-            <div>
-              <div className="text-slate-400 text-[10px]">
-                Rows observed
-              </div>
-              <div className="font-semibold">
-                {eodResult.rows_observed_after_ingest.toLocaleString()}
-              </div>
+          <div>
+            <div className="text-slate-400">Symbols attempted</div>
+            <div className="font-semibold">
+              {result.symbols_attempted.toLocaleString()}
             </div>
           </div>
-          {eodResult.failed_symbols.length > 0 && (
-            <div className="mt-1 text-[10px] text-amber-300">
-              Failed symbols: {eodResult.failed_symbols.join(", ")}
+          <div>
+            <div className="text-slate-400">Rows observed in lake</div>
+            <div className="font-semibold">
+              {result.rows_observed_after_ingest.toLocaleString()}
             </div>
-          )}
+          </div>
         </div>
+      )}
+
+      {jobStatus && (
+        <div className="mt-4 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-100">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold">Latest ingest job</span>
+            <span
+              className={
+                jobStatus.state === "succeeded"
+                  ? "text-emerald-300"
+                  : jobStatus.state === "running"
+                  ? "text-yellow-300"
+                  : "text-red-300"
+              }
+            >
+              {jobStatus.state.toUpperCase()}
+            </span>
+          </div>
+          <div className="grid gap-1 sm:grid-cols-2">
+            <div>
+              <span className="text-slate-400">Window: </span>
+              <span className="font-semibold">
+                {jobStatus.requested_start} → {jobStatus.requested_end}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400">Symbols attempted: </span>
+              <span className="font-semibold">
+                {jobStatus.symbols_attempted.toLocaleString()}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400">Succeeded: </span>
+              <span className="font-semibold">
+                {jobStatus.symbols_succeeded.toLocaleString()}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400">Failed: </span>
+              <span className="font-semibold">
+                {jobStatus.symbols_failed.toLocaleString()}
+              </span>
+            </div>
+            {jobStatus.last_error && (
+              <div className="sm:col-span-2 text-red-300">
+                Last error: {jobStatus.last_error}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(loadingWindow || loadingFull) && (
+        <Spinner label="Ingest in progress… watch backend logs for details." />
       )}
     </CollapsibleSection>
   );

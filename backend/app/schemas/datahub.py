@@ -39,6 +39,13 @@ class PriceBarDTO(BaseModel):
     low: float
     close: float
     volume: float
+    vwap: Optional[float] = None
+    turnover: Optional[float] = None
+    change_pct: Optional[float] = None
+    adj_open: Optional[float] = None
+    adj_high: Optional[float] = None
+    adj_low: Optional[float] = None
+    adj_close: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------

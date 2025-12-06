@@ -49,13 +49,20 @@ def _ensure_schema() -> None:
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS daily_bars (
-                symbol     TEXT NOT NULL,
-                trade_date DATE NOT NULL,
-                open       DOUBLE NOT NULL,
-                high       DOUBLE NOT NULL,
-                low        DOUBLE NOT NULL,
-                close      DOUBLE NOT NULL,
-                volume     DOUBLE NOT NULL,
+                symbol      TEXT NOT NULL,
+                trade_date  DATE NOT NULL,
+                open        DOUBLE NOT NULL,
+                high        DOUBLE NOT NULL,
+                low         DOUBLE NOT NULL,
+                close       DOUBLE NOT NULL,
+                volume      DOUBLE NOT NULL,
+                vwap        DOUBLE,
+                turnover    DOUBLE,
+                change_pct  DOUBLE,
+                adj_open    DOUBLE,
+                adj_high    DOUBLE,
+                adj_low     DOUBLE,
+                adj_close   DOUBLE,
                 PRIMARY KEY (symbol, trade_date)
             )
             """
@@ -91,6 +98,11 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
         dt = datetime.fromisoformat(b["time"])
         trade_date = dt.date()
 
+        adj_open = b.get("adj_open", b.get("open"))
+        adj_high = b.get("adj_high", b.get("high"))
+        adj_low = b.get("adj_low", b.get("low"))
+        adj_close = b.get("adj_close", b.get("close"))
+
         records.append(
             (
                 symbol,
@@ -100,6 +112,13 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
                 float(b["low"]),
                 float(b["close"]),
                 float(b["volume"]),
+                float(b["vwap"]) if b.get("vwap") is not None else None,
+                float(b["turnover"]) if b.get("turnover") is not None else None,
+                float(b["change_pct"]) if b.get("change_pct") is not None else None,
+                float(adj_open) if adj_open is not None else None,
+                float(adj_high) if adj_high is not None else None,
+                float(adj_low) if adj_low is not None else None,
+                float(adj_close) if adj_close is not None else None,
             )
         )
 
@@ -109,8 +128,9 @@ def upsert_daily_bars(symbol: str, bars: Sequence[PriceBarDTO]) -> int:
         con.executemany(
             """
             INSERT OR REPLACE INTO daily_bars
-                (symbol, trade_date, open, high, low, close, volume)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (symbol, trade_date, open, high, low, close, volume,
+                 vwap, turnover, change_pct, adj_open, adj_high, adj_low, adj_close)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             records,
         )
@@ -144,7 +164,14 @@ def read_daily_bars(symbol: str, start: date, end: date) -> List[PriceBarDTO]:
                 high,
                 low,
                 close,
-                volume
+                volume,
+                vwap,
+                turnover,
+                change_pct,
+                adj_open,
+                adj_high,
+                adj_low,
+                adj_close
             FROM daily_bars
             WHERE symbol = ?
               AND trade_date BETWEEN ? AND ?
@@ -156,17 +183,45 @@ def read_daily_bars(symbol: str, start: date, end: date) -> List[PriceBarDTO]:
         con.close()
 
     dto_rows: List[PriceBarDTO] = []
-    for trade_date, o, h, l, c, v in rows:
-        dto_rows.append(
-            PriceBarDTO(
-                time=f"{trade_date.isoformat()}T00:00:00+00:00",
-                open=float(o),
-                high=float(h),
-                low=float(l),
-                close=float(c),
-                volume=float(v),
-            )
-        )
+    for (
+        trade_date,
+        o,
+        h,
+        l,
+        c,
+        v,
+        vwap,
+        turnover,
+        change_pct,
+        adj_open,
+        adj_high,
+        adj_low,
+        adj_close,
+    ) in rows:
+        bar: PriceBarDTO = {
+            "time": f"{trade_date.isoformat()}T00:00:00+00:00",
+            "open": float(o),
+            "high": float(h),
+            "low": float(l),
+            "close": float(c),
+            "volume": float(v),
+        }
+
+        optional_fields = {
+            "vwap": vwap,
+            "turnover": turnover,
+            "change_pct": change_pct,
+            "adj_open": adj_open,
+            "adj_high": adj_high,
+            "adj_low": adj_low,
+            "adj_close": adj_close,
+        }
+
+        for key, val in optional_fields.items():
+            if val is not None:
+                bar[key] = float(val)
+
+        dto_rows.append(PriceBarDTO(**bar))
 
     return dto_rows
 

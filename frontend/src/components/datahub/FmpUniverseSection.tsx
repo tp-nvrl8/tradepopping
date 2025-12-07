@@ -1,98 +1,109 @@
 // frontend/src/components/datahub/FmpUniverseSection.tsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
-import { UniverseIngestResult, UniverseStats } from "./types";
 
-interface FmpUniverseSectionProps {
-  onUniverseChanged?: () => void; // optional hook if you want to refresh browser
+interface FmpUniverseSummary {
+  total_symbols: number;
+  exchanges: string[];
+  last_ingested_at: string | null;
+  min_market_cap: number | null;
+  max_market_cap: number | null;
 }
 
-const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
-  onUniverseChanged,
-}) => {
-  const [minCap, setMinCap] = useState("50000000");
-  const [maxCap, setMaxCap] = useState("");
-  const [exchanges, setExchanges] = useState("NYSE,NASDAQ");
-  const [limit, setLimit] = useState("5000");
-  const [includeEtfs, setIncludeEtfs] = useState(false);
-  const [activeOnly, setActiveOnly] = useState(true);
+interface FmpUniverseIngestResponse {
+  symbols_ingested: number;
+  symbols_updated: number;
+  symbols_skipped: number;
+  total_symbols_after: number;
+  started_at: string;
+  finished_at: string;
+}
+
+const SUMMARY_PATH = "/datalake/fmp/universe/summary";
+const INGEST_PATH = "/datalake/fmp/universe/ingest";
+
+const FmpUniverseSection: React.FC = () => {
+  const [summary, setSummary] = useState<FmpUniverseSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const [ingesting, setIngesting] = useState(false);
   const [ingestError, setIngestError] = useState<string | null>(null);
-  const [ingestResult, setIngestResult] = useState<UniverseIngestResult | null>(
-    null,
-  );
+  const [ingestResult, setIngestResult] =
+    useState<FmpUniverseIngestResponse | null>(null);
 
-  const [stats, setStats] = useState<UniverseStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [statsError, setStatsError] = useState<string | null>(null);
+  // ---- Universe filter controls (like we have on EODHD) ----
+  const [minCap, setMinCap] = useState("50000000");
+  const [maxCap, setMaxCap] = useState("");
+  const [exchanges, setExchanges] = useState("NYSE,NASDAQ");
+  const [includeEtfs, setIncludeEtfs] = useState(false);
+  const [activeOnly, setActiveOnly] = useState(true);
+  const [maxSymbols, setMaxSymbols] = useState("1000");
 
   const Spinner = ({ label }: { label?: string }) => (
-    <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+    <div className="mt-1 flex items-center gap-2 text-xs text-slate-300">
       <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
       {label && <span>{label}</span>}
     </div>
   );
 
-  const loadStats = async () => {
+  const loadSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
     try {
-      setStatsLoading(true);
-      setStatsError(null);
-      const data = await apiClient.get<UniverseStats>(
-        "/datalake/universe/stats",
-      );
-      setStats(data);
+      const data = await apiClient.get<FmpUniverseSummary>(SUMMARY_PATH);
+      setSummary(data);
     } catch (err) {
-      console.error("Failed to load universe stats", err);
-      setStatsError("Failed to load universe stats. Check backend logs.");
+      console.error("Failed to load FMP universe summary", err);
+      setSummaryError(
+        "Could not load FMP universe summary. Check backend route /datalake/fmp/universe/summary.",
+      );
     } finally {
-      setStatsLoading(false);
+      setSummaryLoading(false);
     }
   };
+
+  useEffect(() => {
+    void loadSummary();
+  }, []);
 
   const handleIngest = async () => {
     setIngesting(true);
     setIngestError(null);
     setIngestResult(null);
 
-    try {
-      const minCapNum = parseInt(minCap || "0", 10);
-      const maxCapNum =
-        maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
-      const limitNum = parseInt(limit || "0", 10) || 0;
+    const minCapNum = parseInt(minCap || "0", 10);
+    const maxCapNum =
+      maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
+    const maxSymbolsNum = parseInt(maxSymbols || "0", 10) || 0;
 
-      const exchangesParam = exchanges
+    // This payload is what the backend can later honor when we wire real ingest
+    const payload = {
+      min_market_cap: minCapNum,
+      max_market_cap: maxCapNum,
+      exchanges: exchanges
         .split(",")
         .map((s) => s.trim().toUpperCase())
-        .filter(Boolean)
-        .join(",");
+        .filter(Boolean),
+      include_etfs: includeEtfs,
+      active_only: activeOnly,
+      max_symbols: maxSymbolsNum,
+    };
 
-      const params: Record<string, unknown> = {
-        min_market_cap: minCapNum,
-        exchanges: exchangesParam,
-        limit: limitNum,
-        include_etfs: includeEtfs,
-        active_only: activeOnly,
-      };
-
-      if (maxCapNum !== null) {
-        params.max_market_cap = maxCapNum;
-      }
-
-      const data = await apiClient.post<UniverseIngestResult>(
-        "/datalake/fmp/universe/ingest",
-        {},
-        { params },
+    try {
+      const data = await apiClient.post<FmpUniverseIngestResponse>(
+        INGEST_PATH,
+        payload,
       );
-
       setIngestResult(data);
-      await loadStats();
-      if (onUniverseChanged) onUniverseChanged();
+      void loadSummary();
     } catch (err) {
       console.error("Failed to ingest FMP universe", err);
-      setIngestError("Failed to ingest symbol universe from FMP.");
+      setIngestError(
+        "Failed to ingest FMP universe. Confirm backend route /datalake/fmp/universe/ingest and FMP API key.",
+      );
     } finally {
       setIngesting(false);
     }
@@ -101,36 +112,34 @@ const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
   return (
     <CollapsibleSection
       storageKey="tp_datahub_fmp_universe_open"
-      title="FMP Universe Ingest + Stats"
+      title="FMP Universe Ingest"
       defaultOpen
     >
       <p className="mb-2 text-xs text-slate-300">
-        Pull the FMP symbol universe (with market cap, sector, etc.) into the
-        data lake. This becomes the core stock list for TradePopping.
+        Pull the tradable stock universe from FMP into the{" "}
+        <span className="font-mono text-slate-100">symbol_universe</span>{" "}
+        table in the DuckDB data lake. Other DataHub modules (EODHD, scanners,
+        Strategy Lab) depend on this list.
       </p>
 
-      {/* Controls */}
-      <div className="grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
+      {/* Filter controls for what we pull from FMP */}
+      <div className="mb-3 grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Min market cap (USD)</span>
           <input
             value={minCap}
             onChange={(e) => setMinCap(e.target.value.replace(/,/g, ""))}
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-            placeholder="50000000"
           />
         </label>
-
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Max market cap (optional)</span>
           <input
             value={maxCap}
             onChange={(e) => setMaxCap(e.target.value.replace(/,/g, ""))}
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-            placeholder=""
           />
         </label>
-
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Exchanges (comma-separated)</span>
           <input
@@ -140,49 +149,123 @@ const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
             placeholder="NYSE,NASDAQ"
           />
         </label>
-
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Max symbols (limit)</span>
+          <span className="text-slate-200">Max symbols (sample limit)</span>
           <input
-            value={limit}
+            value={maxSymbols}
             onChange={(e) =>
-              setLimit(e.target.value.replace(/[^0-9]/g, ""))
+              setMaxSymbols(e.target.value.replace(/[^0-9]/g, ""))
             }
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-            placeholder="5000"
           />
         </label>
+        <div className="flex flex-col justify-end gap-1 text-xs">
+          <label className="inline-flex items-center gap-1 text-slate-200">
+            <input
+              type="checkbox"
+              checked={includeEtfs}
+              onChange={(e) => setIncludeEtfs(e.target.checked)}
+              className="h-3 w-3"
+            />
+            Include ETFs
+          </label>
+          <label className="inline-flex items-center gap-1 text-slate-200">
+            <input
+              type="checkbox"
+              checked={activeOnly}
+              onChange={(e) => setActiveOnly(e.target.checked)}
+              className="h-3 w-3"
+            />
+            Active only
+          </label>
+        </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-        <label className="inline-flex items-center gap-1 text-slate-200">
-          <input
-            type="checkbox"
-            checked={includeEtfs}
-            onChange={(e) => setIncludeEtfs(e.target.checked)}
-            className="h-3 w-3"
-          />
-          Include ETFs
-        </label>
+      {/* Summary block */}
+      <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="font-semibold text-slate-50">Current universe</span>
+          <button
+            type="button"
+            onClick={loadSummary}
+            disabled={summaryLoading}
+            className="rounded-md border border-slate-600 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-800 disabled:opacity-60"
+          >
+            {summaryLoading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
 
-        <label className="inline-flex items-center gap-1 text-slate-200">
-          <input
-            type="checkbox"
-            checked={activeOnly}
-            onChange={(e) => setActiveOnly(e.target.checked)}
-            className="h-3 w-3"
-          />
-          Active only
-        </label>
+        {summaryLoading && <Spinner label="Loading universe summary…" />}
 
+        {summaryError && (
+          <div className="mt-1 rounded-md border border-red-500/60 bg-red-900/40 px-2 py-1 text-[11px] text-red-100">
+            {summaryError}
+          </div>
+        )}
+
+        {!summaryLoading && !summaryError && summary && (
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div>
+              <div className="text-[11px] text-slate-400">Total symbols</div>
+              <div className="text-sm font-semibold text-slate-50">
+                {summary.total_symbols.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-400">Exchanges</div>
+              <div className="text-[11px] text-slate-100">
+                {summary.exchanges.length > 0
+                  ? summary.exchanges.join(", ")
+                  : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-400">
+                Last ingested at
+              </div>
+              <div className="text-[11px] text-slate-100">
+                {summary.last_ingested_at ?? "never"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-400">
+                Market cap range
+              </div>
+              <div className="text-[11px] text-slate-100">
+                {summary.min_market_cap != null &&
+                summary.max_market_cap != null
+                  ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
+                  : "n/a"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!summaryLoading && !summaryError && !summary && (
+          <p className="text-[11px] text-slate-400">
+            No universe summary yet. Run an ingest to populate{" "}
+            <span className="font-mono">symbol_universe</span>.
+          </p>
+        )}
+      </div>
+
+      {/* Ingest controls */}
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
         <button
           type="button"
           onClick={handleIngest}
           disabled={ingesting}
-          className="ml-auto rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+          className="rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
         >
-          {ingesting ? "Ingesting…" : "Ingest FMP Universe"}
+          {ingesting ? "Ingesting from FMP…" : "Ingest / refresh universe"}
         </button>
+
+        {ingesting && (
+          <span className="text-[11px] text-slate-300">
+            This may take a bit depending on FMP response time and universe
+            size.
+          </span>
+        )}
       </div>
 
       {ingestError && (
@@ -192,116 +275,41 @@ const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
       )}
 
       {ingestResult && (
-        <div className="mt-3 grid gap-2 text-xs text-slate-100 sm:grid-cols-3">
+        <div className="mt-3 grid gap-2 text-xs text-slate-100 sm:grid-cols-4">
           <div>
-            <div className="text-slate-400">Source</div>
-            <div className="font-semibold">{ingestResult.source}</div>
-          </div>
-          <div>
-            <div className="text-slate-400">Symbols received</div>
+            <div className="text-slate-400">Symbols ingested</div>
             <div className="font-semibold">
-              {ingestResult.symbols_received.toLocaleString()}
+              {ingestResult.symbols_ingested.toLocaleString()}
             </div>
           </div>
           <div>
-            <div className="text-slate-400">Rows upserted</div>
+            <div className="text-slate-400">Symbols updated</div>
             <div className="font-semibold">
-              {ingestResult.rows_upserted.toLocaleString()}
+              {ingestResult.symbols_updated.toLocaleString()}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="mt-4 flex items-center gap-3 text-xs">
-        <span className="font-semibold text-slate-100">Universe stats</span>
-        <button
-          type="button"
-          onClick={loadStats}
-          className="rounded-md border border-slate-600 px-2 py-1 text-[11px] hover:bg-slate-800"
-        >
-          {statsLoading ? "Refreshing…" : "Refresh stats"}
-        </button>
-      </div>
-
-      {statsError && (
-        <div className="mt-2 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
-          {statsError}
-        </div>
-      )}
-
-      {statsLoading && <Spinner label="Loading universe stats…" />}
-
-      {stats && !statsLoading && !statsError && (
-        <div className="mt-3 grid gap-4 text-xs text-slate-100 md:grid-cols-2">
           <div>
-            <div className="mb-1 text-slate-300">
-              Total symbols:{" "}
-              <span className="font-semibold">
-                {stats.total_symbols.toLocaleString()}
-              </span>
-            </div>
-
-            <div className="mt-2">
-              <div className="mb-1 font-semibold text-slate-200">
-                By exchange
-              </div>
-              <ul className="space-y-0.5 text-slate-300">
-                {Object.entries(stats.by_exchange).map(([exch, count]) => (
-                  <li key={exch}>
-                    {exch}:{" "}
-                    <span className="font-semibold">
-                      {count.toLocaleString()}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            <div className="text-slate-400">Symbols skipped</div>
+            <div className="font-semibold">
+              {ingestResult.symbols_skipped.toLocaleString()}
             </div>
           </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <div className="mb-1 font-semibold text-slate-200">By type</div>
-              <ul className="space-y-0.5 text-slate-300">
-                {Object.entries(stats.by_type).map(([t, count]) => (
-                  <li key={t}>
-                    {t}:{" "}
-                    <span className="font-semibold">
-                      {count.toLocaleString()}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          <div>
+            <div className="text-slate-400">Total after ingest</div>
+            <div className="font-semibold">
+              {ingestResult.total_symbols_after.toLocaleString()}
             </div>
-
-            <div>
-              <div className="mb-1 font-semibold text-slate-200">By sector</div>
-              <ul className="max-h-40 space-y-0.5 overflow-y-auto pr-1 text-slate-300">
-                {Object.entries(stats.by_sector).map(([sector, count]) => (
-                  <li key={sector}>
-                    {sector}:{" "}
-                    <span className="font-semibold">
-                      {count.toLocaleString()}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          </div>
+          <div>
+            <div className="text-slate-400">Started at</div>
+            <div className="font-mono text-[11px]">
+              {ingestResult.started_at}
             </div>
-
-            <div className="md:col-span-2">
-              <div className="mb-1 font-semibold text-slate-200">
-                By cap bucket
-              </div>
-              <ul className="space-y-0.5 text-slate-300">
-                {Object.entries(stats.by_cap_bucket).map(([bucket, count]) => (
-                  <li key={bucket}>
-                    {bucket}:{" "}
-                    <span className="font-semibold">
-                      {count.toLocaleString()}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          </div>
+          <div>
+            <div className="text-slate-400">Finished at</div>
+            <div className="font-mono text-[11px]">
+              {ingestResult.finished_at}
             </div>
           </div>
         </div>
@@ -310,4 +318,4 @@ const FmpUniverseSection: React.FC<FmpUniverseSectionProps> = ({
   );
 };
 
-export default FmpUniverseSection;
+e˘

@@ -2,176 +2,177 @@
 
 from __future__ import annotations
 
+import os
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import duckdb
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.datalake.fmp_client import fetch_fmp_symbol_universe
-from app.datalake.universe_store import (upsert_universe, get_universe_stats, browse_universe, UniverseStats,)
 
 router = APIRouter(tags=["datalake-fmp"])
 
-
-class UniverseIngestResult(BaseModel):
-    source: str = "fmp"
-    symbols_received: int
-    rows_upserted: int
-
-
-@router.post(
-    "/datalake/fmp/universe/ingest",
-    response_model=UniverseIngestResult,
+TP_DUCKDB_PATH: str = os.getenv(
+    "TP_DUCKDB_PATH",
+    "/data/tradepopping.duckdb",
 )
-async def ingest_fmp_universe(
-    # These default values match your UI defaults
-    min_market_cap: int = Query(50_000_000, ge=0),          # 50M
-    max_market_cap: Optional[int] = Query(None, ge=0),
-    exchanges: str = Query("NYSE,NASDAQ,AMEX"),
-    limit: int = Query(5000, ge=1, le=10_000),
-    include_etfs: bool = Query(False),
-    active_only: bool = Query(True),
+
+
+def _get_conn() -> duckdb.DuckDBPyConnection:
+  return duckdb.connect(TP_DUCKDB_PATH)
+
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+
+class FmpUniverseSummary(BaseModel):
+    total_symbols: int
+    exchanges: List[str]
+    last_ingested_at: Optional[str]
+    min_market_cap: Optional[float]
+    max_market_cap: Optional[float]
+
+
+class FmpUniverseIngestResponse(BaseModel):
+    """
+    For now this is a *no-op* placeholder that just reports current counts.
+    Later we can wire it to a real FMP ingest function.
+    """
+    symbols_ingested: int
+    symbols_updated: int
+    symbols_skipped: int
+    total_symbols_after: int
+    started_at: str
+    finished_at: str
+
+
+# ---------------------------------------------------------------------------
+# Summary endpoint (used by FmpUniverseSection)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/datalake/fmp/universe/summary",
+    response_model=FmpUniverseSummary,
+)
+async def get_fmp_universe_summary(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
-    Pull the symbol universe from FMP company screener and upsert into DuckDB.
+    Summarize the symbol_universe table:
+      - total symbol count
+      - distinct exchanges
+      - min/max market cap
 
-    Filters (min/max cap, exchanges, ETF / active flags, limit) come from
-    query parameters (driven by the DataHub UI).
+    This does NOT modify data; it's read-only.
     """
+    con = _get_conn()
     try:
-        symbols = await fetch_fmp_symbol_universe(
-            min_market_cap=min_market_cap,
-            max_market_cap=max_market_cap,
+        # Make sure the table exists
+        tables = con.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_name = 'symbol_universe';"
+        ).fetchall()
+
+        if not tables:
+            # No universe ingested yet
+            return FmpUniverseSummary(
+                total_symbols=0,
+                exchanges=[],
+                last_ingested_at=None,
+                min_market_cap=None,
+                max_market_cap=None,
+            )
+
+        # total symbols
+        total_symbols = con.execute(
+            "SELECT COUNT(*) FROM symbol_universe;"
+        ).fetchone()[0]
+
+        # distinct exchanges
+        exchange_rows = con.execute(
+            "SELECT DISTINCT exchange FROM symbol_universe ORDER BY exchange;"
+        ).fetchall()
+        exchanges = [r[0] for r in exchange_rows if r[0] is not None]
+
+        # market cap range (if column exists)
+        min_cap = None
+        max_cap = None
+        try:
+            min_cap, max_cap = con.execute(
+                "SELECT MIN(market_cap), MAX(market_cap) FROM symbol_universe;"
+            ).fetchone()
+        except Exception:
+            # If market_cap column doesn't exist, just leave as None
+            min_cap = None
+            max_cap = None
+
+        # last_ingested_at – only if you have that column; otherwise None
+        last_ingested_at: Optional[str] = None
+        try:
+            row = con.execute(
+                "SELECT MAX(updated_at) FROM symbol_universe;"
+            ).fetchone()
+            if row and row[0] is not None:
+                last_ingested_at = str(row[0])
+        except Exception:
+            last_ingested_at = None
+
+        return FmpUniverseSummary(
+            total_symbols=int(total_symbols),
             exchanges=exchanges,
-            limit=limit,
-            include_etfs=include_etfs,
-            active_only=active_only,
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Error fetching universe from FMP: {e}",
+            last_ingested_at=last_ingested_at,
+            min_market_cap=float(min_cap) if min_cap is not None else None,
+            max_market_cap=float(max_cap) if max_cap is not None else None,
         )
 
-    try:
-        rows_upserted = upsert_universe(symbols)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error writing universe to DuckDB: {e}",
-        )
-
-    return UniverseIngestResult(
-        symbols_received=len(symbols),
-        rows_upserted=rows_upserted,
-    )
+    finally:
+        con.close()
 
 
-@router.get("/datalake/universe/stats")
-def universe_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """
-    Return aggregate stats about the stored symbol universe.
-    """
-    try:
-        return get_universe_stats()
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error reading universe stats: {e}",
-        )
+# ---------------------------------------------------------------------------
+# Placeholder ingest endpoint (keeps UI from 404’ing)
+# ---------------------------------------------------------------------------
 
-# ---------- Universe browser API ----------
-
-class UniverseRowModel(BaseModel):
-  symbol: str
-  name: str
-  exchange: str
-  sector: Optional[str] = None
-  industry: Optional[str] = None
-  market_cap: float
-  price: float
-  is_etf: bool
-  is_actively_trading: bool
-
-
-class UniverseBrowseResponse(BaseModel):
-  items: List[UniverseRowModel]
-  total_items: int
-  page: int
-  page_size: int
-  total_pages: int
-  sectors: List[str]
-  exchanges: List[str]
-  min_market_cap: Optional[float]
-  max_market_cap: Optional[float]
-
-
-@router.get(
-  "/datalake/universe/browse",
-  response_model=UniverseBrowseResponse,
+@router.post(
+    "/datalake/fmp/universe/ingest",
+    response_model=FmpUniverseIngestResponse,
 )
-async def browse_symbol_universe(
-  page: int = Query(1, ge=1),
-  page_size: int = Query(50, ge=1, le=500),
-  search: Optional[str] = Query(None, description="Search by symbol or name"),
-  sector: Optional[str] = Query(None),
-  min_market_cap: Optional[float] = Query(None),
-  max_market_cap: Optional[float] = Query(None),
-  exchanges: Optional[str] = Query(
-    None,
-    description="Comma-separated exchanges (e.g. NYSE,NASDAQ)"
-  ),
-  sort_by: str = Query(
-    "symbol",
-    regex="^(symbol|name|sector|exchange|market_cap|price)$"
-  ),
-  sort_dir: str = Query(
-    "asc",
-    regex="^(asc|desc)$"
-  ),
-  current_user: Dict[str, Any] = Depends(get_current_user),
+async def ingest_fmp_universe_placeholder(
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-  """
-  Browse the stored symbol_universe with paging, sorting, and filters.
-  """
+    """
+    Placeholder for FMP universe ingest.
 
-  exch_list: Optional[List[str]] = None
-  if exchanges:
-    exch_list = [e.strip().upper() for e in exchanges.split(",") if e.strip()]
+    Right now this DOES NOT call FMP; it simply reports current counts.
+    We'll wire this to the real FMP ingest pipeline in a later step.
+    """
+    con = _get_conn()
+    try:
+        tables = con.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_name = 'symbol_universe';"
+        ).fetchall()
 
-  (
-    items,
-    total_items,
-    sectors,
-    exch_all,
-    min_cap_global,
-    max_cap_global,
-  ) = browse_universe(
-    page=page,
-    page_size=page_size,
-    search=search,
-    sector=sector,
-    min_market_cap=min_market_cap,
-    max_market_cap=max_market_cap,
-    exchanges=exch_list,
-    sort_by=sort_by,
-    sort_dir=sort_dir,
-  )
+        if not tables:
+            total = 0
+        else:
+            total = con.execute(
+                "SELECT COUNT(*) FROM symbol_universe;"
+            ).fetchone()[0]
 
-  total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
+    finally:
+        con.close()
 
-  item_models = [UniverseRowModel(**row) for row in items]
+    now = datetime.utcnow().isoformat() + "Z"
 
-  return UniverseBrowseResponse(
-    items=item_models,
-    total_items=total_items,
-    page=page,
-    page_size=page_size,
-    total_pages=total_pages,
-    sectors=sectors,
-    exchanges=exch_all,
-    min_market_cap=min_cap_global,
-    max_market_cap=max_cap_global,
-  )
+    return FmpUniverseIngestResponse(
+        symbols_ingested=0,
+        symbols_updated=0,
+        symbols_skipped=int(total),
+        total_symbols_after=int(total),
+        started_at=now,
+        finished_at=now,
+    )

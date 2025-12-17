@@ -217,3 +217,7 @@ if __name__ == "__main__":
         port=int(os.getenv("API_PORT", "8000")),
         reload=True,
     )
+
+@app.get("/api/debug/duckdb-path")
+def debug_duckdb_path(current_user: dict = Depends(get_current_user)):
+    return {"TP_DUCKDB_PATH": os.getenv("TP_DUCKDB_PATH", "/data/tradepopping.duckdb")}

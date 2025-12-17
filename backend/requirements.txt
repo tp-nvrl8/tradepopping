@@ -4,3 +4,4 @@ pydantic
 python-dotenv
 httpx
 duckdb>=1.0.0
+requests==2.31.0

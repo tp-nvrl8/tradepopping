@@ -1,5 +1,3 @@
-# backend/app/routes/datalake_eodhd.py
-
 from __future__ import annotations
 
 import os
@@ -186,6 +184,10 @@ def _select_universe_symbols(
 ) -> List[str]:
     """
     Read candidate symbols from symbol_universe in DuckDB based on filters.
+
+    IMPORTANT:
+    - We ALWAYS exclude funds here.
+    - We handle NULLs safely (is_fund/is_etf/market_cap may be NULL).
     """
     con = _get_duckdb_connection(read_only=True)
     try:
@@ -207,7 +209,11 @@ def _select_universe_symbols(
             where_clauses.append(f"exchange IN ({placeholders})")
             params.extend([ex.upper() for ex in exchanges])
 
-        # Market cap filters
+        # ALWAYS exclude funds (NULL treated as not-fund)
+        where_clauses.append("(is_fund IS NULL OR is_fund = FALSE)")
+
+        # Market cap filters (exclude NULL market caps)
+        where_clauses.append("market_cap IS NOT NULL")
         where_clauses.append("market_cap >= ?")
         params.append(float(min_market_cap))
 
@@ -215,9 +221,9 @@ def _select_universe_symbols(
             where_clauses.append("market_cap <= ?")
             params.append(float(max_market_cap))
 
-        # ETF filter
+        # ETF filter (NULL treated as not-etf)
         if not include_etfs:
-            where_clauses.append("is_etf = FALSE")
+            where_clauses.append("(is_etf IS NULL OR is_etf = FALSE)")
 
         # Active trading filter
         if active_only:

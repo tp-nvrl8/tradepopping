@@ -34,13 +34,20 @@ const FmpUniverseSection: React.FC = () => {
   const [ingestResult, setIngestResult] =
     useState<FmpUniverseIngestResponse | null>(null);
 
-  // ---- Universe filter controls (like we have on EODHD) ----
+  // ---- Universe filter controls ----
   const [minCap, setMinCap] = useState("50000000");
   const [maxCap, setMaxCap] = useState("");
   const [exchanges, setExchanges] = useState("NYSE,NASDAQ");
-  const [includeEtfs, setIncludeEtfs] = useState(false);
-  const [activeOnly, setActiveOnly] = useState(true);
   const [maxSymbols, setMaxSymbols] = useState("1000");
+
+  // ---- Visible toggles (explicit) ----
+  const [includeEtfs, setIncludeEtfs] = useState(false);
+  const [includeFunds, setIncludeFunds] = useState(false);
+  const [activeOnly, setActiveOnly] = useState(true);
+
+  // IMPORTANT: includeAllShareClasses (controls warrants / share classes)
+  // We send literal "true"/"false" to match FMP playground behavior.
+  const [includeAllShareClasses, setIncludeAllShareClasses] = useState(false);
 
   const Spinner = ({ label }: { label?: string }) => (
     <div className="mt-1 flex items-center gap-2 text-xs text-slate-300">
@@ -75,11 +82,9 @@ const FmpUniverseSection: React.FC = () => {
     setIngestResult(null);
 
     const minCapNum = parseInt(minCap || "0", 10);
-    const maxCapNum =
-      maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
+    const maxCapNum = maxCap.trim().length > 0 ? parseInt(maxCap, 10) : null;
     const maxSymbolsNum = parseInt(maxSymbols || "0", 10) || 0;
 
-    // This payload is what the backend can later honor when we wire real ingest
     const payload = {
       min_market_cap: minCapNum,
       max_market_cap: maxCapNum,
@@ -87,8 +92,15 @@ const FmpUniverseSection: React.FC = () => {
         .split(",")
         .map((s) => s.trim().toUpperCase())
         .filter(Boolean),
+
+      // visible toggles (even if backend doesn’t filter on them during ingest yet)
       include_etfs: includeEtfs,
+      include_funds: includeFunds,
       active_only: activeOnly,
+
+      // IMPORTANT: send literal "true"/"false"
+      include_all_share_classes: includeAllShareClasses ? "true" : "false",
+
       max_symbols: maxSymbolsNum,
     };
 
@@ -115,15 +127,8 @@ const FmpUniverseSection: React.FC = () => {
       title="FMP Universe Ingest"
       defaultOpen
     >
-      <p className="mb-2 text-xs text-slate-300">
-        Pull the tradable stock universe from FMP into the{" "}
-        <span className="font-mono text-slate-100">symbol_universe</span>{" "}
-        table in the DuckDB data lake. Other DataHub modules (EODHD, scanners,
-        Strategy Lab) depend on this list.
-      </p>
-
-      {/* Filter controls for what we pull from FMP */}
-      <div className="mb-3 grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
+      {/* Inputs */}
+      <div className="mb-2 grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Min market cap (USD)</span>
           <input
@@ -132,6 +137,7 @@ const FmpUniverseSection: React.FC = () => {
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
         </label>
+
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Max market cap (optional)</span>
           <input
@@ -140,6 +146,7 @@ const FmpUniverseSection: React.FC = () => {
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
         </label>
+
         <label className="flex flex-col gap-1">
           <span className="text-slate-200">Exchanges (comma-separated)</span>
           <input
@@ -149,8 +156,9 @@ const FmpUniverseSection: React.FC = () => {
             placeholder="NYSE,NASDAQ"
           />
         </label>
+
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Max symbols (sample limit)</span>
+          <span className="text-slate-200">Max symbols (safety limit)</span>
           <input
             value={maxSymbols}
             onChange={(e) =>
@@ -159,40 +167,57 @@ const FmpUniverseSection: React.FC = () => {
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
           />
         </label>
-        <div className="flex flex-col justify-end gap-1 text-xs">
-          <label className="inline-flex items-center gap-1 text-slate-200">
-            <input
-              type="checkbox"
-              checked={includeEtfs}
-              onChange={(e) => setIncludeEtfs(e.target.checked)}
-              className="h-3 w-3"
-            />
-            Include ETFs
-          </label>
-          <label className="inline-flex items-center gap-1 text-slate-200">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="h-3 w-3"
-            />
-            Active only
-          </label>
-        </div>
       </div>
 
-      {/* Summary block */}
-      <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs">
+      {/* Checkboxes inline UNDER the inputs */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 bg-slate-950/40 px-3 py-2 text-xs">
+        <label className="inline-flex items-center gap-2 text-slate-200">
+          <input
+            type="checkbox"
+            checked={includeEtfs}
+            onChange={(e) => setIncludeEtfs(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Include ETFs
+        </label>
+
+        <label className="inline-flex items-center gap-2 text-slate-200">
+          <input
+            type="checkbox"
+            checked={includeFunds}
+            onChange={(e) => setIncludeFunds(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Include Funds
+        </label>
+
+        <label className="inline-flex items-center gap-2 text-slate-200">
+          <input
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => setActiveOnly(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Active only
+        </label>
+
+        <div className="h-4 w-px bg-slate-800" />
+
+        <label className="inline-flex items-center gap-2 text-slate-200">
+          <input
+            type="checkbox"
+            checked={includeAllShareClasses}
+            onChange={(e) => setIncludeAllShareClasses(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Include all share classes
+        </label>
+      </div>
+
+      {/* Summary */}
+      <div className="bg-slate-950/40 px-3 py-2 text-xs">
         <div className="mb-1 flex items-center justify-between">
           <span className="font-semibold text-slate-50">Current universe</span>
-          <button
-            type="button"
-            onClick={loadSummary}
-            disabled={summaryLoading}
-            className="rounded-md border border-slate-600 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-800 disabled:opacity-60"
-          >
-            {summaryLoading ? "Refreshing…" : "Refresh"}
-          </button>
         </div>
 
         {summaryLoading && <Spinner label="Loading universe summary…" />}
@@ -211,31 +236,24 @@ const FmpUniverseSection: React.FC = () => {
                 {summary.total_symbols.toLocaleString()}
               </div>
             </div>
-            <div>
-              <div className="text-[11px] text-slate-400">Exchanges</div>
               <div className="text-[11px] text-slate-100">
+                <div className="text-[11px] text-slate-400">Market cap range</div>
+                {summary.min_market_cap != null && summary.max_market_cap != null
+                  ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
+                  : "n/a"}
+              </div>
+            <div>
+              <div className="text-[9px] text-slate-400">Exchanges</div>
+              <div className="text-[9px] text-slate-100">
                 {summary.exchanges.length > 0
                   ? summary.exchanges.join(", ")
                   : "—"}
               </div>
             </div>
             <div>
-              <div className="text-[11px] text-slate-400">
-                Last ingested at
-              </div>
+              <div className="text-[11px] text-slate-400">Last ingested at</div>
               <div className="text-[11px] text-slate-100">
                 {summary.last_ingested_at ?? "never"}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-slate-400">
-                Market cap range
-              </div>
-              <div className="text-[11px] text-slate-100">
-                {summary.min_market_cap != null &&
-                summary.max_market_cap != null
-                  ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
-                  : "n/a"}
               </div>
             </div>
           </div>
@@ -249,7 +267,7 @@ const FmpUniverseSection: React.FC = () => {
         )}
       </div>
 
-      {/* Ingest controls */}
+      {/* Ingest */}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
         <button
           type="button"
@@ -259,11 +277,17 @@ const FmpUniverseSection: React.FC = () => {
         >
           {ingesting ? "Ingesting from FMP…" : "Ingest / refresh universe"}
         </button>
-
+        <button
+            type="button"
+            onClick={loadSummary}
+            disabled={summaryLoading}
+            className="rounded-md border border-slate-600 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-800 disabled:opacity-60"
+          >
+            {summaryLoading ? "Refreshing…" : "Refresh"}
+          </button>
         {ingesting && (
           <span className="text-[11px] text-slate-300">
-            This may take a bit depending on FMP response time and universe
-            size.
+            This may take a bit depending on FMP response time and universe size.
           </span>
         )}
       </div>
@@ -302,20 +326,17 @@ const FmpUniverseSection: React.FC = () => {
           </div>
           <div>
             <div className="text-slate-400">Started at</div>
-            <div className="font-mono text-[11px]">
-              {ingestResult.started_at}
-            </div>
+            <div className="font-mono text-[11px]}">{ingestResult.started_at}</div>
           </div>
           <div>
             <div className="text-slate-400">Finished at</div>
-            <div className="font-mono text-[11px]">
-              {ingestResult.finished_at}
-            </div>
+            <div className="font-mono text-[11px]}">{ingestResult.finished_at}</div>
           </div>
         </div>
       )}
+      
     </CollapsibleSection>
   );
 };
 
-e˘
+export default FmpUniverseSection;

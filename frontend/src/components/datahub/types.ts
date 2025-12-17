@@ -61,17 +61,11 @@ export interface UniverseRow {
 }
 
 export interface UniverseBrowseResponse {
-  items: UniverseRow[];
-  total_items: number;
+  total_count: number;
   page: number;
   page_size: number;
-  total_pages: number;
-  sectors: string[];
-  exchanges: string[];
-  min_market_cap: number | null;
-  max_market_cap: number | null;
+  symbols: UniverseRow[];
 }
-
 // ---------- EODHD ingest + job status ----------
 
 export type JobState = "running" | "succeeded" | "failed";

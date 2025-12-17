@@ -124,7 +124,7 @@ const FmpUniverseSection: React.FC = () => {
   return (
     <CollapsibleSection
       storageKey="tp_datahub_fmp_universe_open"
-      title="FMP Universe Ingest"
+      title="Symbol Universe Ingest"
       defaultOpen
     >
       {/* Inputs */}
@@ -236,26 +236,26 @@ const FmpUniverseSection: React.FC = () => {
                 {summary.total_symbols.toLocaleString()}
               </div>
             </div>
-              <div className="text-[11px] text-slate-100">
-                <div className="text-[11px] text-slate-400">Market cap range</div>
+            <div className="text-[11px] text-slate-100">
+             <div className="text-[11px] text-slate-400">Market cap range</div>
                 {summary.min_market_cap != null && summary.max_market_cap != null
-                  ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
-                  : "n/a"}
+                ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
+                : "n/a"}
               </div>
-            <div>
-              <div className="text-[9px] text-slate-400">Exchanges</div>
-              <div className="text-[9px] text-slate-100">
-                {summary.exchanges.length > 0
-                  ? summary.exchanges.join(", ")
-                  : "—"}
+              <div>
+                <div className="text-[11px] text-slate-400">Last ingested at</div>
+                <div className="text-[11px] text-slate-100">
+                  {summary.last_ingested_at ?? "never"}
+                </div>
               </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-slate-400">Last ingested at</div>
-              <div className="text-[11px] text-slate-100">
-                {summary.last_ingested_at ?? "never"}
-              </div>
-            </div>
+          {/* <div>
+                  <div className="text-[9px] text-slate-400">Exchanges</div>
+                  <div className="text-[9px] text-slate-100">
+                    {summary.exchanges.length > 0
+                      ? summary.exchanges.join(", ")
+                      : "—"}
+                  </div>
+                </div> */}
           </div>
         )}
 
@@ -278,13 +278,13 @@ const FmpUniverseSection: React.FC = () => {
           {ingesting ? "Ingesting from FMP…" : "Ingest / refresh universe"}
         </button>
         <button
-            type="button"
-            onClick={loadSummary}
-            disabled={summaryLoading}
-            className="rounded-md border border-slate-600 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-800 disabled:opacity-60"
-          >
-            {summaryLoading ? "Refreshing…" : "Refresh"}
-          </button>
+          type="button"
+          onClick={loadSummary}
+          disabled={summaryLoading}
+          className="rounded-md border border-slate-600 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-800 disabled:opacity-60"
+        >
+          {summaryLoading ? "Refreshing…" : "Refresh"}
+        </button>
         {ingesting && (
           <span className="text-[11px] text-slate-300">
             This may take a bit depending on FMP response time and universe size.

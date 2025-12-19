@@ -20,11 +20,9 @@ const DataHubPage: React.FC = () => {
       </header>
 
       <main className="space-y-4">
+        <DataSourcesSection />
         <FmpUniverseSection />
         <EodhdIngestSection />
-        <DataLakeBarsSection />
-        <PolygonOhlcvSection />
-        <DataSourcesSection />
       </main>
     </div>
   );

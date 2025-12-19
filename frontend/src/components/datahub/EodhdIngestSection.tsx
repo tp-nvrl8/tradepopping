@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
+import DataLakeBarsSection from "./DataLakeBarsSection";
 import { EodhdIngestResponse, EodhdJobStatus } from "./types";
 
 type IngestMode = "window" | "full";
@@ -376,6 +377,9 @@ const EodhdIngestSection: React.FC = () => {
       {(loadingWindow || loadingFull) && (
         <Spinner label="Ingest in progress… watch backend logs for details." />
       )}
+      <div>
+        <DataLakeBarsSection/>
+      </div>
     </CollapsibleSection>
   );
 };

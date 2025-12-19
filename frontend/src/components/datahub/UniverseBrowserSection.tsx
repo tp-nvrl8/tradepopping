@@ -9,6 +9,7 @@ interface UniverseSymbolDTO {
   symbol: string;
   name?: string | null;
   exchange?: string | null;
+  sector?: string | null;
   market_cap?: number | null;
   is_etf?: boolean | null;
   is_fund?: boolean | null;
@@ -136,16 +137,10 @@ const UniverseBrowserSection: React.FC = () => {
   return (
     <CollapsibleSection
       storageKey="tp_datahub_universe_browser_open"
-      title="Universe Browser"
+      title="Symbol Universe Browser"
       defaultOpen
     >
-      <p className="mb-2 text-xs text-slate-300">
-        Browse the{" "}
-        <span className="font-mono text-slate-100">symbol_universe</span> table
-        stored in DuckDB. Use this to confirm that the FMP universe ingest is
-        populated and looks sane.
-      </p>
-
+      
       {/* Search + counts + nav */}
       <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1">
@@ -204,7 +199,7 @@ const UniverseBrowserSection: React.FC = () => {
             className={navBtnClass}
             title="First page"
           >
-            ⏮
+            ◀◀
           </button>
           <button
             type="button"
@@ -236,7 +231,7 @@ const UniverseBrowserSection: React.FC = () => {
             className={navBtnClass}
             title="Last page"
           >
-            ⏭
+            ▶▶
           </button>
 
           <button
@@ -316,7 +311,7 @@ const UniverseBrowserSection: React.FC = () => {
                   key={row.symbol}
                   className="border-t border-slate-800 odd:bg-slate-950/40"
                 >
-                  <td className="px-2 py-1 font-mono text-[11px] text-slate-50">
+                  <td className="px-2 py-1 font-mono text-[9px] text-slate-50">
                     {row.symbol}
                   </td>
                   <td className="px-2 py-1 text-slate-200">{row.name ?? ""}</td>

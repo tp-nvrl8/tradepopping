@@ -38,13 +38,13 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   };
 
   return (
-    <section className="rounded-md border border-slate-800 bg-slate-900/40">
+    <section className="rounded-md border border-slate-700 bg-slate-800/30">
       <button
         type="button"
         onClick={toggle}
         className="w-full flex items-center justify-between px-3 py-2 text-left"
       >
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+        <span className="text-xs font-semibold uppercase tracking-wide text-yellow-200/70">
           {title}
         </span>
         <span className="text-slate-400 text-xs font-mono">

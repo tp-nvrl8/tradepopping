@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../../api";
 import CollapsibleSection from "./CollapsibleSection";
+import UniverseBrowserSection from "./UniverseBrowserSection";
 
 interface FmpUniverseSummary {
   total_symbols: number;
@@ -130,7 +131,7 @@ const FmpUniverseSection: React.FC = () => {
       {/* Inputs */}
       <div className="mb-2 grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Min market cap (USD)</span>
+          <span className="text-emerald-200/60">Min market cap (USD)</span>
           <input
             value={minCap}
             onChange={(e) => setMinCap(e.target.value.replace(/,/g, ""))}
@@ -139,7 +140,7 @@ const FmpUniverseSection: React.FC = () => {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Max market cap (optional)</span>
+          <span className="text-emerald-200/60">Max market cap (optional)</span>
           <input
             value={maxCap}
             onChange={(e) => setMaxCap(e.target.value.replace(/,/g, ""))}
@@ -148,7 +149,7 @@ const FmpUniverseSection: React.FC = () => {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Exchanges (comma-separated)</span>
+          <span className="text-emerald-200/60">Exchanges (comma-separated)</span>
           <input
             value={exchanges}
             onChange={(e) => setExchanges(e.target.value)}
@@ -158,7 +159,7 @@ const FmpUniverseSection: React.FC = () => {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-slate-200">Max symbols (safety limit)</span>
+          <span className="text-emerald-200/60">Max symbols (safety limit)</span>
           <input
             value={maxSymbols}
             onChange={(e) =>
@@ -170,7 +171,7 @@ const FmpUniverseSection: React.FC = () => {
       </div>
 
       {/* Checkboxes inline UNDER the inputs */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 bg-slate-950/40 px-3 py-2 text-xs">
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 bg-slate-900/40 px-3 py-2 text-xs">
         <label className="inline-flex items-center gap-2 text-slate-200">
           <input
             type="checkbox"
@@ -214,58 +215,7 @@ const FmpUniverseSection: React.FC = () => {
         </label>
       </div>
 
-      {/* Summary */}
-      <div className="bg-slate-950/40 px-3 py-2 text-xs">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="font-semibold text-slate-50">Current universe</span>
-        </div>
-
-        {summaryLoading && <Spinner label="Loading universe summary…" />}
-
-        {summaryError && (
-          <div className="mt-1 rounded-md border border-red-500/60 bg-red-900/40 px-2 py-1 text-[11px] text-red-100">
-            {summaryError}
-          </div>
-        )}
-
-        {!summaryLoading && !summaryError && summary && (
-          <div className="grid gap-2 sm:grid-cols-3">
-            <div>
-              <div className="text-[11px] text-slate-400">Total symbols</div>
-              <div className="text-sm font-semibold text-slate-50">
-                {summary.total_symbols.toLocaleString()}
-              </div>
-            </div>
-            <div className="text-[11px] text-slate-100">
-             <div className="text-[11px] text-slate-400">Market cap range</div>
-                {summary.min_market_cap != null && summary.max_market_cap != null
-                ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
-                : "n/a"}
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-400">Last ingested at</div>
-                <div className="text-[11px] text-slate-100">
-                  {summary.last_ingested_at ?? "never"}
-                </div>
-              </div>
-          {/* <div>
-                  <div className="text-[9px] text-slate-400">Exchanges</div>
-                  <div className="text-[9px] text-slate-100">
-                    {summary.exchanges.length > 0
-                      ? summary.exchanges.join(", ")
-                      : "—"}
-                  </div>
-                </div> */}
-          </div>
-        )}
-
-        {!summaryLoading && !summaryError && !summary && (
-          <p className="text-[11px] text-slate-400">
-            No universe summary yet. Run an ingest to populate{" "}
-            <span className="font-mono">symbol_universe</span>.
-          </p>
-        )}
-      </div>
+      
 
       {/* Ingest */}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
@@ -273,17 +223,17 @@ const FmpUniverseSection: React.FC = () => {
           type="button"
           onClick={handleIngest}
           disabled={ingesting}
-          className="rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+          className="rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white  disabled:opacity-60"
         >
-          {ingesting ? "Ingesting from FMP…" : "Ingest / refresh universe"}
+          {ingesting ? "Ingesting from FMP…" : "Ingest Universe"}
         </button>
         <button
           type="button"
           onClick={loadSummary}
           disabled={summaryLoading}
-          className="rounded-md border border-slate-600 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-md bg-sky-700 px-3 py-1 text-[11px] font-semibold text-white  disabled:opacity-60"
         >
-          {summaryLoading ? "Refreshing…" : "Refresh"}
+          {summaryLoading ? "Refreshing…" : "Refresh Universe"}
         </button>
         {ingesting && (
           <span className="text-[11px] text-slate-300">
@@ -334,7 +284,59 @@ const FmpUniverseSection: React.FC = () => {
           </div>
         </div>
       )}
-      
+      {/* Summary */}
+      <div className="bg-slate-900/40 px-4 py-2 text-xs">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="font-semibold text-slate-50">Current universe</span>
+        </div>
+
+        {summaryLoading && <Spinner label="Loading universe summary…" />}
+
+        {summaryError && (
+          <div className="mt-1 rounded-md border border-red-500/60 bg-red-900/40 px-2 py-1 text-[11px] text-red-100">
+            {summaryError}
+          </div>
+        )}
+
+        {!summaryLoading && !summaryError && summary && (
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div>
+              <div className="text-[11px] text-slate-400">Total symbols</div>
+              <div className="text-sm font-semibold text-emerald-400">
+                {summary.total_symbols.toLocaleString()}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-100">
+             <div className="text-[11px] text-slate-400">Market cap range</div>
+                {summary.min_market_cap != null && summary.max_market_cap != null
+                ? `$${summary.min_market_cap.toLocaleString()} → $${summary.max_market_cap.toLocaleString()}`
+                : "n/a"}
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400">Last ingested at</div>
+                <div className="text-[11px] text-slate-100">
+                  {summary.last_ingested_at ?? "never"}
+                </div>
+              </div>
+          {/* <div>
+                  <div className="text-[9px] text-slate-400">Exchanges</div>
+                  <div className="text-[9px] text-slate-100">
+                    {summary.exchanges.length > 0
+                      ? summary.exchanges.join(", ")
+                      : "—"}
+                  </div>
+                </div> */}
+          </div>
+        )}
+
+        {!summaryLoading && !summaryError && !summary && (
+          <p className="text-[11px] text-slate-400">
+            No universe summary yet. Run an ingest to populate{" "}
+            <span className="font-mono">symbol_universe</span>.
+          </p>
+        )}
+      </div>
+      <UniverseBrowserSection></UniverseBrowserSection>
     </CollapsibleSection>
   );
 };

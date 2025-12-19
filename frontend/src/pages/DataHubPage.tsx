@@ -4,7 +4,6 @@ import React from "react";
 
 import DataSourcesSection from "../components/datahub/DataSourcesSection";
 import FmpUniverseSection from "../components/datahub/FmpUniverseSection";
-import UniverseBrowserSection from "../components/datahub/UniverseBrowserSection";
 import EodhdIngestSection from "../components/datahub/EodhdIngestSection";
 import DataLakeBarsSection from "../components/datahub/DataLakeBarsSection";
 import PolygonOhlcvSection from "../components/datahub/PolygonOhlcvSection";
@@ -22,7 +21,6 @@ const DataHubPage: React.FC = () => {
 
       <main className="space-y-4">
         <FmpUniverseSection />
-        <UniverseBrowserSection />
         <EodhdIngestSection />
         <DataLakeBarsSection />
         <PolygonOhlcvSection />

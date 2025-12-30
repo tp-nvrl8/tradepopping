@@ -1,11 +1,7 @@
-import { useMemo } from "react";
-import { useUiSettings } from "./UiSettingsContext";
-import {
-  DEFAULT_THEME_TOKENS,
-  mergeThemeTokens,
-  UiTokens,
-} from "./uiThemeCore";
-import { resolveThemeTokens } from "./resolveThemeTokens";
+import { useMemo } from 'react';
+import { useUiSettings } from './UiSettingsContext';
+import { DEFAULT_THEME_TOKENS, mergeThemeTokens, UiTokens } from './uiThemeCore';
+import { resolveThemeTokens } from './resolveThemeTokens';
 
 /**
  * Inputs:
@@ -31,10 +27,7 @@ export function useUiScopedTokens(scopeOrder: string[]): UiTokens {
     // 2) Apply active theme profile if defined
     if (activeThemeId && themeProfiles && themeProfiles[activeThemeId]) {
       const profile = themeProfiles[activeThemeId];
-      baseTokens = mergeThemeTokens(
-        DEFAULT_THEME_TOKENS,
-        profile.tokens ?? undefined
-      );
+      baseTokens = mergeThemeTokens(DEFAULT_THEME_TOKENS, profile.tokens ?? undefined);
     }
 
     // 3) Apply scope overrides in order

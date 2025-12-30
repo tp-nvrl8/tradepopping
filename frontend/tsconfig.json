@@ -15,6 +15,6 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client"]   // <- optional, safe, and enough
+    "types": ["vite/client"] // <- optional, safe, and enough
   }
 }

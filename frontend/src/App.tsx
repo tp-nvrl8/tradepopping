@@ -1,19 +1,19 @@
 // frontend/src/App.tsx
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./auth/AuthContext";
-import ProtectedRoute from "./auth/ProtectedRoute";
-import LoginPage from "./pages/LoginPage";
-import LabHome from "./pages/LabHome";
-import { ConfigProvider } from "./config/ConfigContext";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './auth/AuthContext';
+import ProtectedRoute from './auth/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import LabHome from './pages/LabHome';
+import { ConfigProvider } from './config/ConfigContext';
 
-import LabPage from "./pages/LabPage";
-import CandidatesPage from "./pages/CandidatesPage";
-import TestStandPage from "./pages/TestStandPage";
-import DataHubPage from "./pages/DataHubPage";
-import SettingsPage from "./pages/SettingsPage";
-import AppShell from "./layout/AppShell";
-import DevToolsPage from "./pages/DevToolsPage";
+import LabPage from './pages/LabPage';
+import CandidatesPage from './pages/CandidatesPage';
+import TestStandPage from './pages/TestStandPage';
+import DataHubPage from './pages/DataHubPage';
+import SettingsPage from './pages/SettingsPage';
+import AppShell from './layout/AppShell';
+import DevToolsPage from './pages/DevToolsPage';
 
 const App: React.FC = () => {
   return (

@@ -1,15 +1,15 @@
 // frontend/src/components/datahub/DataLakeBarsSection.tsx
 
-import React, { useState } from "react";
-import { apiClient } from "../../api";
-import CollapsibleSection from "./CollapsibleSection";
-import PriceSparkline from "./PriceSparkline";
-import { PriceBarDTO } from "./types";
+import React, { useState } from 'react';
+import { apiClient } from '../../api';
+import CollapsibleSection from './CollapsibleSection';
+import PriceSparkline from './PriceSparkline';
+import { PriceBarDTO } from './types';
 
 const DataLakeBarsSection: React.FC = () => {
-  const [symbol, setSymbol] = useState("AAPL");
-  const [start, setStart] = useState("2024-01-02");
-  const [end, setEnd] = useState("2024-01-31");
+  const [symbol, setSymbol] = useState('AAPL');
+  const [start, setStart] = useState('2024-01-02');
+  const [end, setEnd] = useState('2024-01-31');
 
   const [bars, setBars] = useState<PriceBarDTO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,21 +30,18 @@ const DataLakeBarsSection: React.FC = () => {
     setLoading(true);
 
     try {
-      const data = await apiClient.get<PriceBarDTO[]>(
-        "/datalake/bars/daily",
-        {
-          params: {
-            symbol: symbol.trim().toUpperCase(),
-            start,
-            end,
-          },
+      const data = await apiClient.get<PriceBarDTO[]>('/datalake/bars/daily', {
+        params: {
+          symbol: symbol.trim().toUpperCase(),
+          start,
+          end,
         },
-      );
+      });
       setBars(data);
     } catch (err) {
-      console.error("Failed to fetch daily bars from data lake", err);
+      console.error('Failed to fetch daily bars from data lake', err);
       setError(
-        "Failed to read daily bars from the data lake. Confirm EODHD ingest and backend route.",
+        'Failed to read daily bars from the data lake. Confirm EODHD ingest and backend route.',
       );
     } finally {
       setLoading(false);
@@ -57,12 +54,6 @@ const DataLakeBarsSection: React.FC = () => {
       title="Data Lake Bars Preview"
       defaultOpen
     >
-      <p className="mb-2 text-xs text-slate-300">
-        Read daily OHLCV bars directly from the DuckDB data lake (daily_bars
-        table). Use this to verify that EODHD ingests are actually landing in
-        storage.
-      </p>
-
       {/* Controls */}
       <div className="grid gap-3 text-xs md:grid-cols-3">
         <label className="flex flex-col gap-1">
@@ -99,13 +90,11 @@ const DataLakeBarsSection: React.FC = () => {
           disabled={loading}
           className="rounded-md bg-slate-800 px-3 py-1 text-[11px] font-semibold text-slate-50 hover:bg-slate-700 disabled:opacity-60"
         >
-          {loading ? "Loading…" : "Fetch from data lake"}
+          {loading ? 'Loading…' : 'Fetch from data lake'}
         </button>
 
         {bars.length > 0 && (
-          <span className="text-[11px] text-slate-300">
-            {bars.length} bars returned
-          </span>
+          <span className="text-[11px] text-slate-300">{bars.length} bars returned</span>
         )}
       </div>
 
@@ -140,25 +129,12 @@ const DataLakeBarsSection: React.FC = () => {
               </thead>
               <tbody>
                 {bars.map((bar) => (
-                  <tr
-                    key={bar.time}
-                    className="border-t border-slate-800 odd:bg-slate-950/40"
-                  >
-                    <td className="px-2 py-1 text-slate-200">
-                      {bar.time.slice(0, 10)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.open.toFixed(2)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.high.toFixed(2)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.low.toFixed(2)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.close.toFixed(2)}
-                    </td>
+                  <tr key={bar.time} className="border-t border-slate-800 odd:bg-slate-950/40">
+                    <td className="px-2 py-1 text-slate-200">{bar.time.slice(0, 10)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.open.toFixed(2)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.high.toFixed(2)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.low.toFixed(2)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.close.toFixed(2)}</td>
                     <td className="px-2 py-1 text-right text-slate-200">
                       {bar.volume.toLocaleString()}
                     </td>

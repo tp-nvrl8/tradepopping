@@ -1,6 +1,6 @@
 // src/indicators/mockPriceData.ts
 
-import type { PriceBar } from "./indicatorRuntime";
+import type { PriceBar } from './indicatorRuntime';
 
 /**
  * Simple mock daily bars so the Indicator Builder can show previews
@@ -10,7 +10,7 @@ import type { PriceBar } from "./indicatorRuntime";
  */
 export const MOCK_DAILY_BARS: PriceBar[] = (() => {
   const bars: PriceBar[] = [];
-  const start = new Date("2024-01-02T00:00:00Z");
+  const start = new Date('2024-01-02T00:00:00Z');
   let price = 50;
 
   for (let i = 0; i < 60; i++) {

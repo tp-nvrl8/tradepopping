@@ -1,59 +1,54 @@
-import React, { useEffect, useState } from "react";
-import { LabIdea, IdeaStatus, VolatilityRegime } from "../lab/types";
-import { fetchLabIdeas, saveLabIdea } from "../api/lab";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
+import React, { useEffect, useState } from 'react';
+import { LabIdea, IdeaStatus, VolatilityRegime } from '../lab/types';
+import { fetchLabIdeas, saveLabIdea } from '../api/lab';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
 
-import IdeaListSidebar from "../lab-components/IdeaListSidebar";
-import LabBottomPanel from "../lab-components/LabBottomPanel";
-import LabRightPanel from "../lab-components/LabRightPanel";
-import PriceLiquidityFilters from "../lab-components/PriceLiquidityFilters";
-import VolatilityFilters from "../lab-components/VolatilityFilters";
-import StructureFilters from "../lab-components/StructureFilters";
+import IdeaListSidebar from '../lab-components/IdeaListSidebar';
+import LabBottomPanel from '../lab-components/LabBottomPanel';
+import LabRightPanel from '../lab-components/LabRightPanel';
+import PriceLiquidityFilters from '../lab-components/PriceLiquidityFilters';
+import VolatilityFilters from '../lab-components/VolatilityFilters';
+import StructureFilters from '../lab-components/StructureFilters';
 
-import IndicatorBuilderPanel from "../lab-components/IndicatorBuilderPanel";
-import FilterComposerPanel from "../lab-components/FilterComposerPanel";
-import LabPanelShell from "../lab-components/LabPanelShell";
+import IndicatorBuilderPanel from '../lab-components/IndicatorBuilderPanel';
+import FilterComposerPanel from '../lab-components/FilterComposerPanel';
+import LabPanelShell from '../lab-components/LabPanelShell';
 
-type LabTab = "scan" | "backtests" | "candidates";
+type LabTab = 'scan' | 'backtests' | 'candidates';
 
 // Center panel IDs for the Lab page
-type CenterPanelId = "builder" | "indicator" | "filters" | "analysis";
+type CenterPanelId = 'builder' | 'indicator' | 'filters' | 'analysis';
 
-const defaultCenterOrder: CenterPanelId[] = [
-  "builder",
-  "indicator",
-  "filters",
-  "analysis",
-];
+const defaultCenterOrder: CenterPanelId[] = ['builder', 'indicator', 'filters', 'analysis'];
 
-const PANEL_STORAGE_KEY = "tp_lab_panel_layout_v1";
-const CENTER_PANEL_STORAGE_KEY = "tp_lab_center_panels_v1";
-const LOCAL_IDEAS_STORAGE_KEY = "tp_lab_ideas_v1";
+const PANEL_STORAGE_KEY = 'tp_lab_panel_layout_v1';
+const CENTER_PANEL_STORAGE_KEY = 'tp_lab_center_panels_v1';
+const LOCAL_IDEAS_STORAGE_KEY = 'tp_lab_ideas_v1';
 
 const statusOptions: { id: IdeaStatus; label: string }[] = [
-  { id: "draft", label: "Draft" },
-  { id: "active", label: "Active" },
-  { id: "retired", label: "Retired" },
+  { id: 'draft', label: 'Draft' },
+  { id: 'active', label: 'Active' },
+  { id: 'retired', label: 'Retired' },
 ];
 
 const regimeChipClasses: Record<VolatilityRegime, string> = {
-  any: "border-purple-400 text-purple-200 bg-purple-500/10",
-  quiet: "border-sky-400 text-sky-200 bg-sky-500/10",
-  normal: "border-slate-400 text-slate-200 bg-slate-600/10",
-  expanding: "border-amber-400 text-amber-200 bg-amber-500/10",
-  crisis: "border-red-500 text-red-200 bg-red-600/20",
+  any: 'border-purple-400 text-purple-200 bg-purple-500/10',
+  quiet: 'border-sky-400 text-sky-200 bg-sky-500/10',
+  normal: 'border-slate-400 text-slate-200 bg-slate-600/10',
+  expanding: 'border-amber-400 text-amber-200 bg-amber-500/10',
+  crisis: 'border-red-500 text-red-200 bg-red-600/20',
 };
 
 // --- Default mock ideas if backend is empty ---
 const defaultIdeas: LabIdea[] = [
   {
     meta: {
-      id: "idea-1",
-      name: "Vanishing Float Squeeze v1",
-      status: "active",
-      description: "Shrinking float + elevated short interest + squeeze bias.",
-      family: "Squeeze",
-      tags: ["vanishing-float", "short-interest", "squeeze"],
+      id: 'idea-1',
+      name: 'Vanishing Float Squeeze v1',
+      status: 'active',
+      description: 'Shrinking float + elevated short interest + squeeze bias.',
+      family: 'Squeeze',
+      tags: ['vanishing-float', 'short-interest', 'squeeze'],
     },
     priceLiquidity: {
       price: { min: 3, max: 25 },
@@ -62,7 +57,7 @@ const defaultIdeas: LabIdea[] = [
       floatShares: { min: 5_000_000, max: 60_000_000 },
     },
     volatility: {
-      regime: "expanding",
+      regime: 'expanding',
       atrPercent: { min: 3, max: 12 },
       hvPercent: { min: 25, max: 80 },
     },
@@ -74,37 +69,36 @@ const defaultIdeas: LabIdea[] = [
     indicators: {
       indicators: [
         {
-          id: "sobv_trend",
-          variant: "default",
+          id: 'sobv_trend',
+          variant: 'default',
           enabled: true,
           params: { lookback: 20 },
         },
         {
-          id: "kama_regime",
-          variant: "default",
+          id: 'kama_regime',
+          variant: 'default',
           enabled: true,
           params: { fast: 2, slow: 30 },
         },
-        { id: "darkflow_bias", variant: "default", enabled: true },
+        { id: 'darkflow_bias', variant: 'default', enabled: true },
       ],
     },
   },
   {
     meta: {
-      id: "idea-2",
-      name: "Mean Reversion in Quiet Regimes",
-      status: "draft",
-      description:
-        "Fade short-term extremes when volatility is compressed and spreads are tight.",
-      family: "Mean Reversion",
-      tags: ["quiet-regime", "mean-reversion"],
+      id: 'idea-2',
+      name: 'Mean Reversion in Quiet Regimes',
+      status: 'draft',
+      description: 'Fade short-term extremes when volatility is compressed and spreads are tight.',
+      family: 'Mean Reversion',
+      tags: ['quiet-regime', 'mean-reversion'],
     },
     priceLiquidity: {
       price: { min: 5, max: 50 },
       averageDailyDollarVolume: { min: 2_000_000 },
     },
     volatility: {
-      regime: "quiet",
+      regime: 'quiet',
       atrPercent: { min: 0.5, max: 3 },
       hvPercent: { min: 10, max: 40 },
     },
@@ -115,12 +109,12 @@ const defaultIdeas: LabIdea[] = [
     indicators: {
       indicators: [
         {
-          id: "kama_regime",
+          id: 'kama_regime',
           enabled: true,
           params: { fast: 5, slow: 40 },
         },
         {
-          id: "zscore_price_lookback",
+          id: 'zscore_price_lookback',
           enabled: true,
           params: { lookback: 10, threshold: 2 },
         },
@@ -129,20 +123,19 @@ const defaultIdeas: LabIdea[] = [
   },
   {
     meta: {
-      id: "idea-3",
-      name: "Dark Flow Momentum Tracker",
-      status: "retired",
-      description:
-        "Follow-through after sustained dark pool accumulation bursts. Early prototype.",
-      family: "Momentum",
-      tags: ["darkflow", "momentum"],
+      id: 'idea-3',
+      name: 'Dark Flow Momentum Tracker',
+      status: 'retired',
+      description: 'Follow-through after sustained dark pool accumulation bursts. Early prototype.',
+      family: 'Momentum',
+      tags: ['darkflow', 'momentum'],
     },
     priceLiquidity: {
       price: { min: 10, max: 80 },
       averageDailyDollarVolume: { min: 3_000_000 },
     },
     volatility: {
-      regime: "normal",
+      regime: 'normal',
       atrPercent: { min: 2, max: 8 },
     },
     structure: {
@@ -151,9 +144,9 @@ const defaultIdeas: LabIdea[] = [
     },
     indicators: {
       indicators: [
-        { id: "darkflow_bias", enabled: true },
+        { id: 'darkflow_bias', enabled: true },
         {
-          id: "sobv_trend",
+          id: 'sobv_trend',
           enabled: true,
           params: { lookback: 10 },
         },
@@ -179,7 +172,7 @@ const LabPage: React.FC = () => {
   const [ideas, setIdeas] = useState<LabIdea[]>([]);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<LabTab>("scan");
+  const [activeTab, setActiveTab] = useState<LabTab>('scan');
 
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
@@ -193,49 +186,31 @@ const LabPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [newCounter, setNewCounter] = useState(1);
 
-  const [centerPanelsOrder, setCenterPanelsOrder] =
-    useState<CenterPanelId[]>(defaultCenterOrder);
+  const [centerPanelsOrder, setCenterPanelsOrder] = useState<CenterPanelId[]>(defaultCenterOrder);
 
-  const tokens = useUiScopedTokens(["global", "page:lab"]);
-  const ideaBuilderTokens = useUiScopedTokens([
-    "global",
-    "page:lab",
-    "region:lab:ideaBuilder",
-  ]);
-  const indicatorTokens = useUiScopedTokens([
-    "global",
-    "page:lab",
-    "region:lab:indicator",
-  ]);
-  const filterTokens = useUiScopedTokens([
-    "global",
-    "page:lab",
-    "region:lab:filter",
-  ]);
+  const tokens = useUiScopedTokens(['global', 'page:lab']);
+  const ideaBuilderTokens = useUiScopedTokens(['global', 'page:lab', 'region:lab:ideaBuilder']);
+  const indicatorTokens = useUiScopedTokens(['global', 'page:lab', 'region:lab:indicator']);
+  const filterTokens = useUiScopedTokens(['global', 'page:lab', 'region:lab:filter']);
 
   const allPanelsClosed = !leftOpen && !rightOpen && !bottomOpen;
 
-  const updateIdeaById = (
-    id: string | undefined,
-    updater: (idea: LabIdea) => LabIdea
-  ) => {
+  const updateIdeaById = (id: string | undefined, updater: (idea: LabIdea) => LabIdea) => {
     if (!id) return;
-    setIdeas((prev) =>
-      prev.map((idea) => (idea.meta.id === id ? updater(idea) : idea))
-    );
+    setIdeas((prev) => prev.map((idea) => (idea.meta.id === id ? updater(idea) : idea)));
   };
 
   const updateRangeField = (
     ideaId: string | undefined,
-    section: "priceLiquidity" | "volatility" | "structure",
+    section: 'priceLiquidity' | 'volatility' | 'structure',
     field: string,
-    bound: "min" | "max",
-    raw: string
+    bound: 'min' | 'max',
+    raw: string,
   ) => {
     if (!ideaId) return;
 
-    const value = raw === "" ? undefined : Number(raw);
-    if (raw !== "" && Number.isNaN(value)) return;
+    const value = raw === '' ? undefined : Number(raw);
+    if (raw !== '' && Number.isNaN(value)) return;
 
     setIdeas((prev) =>
       prev.map((idea) => {
@@ -247,7 +222,7 @@ const LabPage: React.FC = () => {
         const updatedSection = { ...sectionObj, [field]: updatedRange };
 
         return { ...idea, [section]: updatedSection } as LabIdea;
-      })
+      }),
     );
   };
 
@@ -257,20 +232,15 @@ const LabPage: React.FC = () => {
       const raw = localStorage.getItem(PANEL_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (typeof parsed.leftOpen === "boolean") setLeftOpen(parsed.leftOpen);
-        if (typeof parsed.rightOpen === "boolean")
-          setRightOpen(parsed.rightOpen);
-        if (typeof parsed.bottomOpen === "boolean")
-          setBottomOpen(parsed.bottomOpen);
-        if (typeof parsed.builderOpen === "boolean")
-          setBuilderOpen(parsed.builderOpen);
-        if (typeof parsed.indicatorOpen === "boolean")
-          setIndicatorOpen(parsed.indicatorOpen);
-        if (typeof parsed.filtersOpen === "boolean")
-          setFiltersOpen(parsed.filtersOpen);
+        if (typeof parsed.leftOpen === 'boolean') setLeftOpen(parsed.leftOpen);
+        if (typeof parsed.rightOpen === 'boolean') setRightOpen(parsed.rightOpen);
+        if (typeof parsed.bottomOpen === 'boolean') setBottomOpen(parsed.bottomOpen);
+        if (typeof parsed.builderOpen === 'boolean') setBuilderOpen(parsed.builderOpen);
+        if (typeof parsed.indicatorOpen === 'boolean') setIndicatorOpen(parsed.indicatorOpen);
+        if (typeof parsed.filtersOpen === 'boolean') setFiltersOpen(parsed.filtersOpen);
       }
     } catch (e) {
-      console.warn("Failed to load panel layout", e);
+      console.warn('Failed to load panel layout', e);
     }
   }, []);
 
@@ -287,7 +257,7 @@ const LabPage: React.FC = () => {
       };
       localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
-      console.warn("Failed to save panel layout", e);
+      console.warn('Failed to save panel layout', e);
     }
   }, [leftOpen, rightOpen, bottomOpen, builderOpen, indicatorOpen, filtersOpen]);
 
@@ -303,18 +273,13 @@ const LabPage: React.FC = () => {
           // Keep only allowed IDs
           const valid = parsed.filter(
             (p: unknown): p is CenterPanelId =>
-              typeof p === "string" && (allowed as string[]).includes(p)
+              typeof p === 'string' && (allowed as string[]).includes(p),
           );
 
           // 🔑 Merge with any new panel IDs we’ve added in code
-          const merged: CenterPanelId[] = [
-            ...valid,
-            ...allowed.filter((p) => !valid.includes(p)),
-          ];
+          const merged: CenterPanelId[] = [...valid, ...allowed.filter((p) => !valid.includes(p))];
 
-          setCenterPanelsOrder(
-            merged.length > 0 ? merged : defaultCenterOrder
-          );
+          setCenterPanelsOrder(merged.length > 0 ? merged : defaultCenterOrder);
           return;
         }
       }
@@ -322,7 +287,7 @@ const LabPage: React.FC = () => {
       // If no stored value, fall back to default
       setCenterPanelsOrder(defaultCenterOrder);
     } catch (e) {
-      console.warn("Failed to load center panel order", e);
+      console.warn('Failed to load center panel order', e);
       setCenterPanelsOrder(defaultCenterOrder);
     }
   }, []);
@@ -330,12 +295,9 @@ const LabPage: React.FC = () => {
   // Persist center panel order
   useEffect(() => {
     try {
-      localStorage.setItem(
-        CENTER_PANEL_STORAGE_KEY,
-        JSON.stringify(centerPanelsOrder)
-      );
+      localStorage.setItem(CENTER_PANEL_STORAGE_KEY, JSON.stringify(centerPanelsOrder));
     } catch (e) {
-      console.warn("Failed to save center panel order", e);
+      console.warn('Failed to save center panel order', e);
     }
   }, [centerPanelsOrder]);
 
@@ -358,7 +320,7 @@ const LabPage: React.FC = () => {
             }
           }
         } catch (e) {
-          console.warn("Failed to load ideas from localStorage", e);
+          console.warn('Failed to load ideas from localStorage', e);
         }
 
         setLoading(true);
@@ -372,9 +334,9 @@ const LabPage: React.FC = () => {
         setSelectedIdeaId(finalIdeas[0]?.meta.id ?? null);
         setNewCounter(computeNextNewCounter(finalIdeas));
       } catch (err) {
-        console.error("Failed to load ideas", err);
+        console.error('Failed to load ideas', err);
         if (!cancelled) {
-          setLoadError("Could not load ideas from server. Using defaults.");
+          setLoadError('Could not load ideas from server. Using defaults.');
           setIdeas(defaultIdeas);
           setSelectedIdeaId(defaultIdeas[0]?.meta.id ?? null);
           setNewCounter(computeNextNewCounter(defaultIdeas));
@@ -392,17 +354,13 @@ const LabPage: React.FC = () => {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        LOCAL_IDEAS_STORAGE_KEY,
-        JSON.stringify(ideas)
-      );
+      window.localStorage.setItem(LOCAL_IDEAS_STORAGE_KEY, JSON.stringify(ideas));
     } catch (e) {
-      console.warn("Failed to save ideas to localStorage", e);
+      console.warn('Failed to save ideas to localStorage', e);
     }
   }, [ideas]);
 
-  const selectedIdea =
-    ideas.find((i) => i.meta.id === selectedIdeaId) ?? ideas[0] ?? null;
+  const selectedIdea = ideas.find((i) => i.meta.id === selectedIdeaId) ?? ideas[0] ?? null;
 
   const handleSaveIdea = async () => {
     if (!selectedIdea) return;
@@ -419,8 +377,8 @@ const LabPage: React.FC = () => {
         return [...prev, saved];
       });
     } catch (err) {
-      console.error("Failed to save idea", err);
-      window.alert("Failed to save idea to backend. Check logs.");
+      console.error('Failed to save idea', err);
+      window.alert('Failed to save idea to backend. Check logs.');
     } finally {
       setSaving(false);
     }
@@ -432,8 +390,8 @@ const LabPage: React.FC = () => {
       meta: {
         id,
         name: `New Idea ${newCounter}`,
-        status: "draft",
-        description: "",
+        status: 'draft',
+        description: '',
         family: undefined,
         tags: [],
       },
@@ -441,7 +399,7 @@ const LabPage: React.FC = () => {
         price: {},
       },
       volatility: {
-        regime: "any",
+        regime: 'any',
       },
       structure: {},
       indicators: {
@@ -457,7 +415,7 @@ const LabPage: React.FC = () => {
   // Render a center panel based on its ID, using the current state
   const renderCenterPanel = (panelId: CenterPanelId) => {
     switch (panelId) {
-      case "builder":
+      case 'builder':
         return (
           <LabPanelShell
             key="builder"
@@ -495,7 +453,7 @@ const LabPage: React.FC = () => {
                     <textarea
                       className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 min-h-[52px]"
                       placeholder="Describe what this idea is trying to capture…"
-                      value={selectedIdea.meta.description ?? ""}
+                      value={selectedIdea.meta.description ?? ''}
                       onChange={(e) =>
                         updateIdeaById(selectedIdea.meta.id, (idea) => ({
                           ...idea,
@@ -506,19 +464,18 @@ const LabPage: React.FC = () => {
                         }))
                       }
                     />
-                    {selectedIdea.meta.tags &&
-                      selectedIdea.meta.tags.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {selectedIdea.meta.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                    {selectedIdea.meta.tags && selectedIdea.meta.tags.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selectedIdea.meta.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
@@ -530,18 +487,15 @@ const LabPage: React.FC = () => {
                           <button
                             key={opt.id}
                             onClick={() =>
-                              updateIdeaById(
-                                selectedIdea.meta.id,
-                                (idea) => ({
-                                  ...idea,
-                                  meta: { ...idea.meta, status: opt.id },
-                                })
-                              )
+                              updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                                ...idea,
+                                meta: { ...idea.meta, status: opt.id },
+                              }))
                             }
                             className={`px-2 py-0.5 text-[10px] rounded-full transition ${
                               active
-                                ? "bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]"
-                                : "text-slate-300 hover:bg-slate-800"
+                                ? 'bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.7)]'
+                                : 'text-slate-300 hover:bg-slate-800'
                             }`}
                           >
                             {opt.label}
@@ -564,17 +518,13 @@ const LabPage: React.FC = () => {
                         className="bg-slate-950 border border-slate-700 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide hover:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         value={selectedIdea.volatility.regime}
                         onChange={(e) =>
-                          updateIdeaById(
-                            selectedIdea.meta.id,
-                            (idea) => ({
-                              ...idea,
-                              volatility: {
-                                ...idea.volatility,
-                                regime: e.target
-                                  .value as VolatilityRegime,
-                              },
-                            })
-                          )
+                          updateIdeaById(selectedIdea.meta.id, (idea) => ({
+                            ...idea,
+                            volatility: {
+                              ...idea.volatility,
+                              regime: e.target.value as VolatilityRegime,
+                            },
+                          }))
                         }
                       >
                         <option value="any">Any</option>
@@ -591,39 +541,21 @@ const LabPage: React.FC = () => {
                 <PriceLiquidityFilters
                   idea={selectedIdea}
                   onChangeRange={(field, bound, raw) =>
-                    updateRangeField(
-                      selectedIdea.meta.id,
-                      "priceLiquidity",
-                      field,
-                      bound,
-                      raw
-                    )
+                    updateRangeField(selectedIdea.meta.id, 'priceLiquidity', field, bound, raw)
                   }
                 />
 
                 <VolatilityFilters
                   idea={selectedIdea}
                   onChangeRange={(field, bound, raw) =>
-                    updateRangeField(
-                      selectedIdea.meta.id,
-                      "volatility",
-                      field,
-                      bound,
-                      raw
-                    )
+                    updateRangeField(selectedIdea.meta.id, 'volatility', field, bound, raw)
                   }
                 />
 
                 <StructureFilters
                   idea={selectedIdea}
                   onChangeRange={(field, bound, raw) =>
-                    updateRangeField(
-                      selectedIdea.meta.id,
-                      "structure",
-                      field,
-                      bound,
-                      raw
-                    )
+                    updateRangeField(selectedIdea.meta.id, 'structure', field, bound, raw)
                   }
                 />
 
@@ -634,7 +566,7 @@ const LabPage: React.FC = () => {
                     disabled={saving}
                     className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
                   >
-                    {saving ? "Saving…" : "Save Idea"}
+                    {saving ? 'Saving…' : 'Save Idea'}
                   </button>
                   <button className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs">
                     Duplicate (stub)
@@ -643,14 +575,13 @@ const LabPage: React.FC = () => {
               </>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                No idea selected. Choose an idea on the left or create a new
-                one.
+                No idea selected. Choose an idea on the left or create a new one.
               </div>
             )}
           </LabPanelShell>
         );
 
-      case "indicator":
+      case 'indicator':
         return (
           <LabPanelShell
             key="indicator"
@@ -683,7 +614,7 @@ const LabPage: React.FC = () => {
           </LabPanelShell>
         );
 
-      case "filters":
+      case 'filters':
         return (
           <LabPanelShell
             key="filters"
@@ -703,7 +634,7 @@ const LabPage: React.FC = () => {
           </LabPanelShell>
         );
 
-      case "analysis":
+      case 'analysis':
         return (
           <section key="analysis">
             <LabBottomPanel
@@ -735,19 +666,15 @@ const LabPage: React.FC = () => {
         style={{ borderColor: tokens.border }}
       >
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            Strategy Lab
-          </h1>
+          <h1 className="text-lg font-semibold tracking-tight">Strategy Lab</h1>
           <p className="text-xs text-slate-400">
-            Design, test, and refine trading ideas. This cockpit will feed
-            candidates and the test stand later.
+            Design, test, and refine trading ideas. This cockpit will feed candidates and the test
+            stand later.
           </p>
           <p className="text-[10px] text-slate-500 mt-1">
             surface: {tokens.surface} • border: {tokens.border}
           </p>
-          {loadError && (
-            <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
-          )}
+          {loadError && <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>}
         </div>
         <div className="flex items-center gap-2 text-xs">
           {/* Left toggle is on the panel itself now */}
@@ -755,15 +682,11 @@ const LabPage: React.FC = () => {
       </header>
 
       {/* Main row */}
-      <div
-        className={`flex-1 flex overflow-hidden ${
-          allPanelsClosed ? "justify-center" : ""
-        }`}
-      >
+      <div className={`flex-1 flex overflow-hidden ${allPanelsClosed ? 'justify-center' : ''}`}>
         {/* Left: idea list with collapsible width */}
         <aside
           className={`border-r border-slate-800 bg-slate-950/80 flex flex-col transition-all duration-200 ${
-            leftOpen ? "w-72" : "w-8"
+            leftOpen ? 'w-72' : 'w-8'
           }`}
         >
           {leftOpen ? (
@@ -811,10 +734,7 @@ const LabPage: React.FC = () => {
         </main>
 
         {/* Right: notes & meta */}
-        <LabRightPanel
-          open={rightOpen}
-          onToggle={() => setRightOpen((p) => !p)}
-        />
+        <LabRightPanel open={rightOpen} onToggle={() => setRightOpen((p) => !p)} />
       </div>
     </div>
   );

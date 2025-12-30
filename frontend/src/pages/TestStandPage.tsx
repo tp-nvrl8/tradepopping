@@ -1,22 +1,22 @@
 // frontend/src/pages/TestStandPage.tsx
 
-import React, { useEffect, useState } from "react";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
+import React, { useEffect, useState } from 'react';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
 
-import { fetchLabIdeas } from "../api/lab";
-import type { LabIdea } from "../lab/types";
+import { fetchLabIdeas } from '../api/lab';
+import type { LabIdea } from '../lab/types';
 
-import IdeaListSidebar from "../lab-components/IdeaListSidebar";
+import IdeaListSidebar from '../lab-components/IdeaListSidebar';
 
 import {
   computeIdeaIndicatorMatrix,
   type IdeaIndicatorMatrix,
-} from "../indicators/ideaIndicatorMatrix";
-import type { IndicatorRuntimeContext } from "../indicators/indicatorRuntime";
-import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
+} from '../indicators/ideaIndicatorMatrix';
+import type { IndicatorRuntimeContext } from '../indicators/indicatorRuntime';
+import { MOCK_DAILY_BARS } from '../indicators/mockPriceData';
 
 const TestStandPage: React.FC = () => {
-  const tokens = useUiScopedTokens(["global", "page:teststand"]);
+  const tokens = useUiScopedTokens(['global', 'page:teststand']);
 
   const [ideas, setIdeas] = useState<LabIdea[]>([]);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
@@ -40,11 +40,9 @@ const TestStandPage: React.FC = () => {
         setIdeas(remote);
         setSelectedIdeaId(remote[0]?.meta.id ?? null);
       } catch (err) {
-        console.error("Failed to load ideas for Test Stand", err);
+        console.error('Failed to load ideas for Test Stand', err);
         if (!cancelled) {
-          setLoadError(
-            "Could not load ideas. Create ideas in Strategy Lab first."
-          );
+          setLoadError('Could not load ideas. Create ideas in Strategy Lab first.');
           setIdeas([]);
         }
       } finally {
@@ -58,8 +56,7 @@ const TestStandPage: React.FC = () => {
     };
   }, []);
 
-  const selectedIdea =
-    ideas.find((i) => i.meta.id === selectedIdeaId) ?? null;
+  const selectedIdea = ideas.find((i) => i.meta.id === selectedIdeaId) ?? null;
 
   const handleRunTest = () => {
     if (!selectedIdea) return;
@@ -69,16 +66,16 @@ const TestStandPage: React.FC = () => {
 
     try {
       const ctx: IndicatorRuntimeContext = {
-        symbol: "MOCK",   // later: real symbol
-        timeframe: "1d",  // later: selectable timeframe
+        symbol: 'MOCK', // later: real symbol
+        timeframe: '1d', // later: selectable timeframe
       };
 
       // 👉 Use MOCK_DAILY_BARS only – no HTTP calls here
       const m = computeIdeaIndicatorMatrix(selectedIdea, MOCK_DAILY_BARS, ctx);
       setMatrix(m);
     } catch (err) {
-      console.error("Error running test stand", err);
-      window.alert("Error running test. Check console for details.");
+      console.error('Error running test stand', err);
+      window.alert('Error running test. Check console for details.');
     } finally {
       setRunning(false);
     }
@@ -100,16 +97,11 @@ const TestStandPage: React.FC = () => {
         style={{ borderColor: tokens.border }}
       >
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            Test Stand
-          </h1>
+          <h1 className="text-lg font-semibold tracking-tight">Test Stand</h1>
           <p className="text-xs text-slate-400">
-            Play your ideas through mock price history to see how their
-            indicators behave.
+            Play your ideas through mock price history to see how their indicators behave.
           </p>
-          {loadError && (
-            <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>
-          )}
+          {loadError && <p className="text-[10px] text-amber-400 mt-1">{loadError}</p>}
         </div>
 
         <div className="flex items-center gap-2 text-xs">
@@ -119,17 +111,13 @@ const TestStandPage: React.FC = () => {
             disabled={!selectedIdea || running || loadingIdeas}
             className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
           >
-            {running ? "Running…" : "Run Test on MOCK Data"}
+            {running ? 'Running…' : 'Run Test on MOCK Data'}
           </button>
         </div>
       </header>
 
       {/* Main row */}
-      <div
-        className={`flex-1 flex overflow-hidden ${
-          allPanelsClosed ? "justify-center" : ""
-        }`}
-      >
+      <div className={`flex-1 flex overflow-hidden ${allPanelsClosed ? 'justify-center' : ''}`}>
         {/* Left: idea list (reuse same sidebar as Lab) */}
         <aside className="border-r border-slate-800 bg-slate-950/80 flex flex-col w-72">
           <div className="px-3 py-2 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between">
@@ -154,7 +142,7 @@ const TestStandPage: React.FC = () => {
                 onSelectIdea={setSelectedIdeaId}
                 onNewIdea={() => {
                   window.alert(
-                    "Create new ideas in Strategy Lab. Test Stand only runs existing ideas."
+                    'Create new ideas in Strategy Lab. Test Stand only runs existing ideas.',
                   );
                 }}
               />
@@ -175,19 +163,17 @@ const TestStandPage: React.FC = () => {
                 <section className="rounded-md border border-slate-800 bg-slate-900/40 p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-sm font-semibold">
-                        {selectedIdea.meta.name}
-                      </h2>
+                      <h2 className="text-sm font-semibold">{selectedIdea.meta.name}</h2>
                       <p className="text-[11px] text-slate-400">
-                        Status:{" "}
+                        Status:{' '}
                         <span className="font-semibold">
                           {selectedIdea.meta.status.toUpperCase()}
                         </span>
                       </p>
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      Symbol: <span className="font-semibold">MOCK</span>{" "}
-                      • Timeframe: <span className="font-semibold">1D</span>
+                      Symbol: <span className="font-semibold">MOCK</span> • Timeframe:{' '}
+                      <span className="font-semibold">1D</span>
                     </div>
                   </div>
                   {selectedIdea.meta.description && (
@@ -206,19 +192,19 @@ const TestStandPage: React.FC = () => {
                     <span className="text-[11px] text-slate-500">
                       {matrix
                         ? `${matrix.rows.length} indicators computed`
-                        : "Run test to compute indicators"}
+                        : 'Run test to compute indicators'}
                     </span>
                   </div>
 
                   {!matrix ? (
                     <div className="text-[11px] text-slate-500">
-                      Click &quot;Run Test&quot; to compute this idea&apos;s
-                      indicator stack on the mock price series.
+                      Click &quot;Run Test&quot; to compute this idea&apos;s indicator stack on the
+                      mock price series.
                     </div>
                   ) : matrix.rows.length === 0 ? (
                     <div className="text-[11px] text-slate-500">
-                      This idea has no indicators attached yet. Add indicators
-                      in the Strategy Lab Indicator Builder.
+                      This idea has no indicators attached yet. Add indicators in the Strategy Lab
+                      Indicator Builder.
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -226,12 +212,9 @@ const TestStandPage: React.FC = () => {
                         const { instance, definition, result } = row;
 
                         // Compute stats from result.values
-                        const rawValues = Array.isArray(result.values)
-                          ? result.values
-                          : [];
+                        const rawValues = Array.isArray(result.values) ? result.values : [];
                         const numericValues = rawValues.filter(
-                          (v): v is number =>
-                            typeof v === "number" && Number.isFinite(v)
+                          (v): v is number => typeof v === 'number' && Number.isFinite(v),
                         );
 
                         let last: number | null = null;
@@ -251,9 +234,7 @@ const TestStandPage: React.FC = () => {
                           >
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-100">
-                                <span>
-                                  {definition?.name ?? instance.id}
-                                </span>
+                                <span>{definition?.name ?? instance.id}</span>
                                 {definition?.outputType && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-slate-700 text-slate-300 uppercase tracking-wide">
                                     {definition.outputType}
@@ -268,19 +249,15 @@ const TestStandPage: React.FC = () => {
                               <div className="text-[11px] text-slate-400">
                                 {definition?.summary ??
                                   definition?.description ??
-                                  "No description yet."}
+                                  'No description yet.'}
                               </div>
                             </div>
 
                             <div className="text-[11px] text-slate-300 text-right">
-                              <div>
-                                Last:{" "}
-                                {last != null ? last.toFixed(3) : "—"}
-                              </div>
+                              <div>Last: {last != null ? last.toFixed(3) : '—'}</div>
                               <div className="text-[10px] text-slate-500">
-                                Min:{" "}
-                                {min != null ? min.toFixed(3) : "—"} · Max:{" "}
-                                {max != null ? max.toFixed(3) : "—"}
+                                Min: {min != null ? min.toFixed(3) : '—'} · Max:{' '}
+                                {max != null ? max.toFixed(3) : '—'}
                               </div>
                             </div>
                           </div>

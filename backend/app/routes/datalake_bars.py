@@ -5,11 +5,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 from app.auth import get_current_user
 from app.datalake.bar_store import read_daily_bars
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(tags=["datalake-bars"])
 
@@ -18,6 +17,7 @@ class PriceBarOut(BaseModel):
     """
     Shape the frontend expects for a daily OHLCV bar.
     """
+
     time: str
     open: float
     high: float
@@ -39,12 +39,7 @@ def _normalize_bar(row: Any) -> PriceBarOut:
     # 1) Handle dict-like rows
     if isinstance(row, dict):
         # Try common field names for date
-        trade_date = (
-            row.get("trade_date")
-            or row.get("date")
-            or row.get("day")
-            or row.get("time")
-        )
+        trade_date = row.get("trade_date") or row.get("date") or row.get("day") or row.get("time")
         if trade_date is None:
             raise KeyError(f"Row missing date field: keys={list(row.keys())}")
 
@@ -81,9 +76,7 @@ def _normalize_bar(row: Any) -> PriceBarOut:
             break
 
     if trade_date is None:
-        raise KeyError(
-            f"Row has no recognizable date field. Available: {dir(row)}"
-        )
+        raise KeyError(f"Row has no recognizable date field. Available: {dir(row)}")
 
     return PriceBarOut(
         time=str(trade_date),
@@ -93,6 +86,7 @@ def _normalize_bar(row: Any) -> PriceBarOut:
         close=float(getattr(row, "close")),
         volume=float(getattr(row, "volume")),
     )
+
 
 @router.get(
     "/datalake/bars/daily",

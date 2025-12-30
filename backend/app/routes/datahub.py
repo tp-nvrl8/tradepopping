@@ -18,6 +18,7 @@ from ..schemas.datahub import (
     UniverseStats,
 )
 
+
 # If you already have auth deps, swap this out
 def fake_auth_dep() -> None:
     """Placeholder for your real auth dependency."""
@@ -76,6 +77,7 @@ _LAST_EODHD_JOB: Optional[EodhdJobStatus] = None
 # ---------------------------------------------------------------------------
 # FMP Universe ingest + stats
 # ---------------------------------------------------------------------------
+
 
 @router.get("/universe/stats", response_model=UniverseStats)
 async def get_universe_stats() -> UniverseStats:
@@ -164,11 +166,7 @@ async def browse_universe(
 
     if search:
         s = search.lower()
-        rows = [
-            r
-            for r in rows
-            if s in r.symbol.lower() or s in r.name.lower()
-        ]
+        rows = [r for r in rows if s in r.symbol.lower() or s in r.name.lower()]
 
     if sector:
         rows = [r for r in rows if (r.sector or "UNKNOWN") == sector]
@@ -206,9 +204,7 @@ async def browse_universe(
     end = start + page_size
     page_rows = rows[start:end]
 
-    sectors = sorted(
-        {r.sector or "UNKNOWN" for r in _FAKE_UNIVERSE}
-    )
+    sectors = sorted({r.sector or "UNKNOWN" for r in _FAKE_UNIVERSE})
     exchanges = sorted({r.exchange for r in _FAKE_UNIVERSE})
 
     min_mc = min((r.market_cap for r in _FAKE_UNIVERSE), default=None)
@@ -230,6 +226,7 @@ async def browse_universe(
 # ---------------------------------------------------------------------------
 # EODHD window ingest + job status
 # ---------------------------------------------------------------------------
+
 
 @router.post("/eodhd/ingest-window", response_model=EodhdIngestResponse)
 async def ingest_eodhd_window(

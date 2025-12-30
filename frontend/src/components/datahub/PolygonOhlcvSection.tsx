@@ -1,15 +1,15 @@
 // frontend/src/components/datahub/PolygonOhlcvSection.tsx
 
-import React, { useState } from "react";
-import { apiClient } from "../../api";
-import CollapsibleSection from "./CollapsibleSection";
-import PriceSparkline from "./PriceSparkline";
-import { PriceBarDTO } from "./types";
+import React, { useState } from 'react';
+import { apiClient } from '../../api';
+import CollapsibleSection from './CollapsibleSection';
+import PriceSparkline from './PriceSparkline';
+import { PriceBarDTO } from './types';
 
 const PolygonOhlcvSection: React.FC = () => {
-  const [symbol, setSymbol] = useState("AAPL");
-  const [start, setStart] = useState("2024-01-02");
-  const [end, setEnd] = useState("2024-01-31");
+  const [symbol, setSymbol] = useState('AAPL');
+  const [start, setStart] = useState('2024-01-02');
+  const [end, setEnd] = useState('2024-01-31');
 
   const [bars, setBars] = useState<PriceBarDTO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,23 +30,18 @@ const PolygonOhlcvSection: React.FC = () => {
     setLoading(true);
 
     try {
-      const data = await apiClient.get<PriceBarDTO[]>(
-        "/datahub/polygon/daily-ohlcv",
-        {
-          params: {
-            symbol: symbol.trim().toUpperCase(),
-            start,
-            end,
-          },
+      const data = await apiClient.get<PriceBarDTO[]>('/datahub/polygon/daily-ohlcv', {
+        params: {
+          symbol: symbol.trim().toUpperCase(),
+          start,
+          end,
         },
-      );
+      });
 
       setBars(data);
     } catch (err) {
-      console.error("Failed to fetch Polygon OHLCV", err);
-      setError(
-        "Failed to fetch OHLCV bars from Polygon. Confirm API key and backend route.",
-      );
+      console.error('Failed to fetch Polygon OHLCV', err);
+      setError('Failed to fetch OHLCV bars from Polygon. Confirm API key and backend route.');
     } finally {
       setLoading(false);
     }
@@ -59,8 +54,8 @@ const PolygonOhlcvSection: React.FC = () => {
       defaultOpen
     >
       <p className="mb-2 text-xs text-slate-300">
-        Quick sanity check that Polygon is returning the same OHLCV bars you
-        expect for a given symbol and window.
+        Quick sanity check that Polygon is returning the same OHLCV bars you expect for a given
+        symbol and window.
       </p>
 
       {/* Controls */}
@@ -99,13 +94,11 @@ const PolygonOhlcvSection: React.FC = () => {
           disabled={loading}
           className="rounded-md bg-slate-800 px-3 py-1 text-[11px] font-semibold text-slate-50 hover:bg-slate-700 disabled:opacity-60"
         >
-          {loading ? "Loading…" : "Fetch OHLCV"}
+          {loading ? 'Loading…' : 'Fetch OHLCV'}
         </button>
 
         {bars.length > 0 && (
-          <span className="text-[11px] text-slate-300">
-            {bars.length} bars returned
-          </span>
+          <span className="text-[11px] text-slate-300">{bars.length} bars returned</span>
         )}
       </div>
 
@@ -120,9 +113,7 @@ const PolygonOhlcvSection: React.FC = () => {
       {bars.length > 0 && !loading && (
         <>
           <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2">
-            <div className="mb-1 text-[11px] text-slate-300">
-              Close-price sparkline
-            </div>
+            <div className="mb-1 text-[11px] text-slate-300">Close-price sparkline</div>
             <PriceSparkline bars={bars} />
           </div>
 
@@ -140,25 +131,12 @@ const PolygonOhlcvSection: React.FC = () => {
               </thead>
               <tbody>
                 {bars.map((bar) => (
-                  <tr
-                    key={bar.time}
-                    className="border-t border-slate-800 odd:bg-slate-950/40"
-                  >
-                    <td className="px-2 py-1 text-slate-200">
-                      {bar.time.slice(0, 10)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.open.toFixed(2)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.high.toFixed(2)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.low.toFixed(2)}
-                    </td>
-                    <td className="px-2 py-1 text-right text-slate-200">
-                      {bar.close.toFixed(2)}
-                    </td>
+                  <tr key={bar.time} className="border-t border-slate-800 odd:bg-slate-950/40">
+                    <td className="px-2 py-1 text-slate-200">{bar.time.slice(0, 10)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.open.toFixed(2)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.high.toFixed(2)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.low.toFixed(2)}</td>
+                    <td className="px-2 py-1 text-right text-slate-200">{bar.close.toFixed(2)}</td>
                     <td className="px-2 py-1 text-right text-slate-200">
                       {bar.volume.toLocaleString()}
                     </td>

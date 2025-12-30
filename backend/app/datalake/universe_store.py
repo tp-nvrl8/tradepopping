@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, TypedDict, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 import duckdb
-
 from app.datalake.fmp_client import FmpSymbolDTO
 
 # Use the same DuckDB file everywhere (env wins, default is DO/dev-friendly)
@@ -35,6 +34,7 @@ def _get_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     enforce "read-only" at the application level instead.
     """
     return duckdb.connect(TP_DUCKDB_PATH)
+
 
 def _ensure_schema() -> None:
     """
@@ -139,9 +139,7 @@ def get_universe_stats() -> UniverseStats:
     con = _get_conn()
     try:
         # Total rows
-        total_row = con.execute(
-            f"SELECT COUNT(*) FROM {TABLE_NAME}"
-        ).fetchone()
+        total_row = con.execute(f"SELECT COUNT(*) FROM {TABLE_NAME}").fetchone()
         total_symbols = int(total_row[0]) if total_row else 0
 
         # By exchange
@@ -155,9 +153,7 @@ def get_universe_stats() -> UniverseStats:
             ORDER BY n DESC
             """
         ).fetchall()
-        by_exchange: Dict[str, int] = {
-            exch: int(n) for exch, n in exchange_rows
-        }
+        by_exchange: Dict[str, int] = {exch: int(n) for exch, n in exchange_rows}
 
         # By type (ETF vs EQUITY)
         type_rows = con.execute(
@@ -207,9 +203,7 @@ def get_universe_stats() -> UniverseStats:
             ORDER BY n DESC
             """
         ).fetchall()
-        by_cap_bucket: Dict[str, int] = {
-            bucket: int(n) for bucket, n in cap_rows
-        }
+        by_cap_bucket: Dict[str, int] = {bucket: int(n) for bucket, n in cap_rows}
 
         return UniverseStats(
             total_symbols=total_symbols,
@@ -223,6 +217,7 @@ def get_universe_stats() -> UniverseStats:
 
 
 # ---------- Universe browser helpers ----------
+
 
 def browse_universe(
     page: int = 1,
@@ -258,15 +253,11 @@ def browse_universe(
 
         if search:
             s = f"%{search.strip().upper()}%"
-            where_clauses.append(
-                "(UPPER(symbol) LIKE ? OR UPPER(name) LIKE ?)"
-            )
+            where_clauses.append("(UPPER(symbol) LIKE ? OR UPPER(name) LIKE ?)")
             params.extend([s, s])
 
         if sector:
-            where_clauses.append(
-                "COALESCE(NULLIF(TRIM(sector), ''), 'UNKNOWN') = ?"
-            )
+            where_clauses.append("COALESCE(NULLIF(TRIM(sector), ''), 'UNKNOWN') = ?")
             params.append(sector)
 
         if exchanges:

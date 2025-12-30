@@ -2,13 +2,14 @@
 
 import os
 from datetime import date, datetime, timezone
-from typing import List, TypedDict, Optional
+from typing import List, Optional, TypedDict
 
 import httpx
 
 
 class EodhdClientError(Exception):
     """Custom error type for EODHD client failures."""
+
     pass
 
 
@@ -107,17 +108,13 @@ async def fetch_eodhd_daily_ohlcv(
         resp = await client.get(f"{base_url}/{full_symbol}", params=params)
 
     if resp.status_code >= 400:
-        raise RuntimeError(
-            f"EODHD HTTP error {resp.status_code}: {resp.text}"
-        )
+        raise RuntimeError(f"EODHD HTTP error {resp.status_code}: {resp.text}")
 
     data = resp.json()
 
     # If EODHD returns an error message instead of a list
     if isinstance(data, dict) and data.get("code") and data.get("message"):
-        raise EodhdClientError(
-            f"EODHD error {data.get('code')}: {data.get('message')}"
-        )
+        raise EodhdClientError(f"EODHD error {data.get('code')}: {data.get('message')}")
 
     if not isinstance(data, list):
         # Be defensive; we'll just return empty
@@ -141,12 +138,18 @@ async def fetch_eodhd_daily_ohlcv(
             "vwap": row.get("vwap"),
             "turnover": row.get("turnover"),
             # EODHD uses change_p for percentage change; fall back to change
-            "change_pct": row.get("change_p") if row.get("change_p") is not None else row.get("change"),
+            "change_pct": (
+                row.get("change_p") if row.get("change_p") is not None else row.get("change")
+            ),
             "adj_open": row.get("adjusted_open"),
             "adj_high": row.get("adjusted_high"),
             "adj_low": row.get("adjusted_low"),
             # adjusted_close might be named adj_close in some payloads
-            "adj_close": row.get("adjusted_close") if row.get("adjusted_close") is not None else row.get("adj_close"),
+            "adj_close": (
+                row.get("adjusted_close")
+                if row.get("adjusted_close") is not None
+                else row.get("adj_close")
+            ),
         }
 
         # Keep it simple: date-only ISO, treat as UTC midnight

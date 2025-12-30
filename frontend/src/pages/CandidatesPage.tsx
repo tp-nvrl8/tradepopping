@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { LabIdea } from "../lab/types";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
+import React, { useState } from 'react';
+import { LabIdea } from '../lab/types';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
 
 type Candidate = {
   symbol: string;
@@ -11,46 +11,44 @@ type Candidate = {
   notes?: string;
 };
 
-const mockIdeas: Pick<LabIdea, "meta">[] = [
-  { meta: { id: "idea-1", name: "Vanishing Float Squeeze v1", status: "active" } },
-  { meta: { id: "idea-2", name: "Mean Reversion in Quiet Regimes", status: "draft" } },
-  { meta: { id: "idea-3", name: "Dark Flow Momentum Tracker", status: "retired" } },
+const mockIdeas: Pick<LabIdea, 'meta'>[] = [
+  { meta: { id: 'idea-1', name: 'Vanishing Float Squeeze v1', status: 'active' } },
+  { meta: { id: 'idea-2', name: 'Mean Reversion in Quiet Regimes', status: 'draft' } },
+  { meta: { id: 'idea-3', name: 'Dark Flow Momentum Tracker', status: 'retired' } },
 ];
 
 const mockCandidates: Candidate[] = [
   {
-    symbol: "ARRY",
-    name: "Array Technologies",
-    ideaId: "idea-1",
+    symbol: 'ARRY',
+    name: 'Array Technologies',
+    ideaId: 'idea-1',
     score: 87,
-    regime: "expanding",
-    notes: "High sOBV + shrinking float pattern.",
+    regime: 'expanding',
+    notes: 'High sOBV + shrinking float pattern.',
   },
   {
-    symbol: "PLUG",
-    name: "Plug Power",
-    ideaId: "idea-1",
+    symbol: 'PLUG',
+    name: 'Plug Power',
+    ideaId: 'idea-1',
     score: 73,
-    regime: "expanding",
+    regime: 'expanding',
   },
   {
-    symbol: "TTD",
-    name: "Trade Desk",
-    ideaId: "idea-2",
+    symbol: 'TTD',
+    name: 'Trade Desk',
+    ideaId: 'idea-2',
     score: 62,
-    regime: "quiet",
+    regime: 'quiet',
   },
 ];
 
 const CandidatesPage: React.FC = () => {
-  const tokens = useUiScopedTokens(["global", "page:candidates"]);
-  const [selectedIdeaFilter, setSelectedIdeaFilter] = useState<string>("all");
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(
-    null
-  );
+  const tokens = useUiScopedTokens(['global', 'page:candidates']);
+  const [selectedIdeaFilter, setSelectedIdeaFilter] = useState<string>('all');
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
   const filtered = mockCandidates.filter((c) =>
-    selectedIdeaFilter === "all" ? true : c.ideaId === selectedIdeaFilter
+    selectedIdeaFilter === 'all' ? true : c.ideaId === selectedIdeaFilter,
   );
 
   return (
@@ -97,9 +95,7 @@ const CandidatesPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="text-slate-400 text-[10px]">
-                  {filtered.length} candidates
-                </div>
+                <div className="text-slate-400 text-[10px]">{filtered.length} candidates</div>
               </div>
             </div>
 
@@ -120,15 +116,14 @@ const CandidatesPage: React.FC = () => {
                   {filtered.map((c) => {
                     const isSelected = selectedCandidate?.symbol === c.symbol;
                     const ideaName =
-                      mockIdeas.find((i) => i.meta.id === c.ideaId)?.meta.name ||
-                      "Unknown";
+                      mockIdeas.find((i) => i.meta.id === c.ideaId)?.meta.name || 'Unknown';
 
                     return (
                       <tr
                         key={c.symbol}
                         onClick={() => setSelectedCandidate(c)}
                         className={`cursor-pointer hover:bg-slate-900 ${
-                          isSelected ? "bg-slate-800/60" : ""
+                          isSelected ? 'bg-slate-800/60' : ''
                         }`}
                       >
                         <td className="px-3 py-2">{c.symbol}</td>
@@ -138,19 +133,15 @@ const CandidatesPage: React.FC = () => {
                           <span
                             className={`px-2 py-1 rounded-md border ${
                               c.score > 80
-                                ? "border-emerald-500 text-emerald-300"
-                                : "border-slate-600 text-slate-400"
+                                ? 'border-emerald-500 text-emerald-300'
+                                : 'border-slate-600 text-slate-400'
                             }`}
                           >
                             {c.score}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-slate-300">
-                          {c.regime.toUpperCase()}
-                        </td>
-                        <td className="px-3 py-2 text-slate-500">
-                          {c.notes || "-"}
-                        </td>
+                        <td className="px-3 py-2 text-slate-300">{c.regime.toUpperCase()}</td>
+                        <td className="px-3 py-2 text-slate-500">{c.notes || '-'}</td>
                       </tr>
                     );
                   })}
@@ -179,10 +170,7 @@ const CandidatesPage: React.FC = () => {
                 <div className="mb-3">
                   <p className="text-slate-400 mb-1">Idea Source:</p>
                   <div className="text-slate-300">
-                    {
-                      mockIdeas.find((i) => i.meta.id === selectedCandidate.ideaId)
-                        ?.meta.name
-                    }
+                    {mockIdeas.find((i) => i.meta.id === selectedCandidate.ideaId)?.meta.name}
                   </div>
                 </div>
 
@@ -195,9 +183,7 @@ const CandidatesPage: React.FC = () => {
 
                 <div className="mb-3">
                   <p className="text-slate-400 mb-1">Regime:</p>
-                  <div className="text-slate-300">
-                    {selectedCandidate.regime.toUpperCase()}
-                  </div>
+                  <div className="text-slate-300">{selectedCandidate.regime.toUpperCase()}</div>
                 </div>
 
                 <div className="mt-4">
@@ -205,15 +191,13 @@ const CandidatesPage: React.FC = () => {
                     Why this was selected
                   </h4>
                   <p className="text-slate-400">
-                    Later this will list the indicator values that triggered this
-                    candidate, float & short signals, volatility state, and more.
+                    Later this will list the indicator values that triggered this candidate, float &
+                    short signals, volatility state, and more.
                   </p>
                 </div>
               </>
             ) : (
-              <div className="text-slate-500">
-                Select a row to see candidate details.
-              </div>
+              <div className="text-slate-500">Select a row to see candidate details.</div>
             )}
           </div>
         </div>

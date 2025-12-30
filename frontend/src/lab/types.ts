@@ -1,5 +1,5 @@
 // High-level lifecycle of an idea
-export type IdeaStatus = "draft" | "active" | "retired";
+export type IdeaStatus = 'draft' | 'active' | 'retired';
 
 export interface IdeaMeta {
   id: string;
@@ -23,10 +23,10 @@ export interface RangeFilter {
  * Price & liquidity constraint block.
  */
 export interface PriceLiquidityFilters {
-  price: RangeFilter;          // e.g. 2–20
+  price: RangeFilter; // e.g. 2–20
   averageDailyDollarVolume?: RangeFilter;
   averageDailyShareVolume?: RangeFilter;
-  floatShares?: RangeFilter;   // small/mid float constraints
+  floatShares?: RangeFilter; // small/mid float constraints
   marketCap?: RangeFilter;
 }
 
@@ -34,17 +34,12 @@ export interface PriceLiquidityFilters {
  * Volatility / regime filter block.
  * This is intentionally simple for now; we can add more fields later.
  */
-export type VolatilityRegime =
-  | "any"
-  | "quiet"
-  | "normal"
-  | "expanding"
-  | "crisis";
+export type VolatilityRegime = 'any' | 'quiet' | 'normal' | 'expanding' | 'crisis';
 
 export interface VolatilityFilters {
-  regime: VolatilityRegime;   // e.g. only trade in "quiet" regimes
-  atrPercent?: RangeFilter;   // ATR as % of price
-  hvPercent?: RangeFilter;    // historical volatility
+  regime: VolatilityRegime; // e.g. only trade in "quiet" regimes
+  atrPercent?: RangeFilter; // ATR as % of price
+  hvPercent?: RangeFilter; // historical volatility
 }
 
 /**
@@ -60,11 +55,7 @@ export interface StructureFilters {
  * Reference to a particular indicator variant.
  * For now, this is "pick from library", not free-form builder.
  */
-export type IndicatorId =
-  | "sobv_trend"
-  | "kama_regime"
-  | "darkflow_bias"
-  | "zscore_price_lookback";
+export type IndicatorId = 'sobv_trend' | 'kama_regime' | 'darkflow_bias' | 'zscore_price_lookback';
 
 export interface IndicatorInstance {
   id: IndicatorId;

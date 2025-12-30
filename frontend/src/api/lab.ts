@@ -1,7 +1,7 @@
-import { LabIdea } from "../lab/types";
+import { LabIdea } from '../lab/types';
 
 export async function fetchLabIdeas(): Promise<LabIdea[]> {
-  const res = await fetch("/api/lab/ideas");
+  const res = await fetch('/api/lab/ideas');
   if (!res.ok) {
     throw new Error(`Failed to fetch ideas: ${res.status}`);
   }
@@ -9,9 +9,9 @@ export async function fetchLabIdeas(): Promise<LabIdea[]> {
 }
 
 export async function saveLabIdea(idea: LabIdea): Promise<LabIdea> {
-  const res = await fetch("/api/lab/ideas", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await fetch('/api/lab/ideas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(idea),
   });
 

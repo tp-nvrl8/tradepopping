@@ -4,10 +4,9 @@ import os
 from typing import Any, Dict, List, Optional
 
 import duckdb
+from app.auth import get_current_user
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-
-from app.auth import get_current_user
 
 router = APIRouter(tags=["datalake-universe"])
 

@@ -1,31 +1,20 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import {
   DEFAULT_THEME_TOKENS,
   type UiTokens,
   deriveUiTokensFromCustomPalette,
-} from "./uiThemeCore";
+} from './uiThemeCore';
 
-export type ThemeId =
-  | "slate"
-  | "trek-industrial"
-  | "delta-flyer"
-  | "custom";
+export type ThemeId = 'slate' | 'trek-industrial' | 'delta-flyer' | 'custom';
 
-const THEME_STORAGE_KEY = "tp_theme_v1";
+const THEME_STORAGE_KEY = 'tp_theme_v1';
 
 /** Legacy single-custom palette key (Phase 3) */
-const CUSTOM_THEME_STORAGE_KEY = "tp_theme_custom_v1";
+const CUSTOM_THEME_STORAGE_KEY = 'tp_theme_custom_v1';
 
 /** New keys for Phase 4: multiple profiles */
-const CUSTOM_THEME_LIST_STORAGE_KEY = "tp_theme_custom_list_v1";
-const CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY = "tp_theme_custom_active_id_v1";
+const CUSTOM_THEME_LIST_STORAGE_KEY = 'tp_theme_custom_list_v1';
+const CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY = 'tp_theme_custom_active_id_v1';
 
 /**
  * Colors used when theme === "custom".
@@ -44,14 +33,14 @@ export interface CustomPalette {
 
 /** Default custom palette (start from Slate-like values) */
 export const DEFAULT_CUSTOM_PALETTE: CustomPalette = {
-  builderBg: "#020617",
-  builderBorder: "#1e293b",
-  builderHeaderBg: "#020617",
-  builderHeaderBorder: "#334155",
-  analysisBg: "#020617",
-  analysisBorder: "#1e293b",
-  analysisHeaderBg: "#020617",
-  analysisHeaderBorder: "#334155",
+  builderBg: '#020617',
+  builderBorder: '#1e293b',
+  builderHeaderBg: '#020617',
+  builderHeaderBorder: '#334155',
+  analysisBg: '#020617',
+  analysisBorder: '#1e293b',
+  analysisHeaderBg: '#020617',
+  analysisHeaderBorder: '#334155',
 };
 
 /** A saved custom theme profile */
@@ -89,59 +78,59 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const BASE_LAB_PALETTES: Record<Exclude<ThemeId, "custom">, CustomPalette> = {
+const BASE_LAB_PALETTES: Record<Exclude<ThemeId, 'custom'>, CustomPalette> = {
   slate: {
     ...DEFAULT_CUSTOM_PALETTE,
   },
-  "trek-industrial": {
-    builderBg: "#0a0d12",
-    builderBorder: "#a78b6a",
-    builderHeaderBg: "#111418",
-    builderHeaderBorder: "#f5d0a3",
-    analysisBg: "#0a0d12",
-    analysisBorder: "#a78b6a",
-    analysisHeaderBg: "#111418",
-    analysisHeaderBorder: "#f5d0a3",
+  'trek-industrial': {
+    builderBg: '#0a0d12',
+    builderBorder: '#a78b6a',
+    builderHeaderBg: '#111418',
+    builderHeaderBorder: '#f5d0a3',
+    analysisBg: '#0a0d12',
+    analysisBorder: '#a78b6a',
+    analysisHeaderBg: '#111418',
+    analysisHeaderBorder: '#f5d0a3',
   },
-  "delta-flyer": {
-    builderBg: "#030b18",
-    builderBorder: "#7dd3fc",
-    builderHeaderBg: "#07121f",
-    builderHeaderBorder: "#93c5fd",
-    analysisBg: "#030b18",
-    analysisBorder: "#7dd3fc",
-    analysisHeaderBg: "#07121f",
-    analysisHeaderBorder: "#93c5fd",
+  'delta-flyer': {
+    builderBg: '#030b18',
+    builderBorder: '#7dd3fc',
+    builderHeaderBg: '#07121f',
+    builderHeaderBorder: '#93c5fd',
+    analysisBg: '#030b18',
+    analysisBorder: '#7dd3fc',
+    analysisHeaderBg: '#07121f',
+    analysisHeaderBorder: '#93c5fd',
   },
 };
 
-const BASE_SEMANTIC_TOKENS: Record<Exclude<ThemeId, "custom">, SemanticTokens> = {
+const BASE_SEMANTIC_TOKENS: Record<Exclude<ThemeId, 'custom'>, SemanticTokens> = {
   slate: {
     ...DEFAULT_THEME_TOKENS,
   },
-  "trek-industrial": {
-    surface: "#0a0d12",
-    surfaceMuted: "#12171f",
-    border: "#a78b6a",
-    textPrimary: "#f8fafc",
-    textSecondary: "#e2e8f0",
-    accent: "#f5d0a3",
-    accentMuted: "#a78b6a",
-    success: "#22c55e",
-    warning: "#fbbf24",
-    danger: "#f87171",
+  'trek-industrial': {
+    surface: '#0a0d12',
+    surfaceMuted: '#12171f',
+    border: '#a78b6a',
+    textPrimary: '#f8fafc',
+    textSecondary: '#e2e8f0',
+    accent: '#f5d0a3',
+    accentMuted: '#a78b6a',
+    success: '#22c55e',
+    warning: '#fbbf24',
+    danger: '#f87171',
   },
-  "delta-flyer": {
-    surface: "#030b18",
-    surfaceMuted: "#0b1726",
-    border: "#7dd3fc",
-    textPrimary: "#e2e8f0",
-    textSecondary: "#cbd5e1",
-    accent: "#93c5fd",
-    accentMuted: "#7dd3fc",
-    success: "#4ade80",
-    warning: "#facc15",
-    danger: "#fb7185",
+  'delta-flyer': {
+    surface: '#030b18',
+    surfaceMuted: '#0b1726',
+    border: '#7dd3fc',
+    textPrimary: '#e2e8f0',
+    textSecondary: '#cbd5e1',
+    accent: '#93c5fd',
+    accentMuted: '#7dd3fc',
+    success: '#4ade80',
+    warning: '#facc15',
+    danger: '#fb7185',
   },
 };
 
@@ -154,26 +143,24 @@ function deriveCustomTokens(palette: CustomPalette | null): SemanticTokens {
 function applyThemeToDocument(
   theme: ThemeId,
   customPalette: CustomPalette | null,
-  tokens: SemanticTokens
+  tokens: SemanticTokens,
 ) {
-  if (typeof document === "undefined") return;
+  if (typeof document === 'undefined') return;
   const root = document.documentElement;
   root.dataset.tpTheme = theme;
 
   const palette =
-    theme === "custom"
-      ? customPalette ?? DEFAULT_CUSTOM_PALETTE
-      : BASE_LAB_PALETTES[theme];
+    theme === 'custom' ? (customPalette ?? DEFAULT_CUSTOM_PALETTE) : BASE_LAB_PALETTES[theme];
 
   const varMap: { key: keyof CustomPalette; cssVar: string }[] = [
-    { key: "builderBg", cssVar: "--tp-lab-builder-bg" },
-    { key: "builderBorder", cssVar: "--tp-lab-builder-border" },
-    { key: "builderHeaderBg", cssVar: "--tp-lab-builder-header-bg" },
-    { key: "builderHeaderBorder", cssVar: "--tp-lab-builder-header-border" },
-    { key: "analysisBg", cssVar: "--tp-lab-analysis-bg" },
-    { key: "analysisBorder", cssVar: "--tp-lab-analysis-border" },
-    { key: "analysisHeaderBg", cssVar: "--tp-lab-analysis-header-bg" },
-    { key: "analysisHeaderBorder", cssVar: "--tp-lab-analysis-header-border" },
+    { key: 'builderBg', cssVar: '--tp-lab-builder-bg' },
+    { key: 'builderBorder', cssVar: '--tp-lab-builder-border' },
+    { key: 'builderHeaderBg', cssVar: '--tp-lab-builder-header-bg' },
+    { key: 'builderHeaderBorder', cssVar: '--tp-lab-builder-header-border' },
+    { key: 'analysisBg', cssVar: '--tp-lab-analysis-bg' },
+    { key: 'analysisBorder', cssVar: '--tp-lab-analysis-border' },
+    { key: 'analysisHeaderBg', cssVar: '--tp-lab-analysis-header-bg' },
+    { key: 'analysisHeaderBorder', cssVar: '--tp-lab-analysis-header-border' },
   ];
 
   for (const { key, cssVar } of varMap) {
@@ -182,16 +169,16 @@ function applyThemeToDocument(
   }
 
   const semanticVarMap: { key: keyof SemanticTokens; cssVar: string }[] = [
-    { key: "surface", cssVar: "--tp-surface" },
-    { key: "surfaceMuted", cssVar: "--tp-surface-muted" },
-    { key: "border", cssVar: "--tp-border" },
-    { key: "textPrimary", cssVar: "--tp-text-primary" },
-    { key: "textSecondary", cssVar: "--tp-text-secondary" },
-    { key: "accent", cssVar: "--tp-accent" },
-    { key: "accentMuted", cssVar: "--tp-accent-muted" },
-    { key: "success", cssVar: "--tp-success" },
-    { key: "warning", cssVar: "--tp-warning" },
-    { key: "danger", cssVar: "--tp-danger" },
+    { key: 'surface', cssVar: '--tp-surface' },
+    { key: 'surfaceMuted', cssVar: '--tp-surface-muted' },
+    { key: 'border', cssVar: '--tp-border' },
+    { key: 'textPrimary', cssVar: '--tp-text-primary' },
+    { key: 'textSecondary', cssVar: '--tp-text-secondary' },
+    { key: 'accent', cssVar: '--tp-accent' },
+    { key: 'accentMuted', cssVar: '--tp-accent-muted' },
+    { key: 'success', cssVar: '--tp-success' },
+    { key: 'warning', cssVar: '--tp-warning' },
+    { key: 'danger', cssVar: '--tp-danger' },
   ];
 
   for (const { key, cssVar } of semanticVarMap) {
@@ -199,52 +186,37 @@ function applyThemeToDocument(
   }
 }
 
-export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const [theme, setThemeState] = useState<ThemeId>("slate");
+export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [theme, setThemeState] = useState<ThemeId>('slate');
 
-  const [customPalette, setCustomPaletteState] = useState<CustomPalette | null>(
-    null
-  );
-  const [savedCustomThemes, setSavedCustomThemes] = useState<
-    CustomThemeProfile[]
-  >([]);
-  const [activeCustomThemeId, setActiveCustomThemeId] = useState<string | null>(
-    null
-  );
+  const [customPalette, setCustomPaletteState] = useState<CustomPalette | null>(null);
+  const [savedCustomThemes, setSavedCustomThemes] = useState<CustomThemeProfile[]>([]);
+  const [activeCustomThemeId, setActiveCustomThemeId] = useState<string | null>(null);
   const [pageTheme, setPageTheme] = useState<PageThemeState | null>(null);
-  const [tokens, setTokens] = useState<SemanticTokens>(
-    BASE_SEMANTIC_TOKENS["slate"]
-  );
+  const [tokens, setTokens] = useState<SemanticTokens>(BASE_SEMANTIC_TOKENS['slate']);
 
   // Load on first mount
   useEffect(() => {
     try {
       const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
       if (
-        storedTheme === "slate" ||
-        storedTheme === "trek-industrial" ||
-        storedTheme === "delta-flyer" ||
-        storedTheme === "custom"
+        storedTheme === 'slate' ||
+        storedTheme === 'trek-industrial' ||
+        storedTheme === 'delta-flyer' ||
+        storedTheme === 'custom'
       ) {
         setThemeState(storedTheme);
       }
 
       // Load profile list (Phase 4)
       let profiles: CustomThemeProfile[] = [];
-      const listRaw =
-        window.localStorage.getItem(CUSTOM_THEME_LIST_STORAGE_KEY);
+      const listRaw = window.localStorage.getItem(CUSTOM_THEME_LIST_STORAGE_KEY);
       if (listRaw) {
         try {
           const parsed = JSON.parse(listRaw) as CustomThemeProfile[];
           if (Array.isArray(parsed)) {
             profiles = parsed.filter(
-              (p) =>
-                p &&
-                typeof p.id === "string" &&
-                typeof p.name === "string" &&
-                p.palette
+              (p) => p && typeof p.id === 'string' && typeof p.name === 'string' && p.palette,
             );
           }
         } catch {
@@ -254,13 +226,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
 
       // If no profiles, try legacy single palette (Phase 3)
       if (profiles.length === 0) {
-        const storedPaletteRaw =
-          window.localStorage.getItem(CUSTOM_THEME_STORAGE_KEY);
+        const storedPaletteRaw = window.localStorage.getItem(CUSTOM_THEME_STORAGE_KEY);
         let initialPalette = DEFAULT_CUSTOM_PALETTE;
         if (storedPaletteRaw) {
           try {
             const parsed = JSON.parse(storedPaletteRaw) as Partial<CustomPalette>;
-            if (parsed && typeof parsed === "object") {
+            if (parsed && typeof parsed === 'object') {
               initialPalette = {
                 ...DEFAULT_CUSTOM_PALETTE,
                 ...parsed,
@@ -272,8 +243,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
         }
 
         const legacyProfile: CustomThemeProfile = {
-          id: "custom-default-1",
-          name: "My Custom Theme",
+          id: 'custom-default-1',
+          name: 'My Custom Theme',
           palette: initialPalette,
         };
         profiles = [legacyProfile];
@@ -282,9 +253,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
       setSavedCustomThemes(profiles);
 
       // Active custom ID
-      const storedActiveId = window.localStorage.getItem(
-        CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY
-      );
+      const storedActiveId = window.localStorage.getItem(CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY);
       let activeId: string | null = null;
       if (storedActiveId && profiles.some((p) => p.id === storedActiveId)) {
         activeId = storedActiveId;
@@ -312,9 +281,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   // Apply theme + custom palette to document
   useEffect(() => {
     const baseTokens: SemanticTokens =
-      theme === "custom"
-        ? deriveCustomTokens(customPalette)
-        : BASE_SEMANTIC_TOKENS[theme];
+      theme === 'custom' ? deriveCustomTokens(customPalette) : BASE_SEMANTIC_TOKENS[theme];
 
     const mergedTokens: SemanticTokens = {
       ...baseTokens,
@@ -337,15 +304,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   // Persist custom profiles & active ID
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        CUSTOM_THEME_LIST_STORAGE_KEY,
-        JSON.stringify(savedCustomThemes)
-      );
+      window.localStorage.setItem(CUSTOM_THEME_LIST_STORAGE_KEY, JSON.stringify(savedCustomThemes));
       if (activeCustomThemeId) {
-        window.localStorage.setItem(
-          CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY,
-          activeCustomThemeId
-        );
+        window.localStorage.setItem(CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY, activeCustomThemeId);
       } else {
         window.localStorage.removeItem(CUSTOM_THEME_ACTIVE_ID_STORAGE_KEY);
       }
@@ -358,10 +319,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     try {
       if (customPalette) {
-        window.localStorage.setItem(
-          CUSTOM_THEME_STORAGE_KEY,
-          JSON.stringify(customPalette)
-        );
+        window.localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(customPalette));
       } else {
         window.localStorage.removeItem(CUSTOM_THEME_STORAGE_KEY);
       }
@@ -380,7 +338,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
     // If a custom profile is currently active, update it in the list
     if (activeCustomThemeId) {
       setSavedCustomThemes((prev) =>
-        prev.map((p) => (p.id === activeCustomThemeId ? { ...p, palette } : p))
+        prev.map((p) => (p.id === activeCustomThemeId ? { ...p, palette } : p)),
       );
     }
   };
@@ -403,7 +361,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
     setSavedCustomThemes((prev) => [...prev, profile]);
     setActiveCustomThemeId(id);
     setCustomPaletteState(palette);
-    setThemeState("custom");
+    setThemeState('custom');
   };
 
   const deleteCustomThemeProfile = (id: string) => {
@@ -431,7 +389,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
     if (!profile) return;
     setActiveCustomThemeId(id);
     setCustomPaletteState(profile.palette);
-    setThemeState("custom");
+    setThemeState('custom');
   };
 
   const applyPageTheme = (id: string, overrides: Partial<SemanticTokens>) => {
@@ -461,14 +419,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
       clearPageTheme,
       activePageThemeId: pageTheme?.id ?? null,
     }),
-    [
-      activeCustomThemeId,
-      customPalette,
-      pageTheme,
-      savedCustomThemes,
-      theme,
-      tokens,
-    ]
+    [activeCustomThemeId, customPalette, pageTheme, savedCustomThemes, theme, tokens],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -477,15 +428,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
 export const useTheme = (): ThemeContextValue => {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
-    throw new Error("useTheme must be used inside a ThemeProvider");
+    throw new Error('useTheme must be used inside a ThemeProvider');
   }
   return ctx;
 };
 
-export const usePageTheme = (
-  pageId: string,
-  overrides: Partial<SemanticTokens> | null
-) => {
+export const usePageTheme = (pageId: string, overrides: Partial<SemanticTokens> | null) => {
   const { applyPageTheme, clearPageTheme } = useTheme();
   useEffect(() => {
     if (overrides) {
@@ -495,9 +443,7 @@ export const usePageTheme = (
   }, [applyPageTheme, clearPageTheme, overrides, pageId]);
 };
 
-export const useThemedTokens = (
-  overrides?: Partial<SemanticTokens>
-): SemanticTokens => {
+export const useThemedTokens = (overrides?: Partial<SemanticTokens>): SemanticTokens => {
   const { tokens } = useTheme();
   return useMemo(() => ({ ...tokens, ...(overrides ?? {}) }), [tokens, overrides]);
 };

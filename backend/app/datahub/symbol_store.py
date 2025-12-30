@@ -22,10 +22,9 @@ We fetch a snapshot from FMP and upsert rows by symbol.
 import asyncio
 import os
 from datetime import datetime
-from typing import List, Sequence, Tuple, Optional
+from typing import List, Optional, Sequence, Tuple
 
 import duckdb
-
 from app.datahub.fmp_client import FMPSymbolDTO, fetch_fmp_universe
 
 # Where the DuckDB file lives inside the backend container
@@ -93,11 +92,7 @@ def _normalize_row(row: FMPSymbolDTO) -> Optional[Tuple]:
     if not symbol:
         return None
 
-    name = (
-        row.get("companyName")
-        or row.get("company_name")
-        or ""
-    )
+    name = row.get("companyName") or row.get("company_name") or ""
 
     exchange = (row.get("exchange") or "").upper() or None
     sector = row.get("sector") or None

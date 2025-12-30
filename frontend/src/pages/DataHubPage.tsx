@@ -1,12 +1,12 @@
 // frontend/src/pages/DataHubPage.tsx
 
-import React from "react";
+import React from 'react';
 
-import DataSourcesSection from "../components/datahub/DataSourcesSection";
-import FmpUniverseSection from "../components/datahub/FmpUniverseSection";
-import EodhdIngestSection from "../components/datahub/EodhdIngestSection";
-import DataLakeBarsSection from "../components/datahub/DataLakeBarsSection";
-import PolygonOhlcvSection from "../components/datahub/PolygonOhlcvSection";
+import DataSourcesSection from '../components/datahub/DataSourcesSection';
+import FmpUniverseSection from '../components/datahub/FmpUniverseSection';
+import EodhdIngestSection from '../components/datahub/EodhdIngestSection';
+import DataLakeBarsSection from '../components/datahub/DataLakeBarsSection';
+import PolygonOhlcvSection from '../components/datahub/PolygonOhlcvSection';
 
 const DataHubPage: React.FC = () => {
   return (
@@ -14,8 +14,8 @@ const DataHubPage: React.FC = () => {
       <header className="mb-4">
         <h1 className="text-lg font-semibold text-slate-50">Data Hub</h1>
         <p className="mt-1 text-sm text-slate-300">
-          Connect data sources, ingest universes, inspect stored symbols, and
-          preview raw OHLCV windows for wiring up TradePopping’s data lake.
+          Connect data sources, ingest universes, inspect stored symbols, and preview raw OHLCV
+          windows for wiring up TradePopping’s data lake.
         </p>
       </header>
 

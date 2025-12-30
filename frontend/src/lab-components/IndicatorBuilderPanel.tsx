@@ -1,17 +1,17 @@
-import React, { useMemo, useState } from "react";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
-import type { IndicatorInstance } from "../lab/types";
+import React, { useMemo, useState } from 'react';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
+import type { IndicatorInstance } from '../lab/types';
 import {
   INDICATOR_CATALOG,
   type IndicatorDefinition,
   type IndicatorParamDef,
   type IndicatorOutputType,
-} from "../lab/indicatorCatalog";
+} from '../lab/indicatorCatalog';
 import {
   computeIndicatorSeries,
   type IndicatorRuntimeContext,
-} from "../indicators/indicatorRuntime";
-import { MOCK_DAILY_BARS } from "../indicators/mockPriceData";
+} from '../indicators/indicatorRuntime';
+import { MOCK_DAILY_BARS } from '../indicators/mockPriceData';
 
 interface IndicatorBuilderPanelProps {
   ideaName?: string;
@@ -32,18 +32,12 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   indicators,
   onChangeIndicators,
 }) => {
-  const tokens = useUiScopedTokens([
-    "global",
-    "page:lab",
-    "region:lab:indicator",
-  ]);
+  const tokens = useUiScopedTokens(['global', 'page:lab', 'region:lab:indicator']);
 
-  const [selectedToAdd, setSelectedToAdd] = useState<string>("");
+  const [selectedToAdd, setSelectedToAdd] = useState<string>('');
   const [infoOpen, setInfoOpen] = useState<Record<number, boolean>>({});
   const [notesOpen, setNotesOpen] = useState<Record<string, boolean>>({});
-  const [previewById, setPreviewById] = useState<
-    Record<string, PreviewSnapshot>
-  >({});
+  const [previewById, setPreviewById] = useState<Record<string, PreviewSnapshot>>({});
   const [helpOpen, setHelpOpen] = useState(false);
   const [modalPreviewKey, setModalPreviewKey] = useState<string | null>(null);
 
@@ -61,7 +55,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     const def = catalogById.get(selectedToAdd);
     if (!def) return;
 
-    const params: IndicatorInstance["params"] = {};
+    const params: IndicatorInstance['params'] = {};
     for (const p of def.params) {
       if (p.defaultValue !== undefined) {
         params[p.key] = p.defaultValue;
@@ -71,17 +65,17 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     const nextInstance: IndicatorInstance = {
       id: def.id,
       enabled: true,
-      variant: "default",
+      variant: 'default',
       params: Object.keys(params).length ? params : undefined,
     };
 
     onChangeIndicators([...indicators, nextInstance]);
-    setSelectedToAdd("");
+    setSelectedToAdd('');
   };
 
   const handleToggleEnabled = (index: number) => {
     const nextIndicators = indicators.map((inst, i) =>
-      i === index ? { ...inst, enabled: !inst.enabled } : inst
+      i === index ? { ...inst, enabled: !inst.enabled } : inst,
     );
     onChangeIndicators(nextIndicators);
   };
@@ -105,9 +99,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     }));
   };
 
-  const moveIndicator = (index: number, direction: "up" | "down") => {
+  const moveIndicator = (index: number, direction: 'up' | 'down') => {
     const next = [...indicators];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
     if (targetIndex < 0 || targetIndex >= next.length) return;
 
@@ -173,18 +167,18 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   const handleParamChange = (
     index: number,
     param: IndicatorParamDef,
-    rawValue: string | boolean
+    rawValue: string | boolean,
   ) => {
     const nextIndicators = indicators.map((inst, i) => {
       if (i !== index) return inst;
 
-      const nextParams: IndicatorInstance["params"] = {
+      const nextParams: IndicatorInstance['params'] = {
         ...(inst.params ?? {}),
       };
 
-      if (param.type === "number") {
+      if (param.type === 'number') {
         const strVal = rawValue as string;
-        if (strVal === "") {
+        if (strVal === '') {
           delete nextParams[param.key];
         } else {
           const numVal = Number(strVal);
@@ -192,7 +186,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
             nextParams[param.key] = numVal;
           }
         }
-      } else if (param.type === "boolean") {
+      } else if (param.type === 'boolean') {
         nextParams[param.key] = Boolean(rawValue);
       } else {
         const strVal = String(rawValue);
@@ -203,9 +197,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         }
       }
 
-      const paramsToStore = Object.keys(nextParams).length
-        ? nextParams
-        : undefined;
+      const paramsToStore = Object.keys(nextParams).length ? nextParams : undefined;
 
       return {
         ...inst,
@@ -216,23 +208,18 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     onChangeIndicators(nextIndicators);
   };
 
-  const handlePreviewIndicator = (
-    instanceKey: string,
-    inst: IndicatorInstance
-  ) => {
+  const handlePreviewIndicator = (instanceKey: string, inst: IndicatorInstance) => {
     const ctx: IndicatorRuntimeContext = {
-      symbol: "MOCK",
-      timeframe: "1d",
+      symbol: 'MOCK',
+      timeframe: '1d',
     };
 
     const result = computeIndicatorSeries(inst, MOCK_DAILY_BARS, ctx);
     const numericValues = result.values.filter(
-      (v): v is number => typeof v === "number" && Number.isFinite(v)
+      (v): v is number => typeof v === 'number' && Number.isFinite(v),
     );
 
-    const last = numericValues.length
-      ? numericValues[numericValues.length - 1]
-      : null;
+    const last = numericValues.length ? numericValues[numericValues.length - 1] : null;
     const min = numericValues.length ? Math.min(...numericValues) : null;
     const max = numericValues.length ? Math.max(...numericValues) : null;
 
@@ -251,12 +238,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
   /**
    * Render sparkline; size = "small" (inline) or "large" (modal).
    */
-  const renderSparkline = (
-    preview: PreviewSnapshot,
-    size: "small" | "large" = "small"
-  ) => {
-    const width = size === "large" ? 320 : 180;
-    const height = size === "large" ? 120 : 50;
+  const renderSparkline = (preview: PreviewSnapshot, size: 'small' | 'large' = 'small') => {
+    const width = size === 'large' ? 320 : 180;
+    const height = size === 'large' ? 120 : 50;
     const padding = 5;
 
     const rawValues = preview.values;
@@ -265,11 +249,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       .filter((v): v is number => Number.isFinite(v));
 
     if (numericValues.length < 2) {
-      return (
-        <div className="text-[10px] text-slate-500">
-          Not enough data to preview yet.
-        </div>
-      );
+      return <div className="text-[10px] text-slate-500">Not enough data to preview yet.</div>;
     }
 
     let min = preview.min ?? Math.min(...numericValues);
@@ -283,9 +263,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     const usableHeight = height - padding * 2;
 
     const scaleX = (index: number, length: number) =>
-      length <= 1
-        ? padding + usableWidth / 2
-        : padding + (index / (length - 1)) * usableWidth;
+      length <= 1 ? padding + usableWidth / 2 : padding + (index / (length - 1)) * usableWidth;
 
     const scaleY = (value: number) => {
       const t = (value - min) / (max - min);
@@ -293,12 +271,10 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       return padding + (1 - clamped) * usableHeight;
     };
 
-    const valuesForPath = rawValues.map((v) =>
-      v == null ? null : Number(v)
-    );
+    const valuesForPath = rawValues.map((v) => (v == null ? null : Number(v)));
 
     const buildLinePath = () => {
-      let d = "";
+      let d = '';
       for (let i = 0; i < valuesForPath.length; i++) {
         const v = valuesForPath[i];
         if (v == null || !Number.isFinite(v)) continue;
@@ -306,40 +282,28 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
         const y = scaleY(v);
         d += d ? ` L ${x} ${y}` : `M ${x} ${y}`;
       }
-      return d || "M 0 0";
+      return d || 'M 0 0';
     };
 
     const outputType = preview.outputType;
 
-    if (outputType === "regime") {
+    if (outputType === 'regime') {
       const regimeColors: Record<number, string> = {
-        0: "#38bdf8", // quiet
-        1: "#22c55e", // normal
-        2: "#eab308", // expanding
-        3: "#f97316", // crisis
+        0: '#38bdf8', // quiet
+        1: '#22c55e', // normal
+        2: '#eab308', // expanding
+        3: '#f97316', // crisis
       };
 
-      const segmentWidth =
-        usableWidth / Math.max(1, valuesForPath.length);
+      const segmentWidth = usableWidth / Math.max(1, valuesForPath.length);
 
       return (
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          <rect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            fill="#020617"
-            rx={4}
-          />
+        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+          <rect x={0} y={0} width={width} height={height} fill="#020617" rx={4} />
           {valuesForPath.map((v, i) => {
             if (v == null || !Number.isFinite(v)) return null;
             const code = Math.round(v);
-            const color = regimeColors[code] ?? "#64748b";
+            const color = regimeColors[code] ?? '#64748b';
             const x = padding + i * segmentWidth;
             return (
               <rect
@@ -367,29 +331,13 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       );
     }
 
-    if (outputType === "binary") {
+    if (outputType === 'binary') {
       const path = buildLinePath();
 
       return (
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          <rect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            fill="#020617"
-            rx={4}
-          />
-          <path
-            d={path}
-            fill="none"
-            stroke="#38bdf8"
-            strokeWidth={1.4}
-          />
+        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+          <rect x={0} y={0} width={width} height={height} fill="#020617" rx={4} />
+          <path d={path} fill="none" stroke="#38bdf8" strokeWidth={1.4} />
           {valuesForPath.map((v, i) => {
             if (v == null || !Number.isFinite(v)) return null;
             const x = scaleX(i, valuesForPath.length);
@@ -420,7 +368,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       );
     }
 
-    if (outputType === "score") {
+    if (outputType === 'score') {
       const path = buildLinePath();
 
       const midValue = (min + max) / 2;
@@ -428,19 +376,8 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
       const bandHeight = usableHeight * 0.16;
 
       return (
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          <rect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            fill="#020617"
-            rx={4}
-          />
+        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+          <rect x={0} y={0} width={width} height={height} fill="#020617" rx={4} />
           <rect
             x={padding}
             width={usableWidth}
@@ -458,12 +395,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
             strokeDasharray="3 3"
             strokeWidth={0.8}
           />
-          <path
-            d={path}
-            fill="none"
-            stroke="#fbbf24"
-            strokeWidth={1.4}
-          />
+          <path d={path} fill="none" stroke="#fbbf24" strokeWidth={1.4} />
           <rect
             x={padding}
             y={padding}
@@ -482,25 +414,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
     const path = buildLinePath();
 
     return (
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <rect
-          x={0}
-          y={0}
-          width={width}
-          height={height}
-          fill="#020617"
-          rx={4}
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke="#38bdf8"
-          strokeWidth={1.4}
-        />
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <rect x={0} y={0} width={width} height={height} fill="#020617" rx={4} />
+        <path d={path} fill="none" stroke="#38bdf8" strokeWidth={1.4} />
         <rect
           x={padding}
           y={padding}
@@ -541,10 +457,8 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
             </button>
           </div>
           <div className="text-[11px] text-slate-500">
-            Attached to idea:{" "}
-            <span className="font-semibold text-slate-200">
-              {ideaName ?? "no idea selected"}
-            </span>
+            Attached to idea:{' '}
+            <span className="font-semibold text-slate-200">{ideaName ?? 'no idea selected'}</span>
           </div>
         </div>
 
@@ -615,7 +529,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                       )}
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      {def?.category ?? "Uncategorized"}
+                      {def?.category ?? 'Uncategorized'}
                     </div>
                   </div>
 
@@ -623,7 +537,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => moveIndicator(index, "up")}
+                        onClick={() => moveIndicator(index, 'up')}
                         disabled={index === 0}
                         className="px-1.5 py-0.5 text-[10px] rounded border border-slate-700 text-slate-300 disabled:opacity-40 hover:bg-slate-800"
                       >
@@ -631,7 +545,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => moveIndicator(index, "down")}
+                        onClick={() => moveIndicator(index, 'down')}
                         disabled={index === indicators.length - 1}
                         className="px-1.5 py-0.5 text-[10px] rounded border border-slate-700 text-slate-300 disabled:opacity-40 hover:bg-slate-800"
                       >
@@ -670,7 +584,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         checked={inst.enabled}
                         onChange={() => handleToggleEnabled(index)}
                       />
-                      <span>{inst.enabled ? "On" : "Off"}</span>
+                      <span>{inst.enabled ? 'On' : 'Off'}</span>
                     </label>
                     <button
                       type="button"
@@ -686,13 +600,9 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                   <div className="mb-2 text-[11px] text-slate-300">
                     <div className="font-semibold">
                       {def.name}
-                      <span className="ml-2 text-[10px] text-slate-500">
-                        ({def.category})
-                      </span>
+                      <span className="ml-2 text-[10px] text-slate-500">({def.category})</span>
                     </div>
-                    {def.summary && (
-                      <div className="text-slate-400">{def.summary}</div>
-                    )}
+                    {def.summary && <div className="text-slate-400">{def.summary}</div>}
                     {infoOpen[index] && def.description && (
                       <div className="mt-1 text-[11px] text-slate-400 leading-snug">
                         {def.description}
@@ -706,7 +616,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     {def.params.map((param) => {
                       const currentValue = inst.params?.[param.key];
 
-                      if (param.type === "number") {
+                      if (param.type === 'number') {
                         return (
                           <div key={param.key} className="space-y-1">
                             <label className="block text-[11px] font-semibold text-slate-300">
@@ -715,28 +625,20 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                             <input
                               type="number"
                               className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                              value={
-                                currentValue === undefined
-                                  ? ""
-                                  : String(currentValue)
-                              }
-                              onChange={(e) =>
-                                handleParamChange(index, param, e.target.value)
-                              }
+                              value={currentValue === undefined ? '' : String(currentValue)}
+                              onChange={(e) => handleParamChange(index, param, e.target.value)}
                               min={param.min}
                               max={param.max}
                               step={param.step ?? 1}
                             />
                             {param.helperText && (
-                              <p className="text-[10px] text-slate-500">
-                                {param.helperText}
-                              </p>
+                              <p className="text-[10px] text-slate-500">{param.helperText}</p>
                             )}
                           </div>
                         );
                       }
 
-                      if (param.type === "select") {
+                      if (param.type === 'select') {
                         return (
                           <div key={param.key} className="space-y-1">
                             <label className="block text-[11px] font-semibold text-slate-300">
@@ -744,14 +646,8 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                             </label>
                             <select
                               className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                              value={
-                                currentValue === undefined
-                                  ? ""
-                                  : String(currentValue)
-                              }
-                              onChange={(e) =>
-                                handleParamChange(index, param, e.target.value)
-                              }
+                              value={currentValue === undefined ? '' : String(currentValue)}
+                              onChange={(e) => handleParamChange(index, param, e.target.value)}
                             >
                               <option value="">Select…</option>
                               {param.options?.map((opt) => (
@@ -761,9 +657,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                               ))}
                             </select>
                             {param.helperText && (
-                              <p className="text-[10px] text-slate-500">
-                                {param.helperText}
-                              </p>
+                              <p className="text-[10px] text-slate-500">{param.helperText}</p>
                             )}
                           </div>
                         );
@@ -777,9 +671,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                           <input
                             type="checkbox"
                             checked={Boolean(currentValue)}
-                            onChange={(e) =>
-                              handleParamChange(index, param, e.target.checked)
-                            }
+                            onChange={(e) => handleParamChange(index, param, e.target.checked)}
                           />
                           {param.label}
                         </label>
@@ -800,11 +692,11 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                     <textarea
                       className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 min-h-[60px]"
                       placeholder="What did you notice about this indicator for this idea?"
-                      value={(inst as any).notes ?? ""}
+                      value={(inst as any).notes ?? ''}
                       onChange={(e) => {
                         const nextNotes = e.target.value;
                         const nextList = indicators.map((ind, idx) =>
-                          idx === index ? { ...ind, notes: nextNotes } : ind
+                          idx === index ? { ...ind, notes: nextNotes } : ind,
                         );
                         onChangeIndicators(nextList);
                       }}
@@ -819,21 +711,12 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                         Preview ({preview.outputType})
                       </span>
                       <span className="text-slate-400">
-                        Last:{" "}
-                        {preview.last != null
-                          ? preview.last.toFixed(3)
-                          : "—"}
-                        {" · "}Min:{" "}
-                        {preview.min != null
-                          ? preview.min.toFixed(3)
-                          : "—"}
-                        {" · "}Max:{" "}
-                        {preview.max != null
-                          ? preview.max.toFixed(3)
-                          : "—"}
+                        Last: {preview.last != null ? preview.last.toFixed(3) : '—'}
+                        {' · '}Min: {preview.min != null ? preview.min.toFixed(3) : '—'}
+                        {' · '}Max: {preview.max != null ? preview.max.toFixed(3) : '—'}
                       </span>
                     </div>
-                    <div>{renderSparkline(preview, "small")}</div>
+                    <div>{renderSparkline(preview, 'small')}</div>
                   </div>
                 )}
               </div>
@@ -848,9 +731,7 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
           <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-[95%] max-w-2xl shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <div className="space-y-0.5">
-                <div className="text-sm font-semibold text-slate-200">
-                  Indicator Preview
-                </div>
+                <div className="text-sm font-semibold text-slate-200">Indicator Preview</div>
                 <div className="text-[11px] text-slate-400">
                   Larger sparkline preview for this indicator.
                 </div>
@@ -868,25 +749,25 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                 Output type: {previewById[modalPreviewKey].outputType}
               </span>
               <span className="ml-2 text-slate-400">
-                Last:{" "}
+                Last:{' '}
                 {previewById[modalPreviewKey].last != null
                   ? previewById[modalPreviewKey].last!.toFixed(3)
-                  : "—"}
-                {" · "}
-                Min:{" "}
+                  : '—'}
+                {' · '}
+                Min:{' '}
                 {previewById[modalPreviewKey].min != null
                   ? previewById[modalPreviewKey].min!.toFixed(3)
-                  : "—"}
-                {" · "}
-                Max:{" "}
+                  : '—'}
+                {' · '}
+                Max:{' '}
                 {previewById[modalPreviewKey].max != null
                   ? previewById[modalPreviewKey].max!.toFixed(3)
-                  : "—"}
+                  : '—'}
               </span>
             </div>
 
             <div className="border border-slate-800 rounded-md bg-slate-950/60 p-3">
-              {renderSparkline(previewById[modalPreviewKey], "large")}
+              {renderSparkline(previewById[modalPreviewKey], 'large')}
             </div>
           </div>
         </div>
@@ -910,12 +791,10 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
 
             <div className="space-y-3 text-[11px] text-slate-300 leading-relaxed">
               <div>
-                <div className="font-semibold text-sky-300 mb-1">
-                  Numeric (blue line)
-                </div>
+                <div className="font-semibold text-sky-300 mb-1">Numeric (blue line)</div>
                 <p>
-                  Standard indicator output like moving averages, Z-Score, or sOBV
-                  trend. Look for slope, stability, breakouts, and peaks/valleys.
+                  Standard indicator output like moving averages, Z-Score, or sOBV trend. Look for
+                  slope, stability, breakouts, and peaks/valleys.
                 </p>
               </div>
 
@@ -924,45 +803,36 @@ const IndicatorBuilderPanel: React.FC<IndicatorBuilderPanelProps> = ({
                   Score (green band + midline)
                 </div>
                 <p>
-                  Scores typically range from -1 to +1 or 0 to 100. Crossing the
-                  midline shows bias flipping from bearish to bullish (or
-                  the opposite). Clustering near extremes hints at strong
-                  conviction.
+                  Scores typically range from -1 to +1 or 0 to 100. Crossing the midline shows bias
+                  flipping from bearish to bullish (or the opposite). Clustering near extremes hints
+                  at strong conviction.
                 </p>
               </div>
 
               <div>
-                <div className="font-semibold text-amber-300 mb-1">
-                  Regime (colored strips)
-                </div>
+                <div className="font-semibold text-amber-300 mb-1">Regime (colored strips)</div>
                 <p>
-                  Regime previews encode quiet / normal / expanding / crisis
-                  states as color bands. Rapid regime changes often precede
-                  volatility expansions. Stable colors mean a consistent
-                  environment.
+                  Regime previews encode quiet / normal / expanding / crisis states as color bands.
+                  Rapid regime changes often precede volatility expansions. Stable colors mean a
+                  consistent environment.
                 </p>
               </div>
 
               <div>
-                <div className="font-semibold text-rose-300 mb-1">
-                  Binary (dots or steps)
-                </div>
+                <div className="font-semibold text-rose-300 mb-1">Binary (dots or steps)</div>
                 <p>
-                  Binary indicators show simple on/off states. Use them as
-                  filters or triggers: clusters of "on" can mark high
-                  conviction zones, scattered signals can indicate noise.
+                  Binary indicators show simple on/off states. Use them as filters or triggers:
+                  clusters of "on" can mark high conviction zones, scattered signals can indicate
+                  noise.
                 </p>
               </div>
 
               <div>
-                <div className="font-semibold text-indigo-300 mb-1">
-                  Multi-Series (future)
-                </div>
+                <div className="font-semibold text-indigo-300 mb-1">Multi-Series (future)</div>
                 <p>
-                  Some indicators output multiple series (bands, envelopes,
-                  ranges). These appear as stacked micro-bands in the preview
-                  so you can see compression, expansion, and where price sits
-                  inside the band.
+                  Some indicators output multiple series (bands, envelopes, ranges). These appear as
+                  stacked micro-bands in the preview so you can see compression, expansion, and
+                  where price sits inside the band.
                 </p>
               </div>
             </div>

@@ -6,10 +6,10 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
-
 # ---------------------------------------------------------------------------
 # Data sources (for Dev Tools + DataHub)
 # ---------------------------------------------------------------------------
+
 
 class DataSourceStatus(BaseModel):
     id: str
@@ -32,6 +32,7 @@ class DataSourceTestResponse(BaseModel):
 # Polygon OHLCV demo
 # ---------------------------------------------------------------------------
 
+
 class PriceBarDTO(BaseModel):
     time: str  # ISO string
     open: float
@@ -51,6 +52,7 @@ class PriceBarDTO(BaseModel):
 # ---------------------------------------------------------------------------
 # FMP universe
 # ---------------------------------------------------------------------------
+
 
 class UniverseIngestResult(BaseModel):
     source: str  # "fmp"
@@ -93,6 +95,7 @@ class UniverseBrowseResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # EODHD window ingest + job status
 # ---------------------------------------------------------------------------
+
 
 class EodhdIngestResponse(BaseModel):
     requested_start: str

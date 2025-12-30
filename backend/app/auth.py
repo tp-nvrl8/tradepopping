@@ -1,10 +1,12 @@
 # backend/app/auth.py
-from fastapi import HTTPException, Request
-from typing import Dict
 import os
+from typing import Dict
+
+from fastapi import HTTPException, Request
 
 ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")
 ACTIVE_TOKENS: set[str] = set()
+
 
 def get_current_user(request: Request) -> Dict:
     auth = request.headers.get("Authorization")

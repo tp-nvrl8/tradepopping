@@ -8,10 +8,9 @@ from typing import Any, Dict, List, Optional, Set
 
 import duckdb
 import requests
+from app.auth import get_current_user
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-
-from app.auth import get_current_user
 
 router = APIRouter(tags=["datalake-fmp"])
 
@@ -26,6 +25,7 @@ def _get_conn() -> duckdb.DuckDBPyConnection:
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class FmpUniverseSummary(BaseModel):
     total_symbols: int
@@ -52,6 +52,7 @@ class FmpUniverseIngestRequest(BaseModel):
     NOTE: FMP playground expects literal "true"/"false" for includeAllShareClasses,
     so we model it as a string.
     """
+
     min_market_cap: int = Field(0, ge=0)
     max_market_cap: Optional[int] = Field(None, ge=0)
 
@@ -79,6 +80,7 @@ class FmpUniverseIngestResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Summary endpoint (used by FmpUniverseSection)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/datalake/fmp/universe/summary", response_model=FmpUniverseSummary)
 async def get_fmp_universe_summary(
@@ -139,6 +141,7 @@ async def get_fmp_universe_summary(
 # ---------------------------------------------------------------------------
 # Schema + ingest
 # ---------------------------------------------------------------------------
+
 
 def _ensure_symbol_universe_schema(con: duckdb.DuckDBPyConnection) -> None:
     """
@@ -257,7 +260,8 @@ def _shape_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     is_fund = bool(
         row.get("isFund")
         or row.get("fund", False)
-        or row_type in {
+        or row_type
+        in {
             "fund",
             "mutual fund",
             "open-end fund",

@@ -1,10 +1,10 @@
-import React from "react";
-import type { IndicatorOutputType } from "../lab/indicatorCatalog";
-import type { IdeaIndicatorMatrix } from "../indicators/ideaIndicatorMatrix";
+import React from 'react';
+import type { IndicatorOutputType } from '../lab/indicatorCatalog';
+import type { IdeaIndicatorMatrix } from '../indicators/ideaIndicatorMatrix';
 
 // Helper type for sparkline previews in Test Stand
 type IndicatorPreviewSnapshot = {
-  outputType: "numeric" | "score" | "regime" | "binary" | "custom";
+  outputType: 'numeric' | 'score' | 'regime' | 'binary' | 'custom';
   values: (number | null)[];
   last: number | null;
   min: number | null;
@@ -17,12 +17,10 @@ function makeIndicatorPreviewSnapshot(result: {
   values: (number | null)[];
 }): IndicatorPreviewSnapshot {
   const numericValues = result.values.filter(
-    (v): v is number => typeof v === "number" && Number.isFinite(v)
+    (v): v is number => typeof v === 'number' && Number.isFinite(v),
   );
 
-  const last = numericValues.length
-    ? numericValues[numericValues.length - 1]
-    : null;
+  const last = numericValues.length ? numericValues[numericValues.length - 1] : null;
   const min = numericValues.length ? Math.min(...numericValues) : null;
   const max = numericValues.length ? Math.max(...numericValues) : null;
 
@@ -47,11 +45,7 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
     .filter((v): v is number => Number.isFinite(v));
 
   if (numericValues.length < 2) {
-    return (
-      <div className="text-[11px] text-slate-500">
-        Not enough data to preview yet.
-      </div>
-    );
+    return <div className="text-[11px] text-slate-500">Not enough data to preview yet.</div>;
   }
 
   let min = preview.min ?? Math.min(...numericValues);
@@ -65,9 +59,7 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
   const usableHeight = height - padding * 2;
 
   const scaleX = (index: number, length: number) =>
-    length <= 1
-      ? padding + usableWidth / 2
-      : padding + (index / (length - 1)) * usableWidth;
+    length <= 1 ? padding + usableWidth / 2 : padding + (index / (length - 1)) * usableWidth;
 
   const scaleY = (value: number) => {
     const t = (value - min) / (max - min);
@@ -75,12 +67,10 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
     return padding + (1 - clamped) * usableHeight;
   };
 
-  const valuesForPath = rawValues.map((v) =>
-    v == null ? null : Number(v)
-  );
+  const valuesForPath = rawValues.map((v) => (v == null ? null : Number(v)));
 
   const buildLinePath = () => {
-    let d = "";
+    let d = '';
     for (let i = 0; i < valuesForPath.length; i++) {
       const v = valuesForPath[i];
       if (v == null || !Number.isFinite(v)) continue;
@@ -88,41 +78,29 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
       const y = scaleY(v);
       d += d ? ` L ${x} ${y}` : `M ${x} ${y}`;
     }
-    return d || "M 0 0";
+    return d || 'M 0 0';
   };
 
   const outputType = preview.outputType;
 
   // Regime: color-coded bands (quiet/normal/expanding/crisis)
-  if (outputType === "regime") {
+  if (outputType === 'regime') {
     const regimeColors: Record<number, string> = {
-      0: "#38bdf8", // quiet
-      1: "#22c55e", // normal
-      2: "#eab308", // expanding
-      3: "#f97316", // crisis / strong move
+      0: '#38bdf8', // quiet
+      1: '#22c55e', // normal
+      2: '#eab308', // expanding
+      3: '#f97316', // crisis / strong move
     };
 
-    const segmentWidth =
-      usableWidth / Math.max(1, valuesForPath.length);
+    const segmentWidth = usableWidth / Math.max(1, valuesForPath.length);
 
     return (
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <rect
-          x={0}
-          y={0}
-          width={width}
-          height={height}
-          fill="#020617"
-          rx={6}
-        />
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <rect x={0} y={0} width={width} height={height} fill="#020617" rx={6} />
         {valuesForPath.map((v, i) => {
           if (v == null || !Number.isFinite(v)) return null;
           const code = Math.round(v);
-          const color = regimeColors[code] ?? "#64748b";
+          const color = regimeColors[code] ?? '#64748b';
           const x = padding + i * segmentWidth;
           return (
             <rect
@@ -151,29 +129,13 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
   }
 
   // Binary: thicker line + dots
-  if (outputType === "binary") {
+  if (outputType === 'binary') {
     const path = buildLinePath();
 
     return (
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <rect
-          x={0}
-          y={0}
-          width={width}
-          height={height}
-          fill="#020617"
-          rx={6}
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke="#38bdf8"
-          strokeWidth={2}
-        />
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <rect x={0} y={0} width={width} height={height} fill="#020617" rx={6} />
+        <path d={path} fill="none" stroke="#38bdf8" strokeWidth={2} />
         {valuesForPath.map((v, i) => {
           if (v == null || !Number.isFinite(v)) return null;
           const x = scaleX(i, valuesForPath.length);
@@ -205,7 +167,7 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
   }
 
   // Score: thick line + mid band
-  if (outputType === "score") {
+  if (outputType === 'score') {
     const path = buildLinePath();
 
     const midValue = (min + max) / 2;
@@ -213,19 +175,8 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
     const bandHeight = usableHeight * 0.18;
 
     return (
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <rect
-          x={0}
-          y={0}
-          width={width}
-          height={height}
-          fill="#020617"
-          rx={6}
-        />
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <rect x={0} y={0} width={width} height={height} fill="#020617" rx={6} />
         <rect
           x={padding}
           width={usableWidth}
@@ -243,12 +194,7 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
           strokeDasharray="4 3"
           strokeWidth={1}
         />
-        <path
-          d={path}
-          fill="none"
-          stroke="#fbbf24"
-          strokeWidth={2}
-        />
+        <path d={path} fill="none" stroke="#fbbf24" strokeWidth={2} />
         <rect
           x={padding}
           y={padding}
@@ -267,25 +213,9 @@ function renderTestStandSparkline(preview: IndicatorPreviewSnapshot) {
   const path = buildLinePath();
 
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-    >
-      <rect
-        x={0}
-        y={0}
-        width={width}
-        height={height}
-        fill="#020617"
-        rx={6}
-      />
-      <path
-        d={path}
-        fill="none"
-        stroke="#38bdf8"
-        strokeWidth={2}
-      />
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <rect x={0} y={0} width={width} height={height} fill="#020617" rx={6} />
+      <path d={path} fill="none" stroke="#38bdf8" strokeWidth={2} />
       <rect
         x={padding}
         y={padding}
@@ -309,12 +239,9 @@ const TestStandPanel: React.FC<TestStandPanelProps> = ({ matrix }) => {
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">
-            Indicator previews
-          </h2>
+          <h2 className="text-lg font-semibold text-slate-100">Indicator previews</h2>
           <p className="text-sm text-slate-400">
-            Quick glance at this idea&apos;s indicator stack played through the mock
-            daily series.
+            Quick glance at this idea&apos;s indicator stack played through the mock daily series.
           </p>
         </div>
         <div className="text-[11px] text-slate-500 text-right">
@@ -330,8 +257,8 @@ const TestStandPanel: React.FC<TestStandPanelProps> = ({ matrix }) => {
           </div>
         ) : matrix.rows.length === 0 ? (
           <div className="text-[11px] text-slate-500">
-            This idea has no indicators attached yet. Add indicators in the Strategy Lab
-            Indicator Builder.
+            This idea has no indicators attached yet. Add indicators in the Strategy Lab Indicator
+            Builder.
           </div>
         ) : (
           <div className="space-y-3">
@@ -365,34 +292,21 @@ const TestStandPanel: React.FC<TestStandPanelProps> = ({ matrix }) => {
                         )}
                       </div>
                       <div className="text-[11px] text-slate-400">
-                        {def?.category ?? "Uncategorized"}
+                        {def?.category ?? 'Uncategorized'}
                       </div>
                     </div>
 
                     <div className="text-[11px] text-slate-400 text-right">
+                      <div>Last: {preview.last != null ? preview.last.toFixed(3) : '—'}</div>
                       <div>
-                        Last:{" "}
-                        {preview.last != null
-                          ? preview.last.toFixed(3)
-                          : "—"}
-                      </div>
-                      <div>
-                        Min:{" "}
-                        {preview.min != null
-                          ? preview.min.toFixed(3)
-                          : "—"}{" "}
-                        · Max:{" "}
-                        {preview.max != null
-                          ? preview.max.toFixed(3)
-                          : "—"}
+                        Min: {preview.min != null ? preview.min.toFixed(3) : '—'} · Max:{' '}
+                        {preview.max != null ? preview.max.toFixed(3) : '—'}
                       </div>
                     </div>
                   </div>
 
                   {/* Full-width sparkline */}
-                  <div className="mt-1">
-                    {renderTestStandSparkline(preview)}
-                  </div>
+                  <div className="mt-1">{renderTestStandSparkline(preview)}</div>
 
                   {/* Optional description below chart */}
                   {def && (def.summary || def.description) && (

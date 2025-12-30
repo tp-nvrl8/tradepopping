@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 
-const DEFAULT_SCOPE = "tp_token";
+const DEFAULT_SCOPE = 'tp_token';
 
 /**
  * Simple hook to read/write a token in localStorage.
@@ -8,12 +8,12 @@ const DEFAULT_SCOPE = "tp_token";
  */
 export function useScopedTokens(scope: string = DEFAULT_SCOPE) {
   const [token, setTokenState] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === 'undefined') return null;
     return window.localStorage.getItem(scope);
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     const stored = window.localStorage.getItem(scope);
     if (stored !== token) {
       setTokenState(stored);
@@ -21,7 +21,7 @@ export function useScopedTokens(scope: string = DEFAULT_SCOPE) {
   }, [scope]);
 
   const setToken = (value: string | null) => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     if (value === null) {
       window.localStorage.removeItem(scope);
       setTokenState(null);

@@ -1,23 +1,23 @@
-from fastapi import FastAPI, HTTPException, Depends, Request
-from pydantic import BaseModel
 import os
 import secrets
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from pydantic import BaseModel
+
 from .config import CONFIG
 
 app = FastAPI(title="TradePopping Backend")
 
-# Register routers
-from .routes import lab  # noqa: E402
-from .routes import datahub_bars  # noqa: E402
-from .routes import datalake_fmp
-from .routes import datalake_bars
-from .routes import datalake_eodhd  # noqa: E402
+from app.auth import ACTIVE_TOKENS, get_current_user
 from app.routes import datalake_universe
 
-
-from app.auth import get_current_user, ACTIVE_TOKENS
+# Register routers
+from .routes import datahub_bars  # noqa: E402
+from .routes import datalake_eodhd  # noqa: E402
+from .routes import lab  # noqa: E402
+from .routes import datalake_bars, datalake_fmp
 
 app.include_router(lab.router, prefix="/api/lab")
 app.include_router(datahub_bars.router, prefix="/api")
@@ -31,24 +31,27 @@ ALLOWED_EMAIL = os.getenv("TP_ALLOWED_EMAIL")
 ENTRY_CODE = os.getenv("TP_ENTRY_CODE")
 
 print(
-    f"[AUTH CONFIG] TP_ALLOWED_EMAIL={ALLOWED_EMAIL!r}, "
-    f"TP_ENTRY_CODE set={bool(ENTRY_CODE)}",
+    f"[AUTH CONFIG] TP_ALLOWED_EMAIL={ALLOWED_EMAIL!r}, " f"TP_ENTRY_CODE set={bool(ENTRY_CODE)}",
     flush=True,
 )
+
 
 # --- MODELS ---
 class LoginRequest(BaseModel):
     email: str
     code: str
 
+
 class LoginResponse(BaseModel):
     token: str
     email: str
+
 
 class UserSettings(BaseModel):
     theme: str = "dark"
     default_app: str = "lab"
     show_experimental_features: bool = False
+
 
 class DataSourceStatus(BaseModel):
     id: str
@@ -58,14 +61,17 @@ class DataSourceStatus(BaseModel):
     last_success: Optional[datetime] = None
     last_error: Optional[str] = None
 
+
 class DataIngestStatus(BaseModel):
     id: str
     state: str
     last_run: Optional[datetime] = None
     last_error: Optional[str] = None
 
+
 class DataSourceTestRequest(BaseModel):
     source_id: str
+
 
 class DataSourceTestResponse(BaseModel):
     id: str
@@ -74,21 +80,27 @@ class DataSourceTestResponse(BaseModel):
     has_api_key: bool
     message: str
 
+
 USER_SETTINGS_STORE: dict[str, UserSettings] = {}
+
 
 # --- BASIC ROUTES ---
 @app.get("/")
 def root():
     return {"message": "TradePopping backend is alive"}
 
+
 @app.get("/health")
 def health():
     env = os.getenv("API_ENV", "unknown")
     return {"status": "ok", "environment": env}
 
+
 @app.get("/api/health", include_in_schema=False)
 def api_health():
     return health()
+
+
 class AppConfig(BaseModel):
     environment: str
     version: str
@@ -104,6 +116,7 @@ def get_config():
         version=CONFIG.app_version,
     )
 
+
 DATA_SOURCES = [
     {"id": "polygon", "name": "Polygon.io", "env_key": "POLYGON_API_KEY"},
     {"id": "fmp", "name": "Financial Modeling Prep", "env_key": "FMP_API_KEY"},
@@ -115,6 +128,7 @@ DATA_SOURCES = [
         "env_key": "EODHD_API_TOKEN",
     },
 ]
+
 
 # --- DATA SOURCE HELPERS ---
 def build_data_source_status() -> List[DataSourceStatus]:
@@ -131,6 +145,7 @@ def build_data_source_status() -> List[DataSourceStatus]:
         )
     return statuses
 
+
 def build_data_ingest_status() -> List[DataIngestStatus]:
     statuses = []
     for src in DATA_SOURCES:
@@ -138,6 +153,7 @@ def build_data_ingest_status() -> List[DataIngestStatus]:
             DataIngestStatus(id=src["id"], state="idle", last_run=None, last_error=None)
         )
     return statuses
+
 
 # --- AUTH ENDPOINTS ---
 @app.post("/api/auth/login", response_model=LoginResponse)
@@ -150,6 +166,7 @@ def login(payload: LoginRequest):
     ACTIVE_TOKENS.add(token)
     return LoginResponse(token=token, email=payload.email)
 
+
 @app.post("/api/auth/logout")
 def logout(request: Request):
     auth = request.headers.get("Authorization")
@@ -158,6 +175,7 @@ def logout(request: Request):
     token = auth.split(" ", 1)[1]
     ACTIVE_TOKENS.discard(token)
     return {"detail": "Logged out"}
+
 
 @app.get("/api/auth/me")
 def auth_me(current_user: dict = Depends(get_current_user)):
@@ -168,24 +186,29 @@ def auth_me(current_user: dict = Depends(get_current_user)):
         "version": CONFIG.app_version,
     }
 
+
 # --- USER SETTINGS ---
 @app.get("/api/user/settings", response_model=UserSettings)
 def get_user_settings(current_user: dict = Depends(get_current_user)):
     return USER_SETTINGS_STORE.get(current_user["email"], UserSettings())
+
 
 @app.put("/api/user/settings", response_model=UserSettings)
 def update_user_settings(settings: UserSettings, current_user: dict = Depends(get_current_user)):
     USER_SETTINGS_STORE[current_user["email"]] = settings
     return settings
 
+
 # --- DATA SOURCE ROUTES ---
 @app.get("/api/data/sources", response_model=List[DataSourceStatus])
 def get_data_sources(current_user: dict = Depends(get_current_user)):
     return build_data_source_status()
 
+
 @app.get("/api/data/ingest/status", response_model=List[DataIngestStatus])
 def ingest_status(current_user: dict = Depends(get_current_user)):
     return build_data_ingest_status()
+
 
 @app.post("/api/data/sources/test", response_model=DataSourceTestResponse)
 def test_api_source(payload: DataSourceTestRequest, current_user: dict = Depends(get_current_user)):
@@ -209,14 +232,17 @@ def test_api_source(payload: DataSourceTestRequest, current_user: dict = Depends
         message="API key is present.",
     )
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=int(os.getenv("API_PORT", "8000")),
         reload=True,
     )
+
 
 @app.get("/api/debug/duckdb-path")
 def debug_duckdb_path(current_user: dict = Depends(get_current_user)):

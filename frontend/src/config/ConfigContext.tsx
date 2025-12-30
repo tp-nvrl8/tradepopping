@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 export type AppConfig = {
   app_name: string;
@@ -27,14 +27,14 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await fetch("/api/config");
+        const res = await fetch('/api/config');
         if (!res.ok) {
           throw new Error(`Config request failed: ${res.status}`);
         }
         const data = (await res.json()) as AppConfig;
         setConfig(data);
       } catch (err: any) {
-        setError(err.message || "Failed to load config");
+        setError(err.message || 'Failed to load config');
       } finally {
         setLoading(false);
       }
@@ -44,16 +44,14 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   return (
-    <ConfigContext.Provider value={{ config, loading, error }}>
-      {children}
-    </ConfigContext.Provider>
+    <ConfigContext.Provider value={{ config, loading, error }}>{children}</ConfigContext.Provider>
   );
 };
 
 export const useConfig = (): ConfigContextType => {
   const ctx = useContext(ConfigContext);
   if (!ctx) {
-    throw new Error("useConfig must be used within a ConfigProvider");
+    throw new Error('useConfig must be used within a ConfigProvider');
   }
   return ctx;
 };

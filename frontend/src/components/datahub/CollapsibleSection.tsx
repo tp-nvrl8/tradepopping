@@ -1,5 +1,5 @@
 // frontend/src/components/datahub/CollapsibleSection.tsx
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useState } from 'react';
 
 interface CollapsibleSectionProps {
   storageKey: string;
@@ -17,8 +17,8 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   const [open, setOpen] = useState<boolean>(() => {
     try {
       const raw = window.localStorage.getItem(storageKey);
-      if (raw === "true") return true;
-      if (raw === "false") return false;
+      if (raw === 'true') return true;
+      if (raw === 'false') return false;
       return defaultOpen;
     } catch {
       return defaultOpen;
@@ -44,12 +44,10 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         onClick={toggle}
         className="w-full flex items-center justify-between px-3 py-2 text-left"
       >
-        <span className="text-xs font-semibold uppercase tracking-wide text-yellow-200/70">
+        <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/70">
           {title}
         </span>
-        <span className="text-slate-400 text-xs font-mono">
-          {open ? "−" : "+"}
-        </span>
+        <span className="text-slate-400 text-xs font-mono">{open ? '−' : '+'}</span>
       </button>
       {open && <div className="px-3 pb-3 pt-1 space-y-2">{children}</div>}
     </section>

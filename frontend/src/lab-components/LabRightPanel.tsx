@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 interface LabRightPanelProps {
   open: boolean;
@@ -6,7 +6,7 @@ interface LabRightPanelProps {
 }
 
 const LabRightPanel: React.FC<LabRightPanelProps> = ({ open, onToggle }) => {
-  const widthClass = open ? "w-72" : "w-8";
+  const widthClass = open ? 'w-72' : 'w-8';
 
   return (
     <aside
@@ -28,33 +28,24 @@ const LabRightPanel: React.FC<LabRightPanelProps> = ({ open, onToggle }) => {
           {/* Body */}
           <div className="flex-1 overflow-y-auto px-3 py-2 text-xs space-y-3">
             <section className="border border-slate-800 rounded-lg p-2 bg-slate-900/40">
-              <h3 className="text-[11px] font-semibold text-slate-200 mb-1">
-                Idea Notes
-              </h3>
+              <h3 className="text-[11px] font-semibold text-slate-200 mb-1">Idea Notes</h3>
               <p className="text-slate-400">
-                This will store your written notes about the selected idea:
-                why it exists, what it&apos;s good at, and what you&apos;ve
-                learned.
+                This will store your written notes about the selected idea: why it exists, what
+                it&apos;s good at, and what you&apos;ve learned.
               </p>
             </section>
             <section className="border border-slate-800 rounded-lg p-2 bg-slate-900/40">
-              <h3 className="text-[11px] font-semibold text-slate-200 mb-1">
-                Future AI Copilot
-              </h3>
+              <h3 className="text-[11px] font-semibold text-slate-200 mb-1">Future AI Copilot</h3>
               <p className="text-slate-400">
-                Later, this panel can summarize idea performance, suggest
-                parameter tweaks, and highlight patterns in backtests and
-                candidates.
+                Later, this panel can summarize idea performance, suggest parameter tweaks, and
+                highlight patterns in backtests and candidates.
               </p>
             </section>
             <section className="border border-slate-800 rounded-lg p-2 bg-slate-900/40">
-              <h3 className="text-[11px] font-semibold text-slate-200 mb-1">
-                Status &amp; Tags
-              </h3>
+              <h3 className="text-[11px] font-semibold text-slate-200 mb-1">Status &amp; Tags</h3>
               <p className="text-slate-400">
-                This section will show or edit status (draft / active /
-                retired), strategy family, and tags like &quot;VCP&quot; or
-                &quot;Vanishing Float&quot; for the selected idea.
+                This section will show or edit status (draft / active / retired), strategy family,
+                and tags like &quot;VCP&quot; or &quot;Vanishing Float&quot; for the selected idea.
               </p>
             </section>
           </div>

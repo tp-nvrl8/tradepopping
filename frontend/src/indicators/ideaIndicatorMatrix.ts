@@ -1,16 +1,9 @@
 // src/indicators/ideaIndicatorMatrix.ts
 
-import type { LabIdea, IndicatorInstance } from "../lab/types";
-import type {
-  PriceBar,
-  IndicatorRuntimeContext,
-  IndicatorResult,
-} from "./indicatorRuntime";
-import { computeIndicatorSeries } from "./indicatorRuntime";
-import {
-  INDICATOR_CATALOG,
-  type IndicatorDefinition,
-} from "../lab/indicatorCatalog";
+import type { LabIdea, IndicatorInstance } from '../lab/types';
+import type { PriceBar, IndicatorRuntimeContext, IndicatorResult } from './indicatorRuntime';
+import { computeIndicatorSeries } from './indicatorRuntime';
+import { INDICATOR_CATALOG, type IndicatorDefinition } from '../lab/indicatorCatalog';
 
 /**
  * One row in the "idea indicator matrix":
@@ -38,9 +31,7 @@ export interface IdeaIndicatorMatrix {
 }
 
 /** Look up catalog definition by id. */
-function getDefinitionForInstance(
-  inst: IndicatorInstance
-): IndicatorDefinition | undefined {
+function getDefinitionForInstance(inst: IndicatorInstance): IndicatorDefinition | undefined {
   return INDICATOR_CATALOG.find((d) => d.id === inst.id);
 }
 
@@ -55,39 +46,36 @@ function getDefinitionForInstance(
 export function computeIdeaIndicatorMatrix(
   idea: LabIdea,
   bars: PriceBar[],
-  ctx: IndicatorRuntimeContext
+  ctx: IndicatorRuntimeContext,
 ): IdeaIndicatorMatrix {
-  const list: IndicatorInstance[] =
-    idea.indicators?.indicators ?? [];
+  const list: IndicatorInstance[] = idea.indicators?.indicators ?? [];
 
-  const rows: IdeaIndicatorInstanceResult[] = list.map(
-    (inst, index) => {
-      const definition = getDefinitionForInstance(inst);
+  const rows: IdeaIndicatorInstanceResult[] = list.map((inst, index) => {
+    const definition = getDefinitionForInstance(inst);
 
-      // You *can* skip disabled here if you want:
-      // if (!inst.enabled) {
-      //   return {
-      //     index,
-      //     instance: inst,
-      //     definition,
-      //     result: {
-      //       outputType: definition?.outputType ?? "numeric",
-      //       values: bars.map(() => null),
-      //       meta: { reason: "disabled" },
-      //     },
-      //   };
-      // }
+    // You *can* skip disabled here if you want:
+    // if (!inst.enabled) {
+    //   return {
+    //     index,
+    //     instance: inst,
+    //     definition,
+    //     result: {
+    //       outputType: definition?.outputType ?? "numeric",
+    //       values: bars.map(() => null),
+    //       meta: { reason: "disabled" },
+    //     },
+    //   };
+    // }
 
-      const result = computeIndicatorSeries(inst, bars, ctx);
+    const result = computeIndicatorSeries(inst, bars, ctx);
 
-      return {
-        index,
-        instance: inst,
-        definition,
-        result,
-      };
-    }
-  );
+    return {
+      index,
+      instance: inst,
+      definition,
+      result,
+    };
+  });
 
   return {
     ideaId: idea.meta.id,

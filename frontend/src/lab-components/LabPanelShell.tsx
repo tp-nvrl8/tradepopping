@@ -1,6 +1,6 @@
 // src/lab-components/LabPanelShell.tsx
-import React, { CSSProperties, ReactNode } from "react";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
+import React, { CSSProperties, ReactNode } from 'react';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
 
 interface LabPanelShellProps {
   title: string;
@@ -22,19 +22,15 @@ const LabPanelShell: React.FC<LabPanelShellProps> = ({
   open,
   onToggle,
   children,
-  containerClassName = "",
-  headerClassName = "",
-  bodyClassName = "",
+  containerClassName = '',
+  headerClassName = '',
+  bodyClassName = '',
   style,
 }) => {
-  const tokens = useUiScopedTokens([
-    "global",
-    "page:lab",
-    "region:lab:ideaBuilder",
-  ]);
+  const tokens = useUiScopedTokens(['global', 'page:lab', 'region:lab:ideaBuilder']);
 
   const mergedStyle = {
-    ...(title === "Idea Builder"
+    ...(title === 'Idea Builder'
       ? {
           background: tokens.surfaceMuted,
           borderColor: tokens.border,
@@ -57,17 +53,11 @@ const LabPanelShell: React.FC<LabPanelShellProps> = ({
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">
           {title}
         </span>
-        <span className="text-slate-400 text-sm">
-          {open ? "▾" : "▸"}
-        </span>
+        <span className="text-slate-400 text-sm">{open ? '▾' : '▸'}</span>
       </div>
 
       {/* Body */}
-      {open && (
-        <div className={`px-3 py-3 ${bodyClassName}`}>
-          {children}
-        </div>
-      )}
+      {open && <div className={`px-3 py-3 ${bodyClassName}`}>{children}</div>}
     </section>
   );
 };

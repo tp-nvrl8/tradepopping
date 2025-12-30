@@ -3,13 +3,12 @@
 from datetime import date
 from typing import List
 
+from app.datalake.bar_store import (
+    ingest_eodhd_window,
+    read_daily_bars,
+)
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-
-from app.datalake.bar_store import (
-    read_daily_bars,
-    ingest_eodhd_window,
-)
 
 router = APIRouter(
     tags=["datahub"],
@@ -18,6 +17,7 @@ router = APIRouter(
 
 class PriceBarOut(BaseModel):
     """Response model sent back to the frontend."""
+
     time: str
     open: float
     high: float

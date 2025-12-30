@@ -1,6 +1,7 @@
-from fastapi import APIRouter
-from typing import List
 import uuid
+from typing import List
+
+from fastapi import APIRouter
 
 from ..models.lab_idea import LabIdea
 

@@ -14,7 +14,7 @@ export interface DataSourceStatus {
 export interface DataSourceTestResponse {
   id: string;
   name: string;
-  status: "ok" | "error" | string;
+  status: 'ok' | 'error' | string;
   has_api_key: boolean;
   message: string;
 }
@@ -66,9 +66,10 @@ export interface UniverseBrowseResponse {
   page_size: number;
   symbols: UniverseRow[];
 }
+
 // ---------- EODHD ingest + job status ----------
 
-export type JobState = "running" | "succeeded" | "failed";
+export type JobState = 'running' | 'succeeded' | 'failed';
 
 export interface EodhdIngestResponse {
   requested_start: string;
@@ -97,4 +98,25 @@ export interface EodhdJobStatus {
   symbols_succeeded: number;
   symbols_failed: number;
   last_error: string | null;
+}
+
+// NEW: resumable full-history start response
+export interface EodhdResumableStartResponse {
+  job_id: string;
+  requested_start: string;
+  requested_end: string;
+  window_days: number;
+  queued_items: number;
+}
+
+// NEW: progress (queue counts)
+export interface EodhdJobProgress {
+  job_id: string;
+  state: JobState | string;
+  total: number;
+  pending: number;
+  running: number;
+  succeeded: number;
+  failed: number;
+  pct_complete: number;
 }

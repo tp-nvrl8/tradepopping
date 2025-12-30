@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from "react";
-import { useUiSettings } from "../config/UiSettingsContext";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
-import { UI_SCOPES, type UiScopeDefinition } from "../config/uiScopes";
-import type { UiScopeSettings } from "../config/UiSettingsTypes";
+import React, { useMemo, useState } from 'react';
+import { useUiSettings } from '../config/UiSettingsContext';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
+import { UI_SCOPES, type UiScopeDefinition } from '../config/uiScopes';
+import type { UiScopeSettings } from '../config/UiSettingsTypes';
 
 const SettingsPage: React.FC = () => {
   const {
@@ -19,40 +19,29 @@ const SettingsPage: React.FC = () => {
 
   // ---- Page + region selection ----
 
-  const pageScopes = useMemo(
-    () => UI_SCOPES.filter((s) => s.type === "page"),
-    []
-  );
+  const pageScopes = useMemo(() => UI_SCOPES.filter((s) => s.type === 'page'), []);
 
-  const [selectedPageId, setSelectedPageId] = useState<string>("page:lab");
+  const [selectedPageId, setSelectedPageId] = useState<string>('page:lab');
 
   const regionScopes = useMemo(
-    () =>
-      UI_SCOPES.filter(
-        (s) => s.type === "region" && s.parent === selectedPageId
-      ),
-    [selectedPageId]
+    () => UI_SCOPES.filter((s) => s.type === 'region' && s.parent === selectedPageId),
+    [selectedPageId],
   );
 
-  const [selectedRegionId, setSelectedRegionId] = useState<string | "none">(
-    "none"
-  );
+  const [selectedRegionId, setSelectedRegionId] = useState<string | 'none'>('none');
 
   // Active scope is either the selected region (if any) or the selected page.
   const activeScopeId: string =
-    selectedRegionId !== "none" && regionScopes.length > 0
-      ? selectedRegionId
-      : selectedPageId;
+    selectedRegionId !== 'none' && regionScopes.length > 0 ? selectedRegionId : selectedPageId;
 
   const activeScopeDef: UiScopeDefinition | undefined = UI_SCOPES.find(
-    (s) => s.id === activeScopeId
+    (s) => s.id === activeScopeId,
   );
 
-  const scopeSettings: UiScopeSettings | undefined =
-    getScopeSettings(activeScopeId);
+  const scopeSettings: UiScopeSettings | undefined = getScopeSettings(activeScopeId);
 
   const isCustomized = !!scopeSettings;
-  const borderOverride = scopeSettings?.overrides?.border ?? "";
+  const borderOverride = scopeSettings?.overrides?.border ?? '';
 
   const activeProfile = themeProfiles?.[activeThemeId];
   const baseTokens = activeProfile?.tokens ?? {};
@@ -70,7 +59,7 @@ const SettingsPage: React.FC = () => {
     updateScopeSettings(activeScopeId, (prev) => {
       if (prev) return prev;
       return {
-        themeId: "default",
+        themeId: 'default',
       };
     });
   };
@@ -78,7 +67,7 @@ const SettingsPage: React.FC = () => {
   const handleBorderOverrideChange = (value: string) => {
     updateScopeSettings(activeScopeId, (prev) => {
       const base: UiScopeSettings = prev ?? {
-        themeId: "default",
+        themeId: 'default',
       };
       const nextOverrides = { ...(base.overrides ?? {}) };
 
@@ -90,31 +79,20 @@ const SettingsPage: React.FC = () => {
 
       return {
         ...base,
-        overrides: Object.keys(nextOverrides).length
-          ? nextOverrides
-          : undefined,
+        overrides: Object.keys(nextOverrides).length ? nextOverrides : undefined,
       };
     });
   };
 
   const handleResetAll = () => {
-    if (
-      window.confirm(
-        "Reset all UI settings to defaults? This clears all custom scopes."
-      )
-    ) {
+    if (window.confirm('Reset all UI settings to defaults? This clears all custom scopes.')) {
       resetAll();
     }
   };
 
   const handleBaseTokenChange = (
-    key:
-      | "surface"
-      | "border"
-      | "accent"
-      | "textPrimary"
-      | "textSecondary",
-    value: string
+    key: 'surface' | 'border' | 'accent' | 'textPrimary' | 'textSecondary',
+    value: string,
   ) => {
     const trimmed = value.trim();
     if (!trimmed) return;
@@ -126,8 +104,8 @@ const SettingsPage: React.FC = () => {
   // ---- Live preview tokens ----
 
   const orderedScopesForPreview = useMemo(() => {
-    const scopes: string[] = ["global", selectedPageId];
-    if (selectedRegionId !== "none") {
+    const scopes: string[] = ['global', selectedPageId];
+    if (selectedRegionId !== 'none') {
       scopes.push(selectedRegionId);
     }
     return scopes;
@@ -141,8 +119,7 @@ const SettingsPage: React.FC = () => {
         <div>
           <h1 className="text-lg font-semibold">Lab UI Console</h1>
           <p className="text-[11px] text-slate-400">
-            Configure global defaults, per-page themes, and lab region
-            highlights.
+            Configure global defaults, per-page themes, and lab region highlights.
           </p>
         </div>
         <button
@@ -160,38 +137,30 @@ const SettingsPage: React.FC = () => {
               Base Lab Palette
             </h2>
             <p className="text-[11px] text-slate-500">
-              Global base colors used by all pages. Page and region overrides
-              sit on top of this.
+              Global base colors used by all pages. Page and region overrides sit on top of this.
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
-          {["surface", "border", "accent", "textPrimary", "textSecondary"].map(
-            (key) => (
-              <div key={key} className="space-y-1">
-                <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  {key}
-                </label>
-                <input
-                  type="text"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  value={(baseTokens as any)[key] ?? ""}
-                  onChange={(e) =>
-                    handleBaseTokenChange(
-                      key as
-                        | "surface"
-                        | "border"
-                        | "accent"
-                        | "textPrimary"
-                        | "textSecondary",
-                      e.target.value
-                    )
-                  }
-                  placeholder="#0b1220"
-                />
-              </div>
-            )
-          )}
+          {['surface', 'border', 'accent', 'textPrimary', 'textSecondary'].map((key) => (
+            <div key={key} className="space-y-1">
+              <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                {key}
+              </label>
+              <input
+                type="text"
+                className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                value={(baseTokens as any)[key] ?? ''}
+                onChange={(e) =>
+                  handleBaseTokenChange(
+                    key as 'surface' | 'border' | 'accent' | 'textPrimary' | 'textSecondary',
+                    e.target.value,
+                  )
+                }
+                placeholder="#0b1220"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -209,7 +178,7 @@ const SettingsPage: React.FC = () => {
             onChange={(e) => {
               const newPage = e.target.value;
               setSelectedPageId(newPage);
-              setSelectedRegionId("none");
+              setSelectedRegionId('none');
             }}
             className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
           >
@@ -228,7 +197,7 @@ const SettingsPage: React.FC = () => {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setSelectedRegionId("none")}
+                  onClick={() => setSelectedRegionId('none')}
                   className="text-[11px] text-sky-400 hover:underline"
                 >
                   Use page-level only
@@ -237,9 +206,7 @@ const SettingsPage: React.FC = () => {
               <select
                 value={selectedRegionId}
                 onChange={(e) =>
-                  setSelectedRegionId(
-                    e.target.value === "none" ? "none" : e.target.value
-                  )
+                  setSelectedRegionId(e.target.value === 'none' ? 'none' : e.target.value)
                 }
                 className="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
@@ -261,7 +228,7 @@ const SettingsPage: React.FC = () => {
               Theme Preview
             </span>
             <span className="text-[11px] text-slate-500">
-              Scopes: {orderedScopesForPreview.join(" → ")}
+              Scopes: {orderedScopesForPreview.join(' → ')}
             </span>
           </div>
           <div
@@ -273,16 +240,12 @@ const SettingsPage: React.FC = () => {
             }}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold">
-                {activeScopeDef?.label ?? activeScopeId}
-              </span>
-              <span className="text-[11px] text-slate-300">
-                border: {previewTokens.border}
-              </span>
+              <span className="font-semibold">{activeScopeDef?.label ?? activeScopeId}</span>
+              <span className="text-[11px] text-slate-300">border: {previewTokens.border}</span>
             </div>
             <p className="text-[11px] text-slate-200">
-              This card simulates a panel inside the selected page/region using
-              the merged theme tokens.
+              This card simulates a panel inside the selected page/region using the merged theme
+              tokens.
             </p>
           </div>
         </div>
@@ -296,10 +259,8 @@ const SettingsPage: React.FC = () => {
               Scope Settings
             </span>
             <div className="text-[11px] text-slate-500">
-              Active scope:{" "}
-              <span className="text-sky-300">
-                {activeScopeDef?.label ?? activeScopeId}
-              </span>
+              Active scope:{' '}
+              <span className="text-sky-300">{activeScopeDef?.label ?? activeScopeId}</span>
             </div>
           </div>
           <label className="flex items-center gap-2 text-[11px] text-slate-300">
@@ -315,9 +276,8 @@ const SettingsPage: React.FC = () => {
 
         {!isCustomized && (
           <p className="text-[11px] text-slate-500 mb-2">
-            This scope currently uses inherited settings from its parent and the
-            global default. Turn on &quot;Customize this scope&quot; to override
-            theme or tokens here.
+            This scope currently uses inherited settings from its parent and the global default.
+            Turn on &quot;Customize this scope&quot; to override theme or tokens here.
           </p>
         )}
 
@@ -336,8 +296,8 @@ const SettingsPage: React.FC = () => {
               placeholder="#f97316 or leave blank"
             />
             <p className="text-[11px] text-slate-500">
-              If set, this overrides the merged border token just for this
-              scope. Clear it to fall back to inherited theme.
+              If set, this overrides the merged border token just for this scope. Clear it to fall
+              back to inherited theme.
             </p>
           </div>
         </div>

@@ -1,16 +1,16 @@
-import type { SemanticTokens } from "./ThemeContext";
+import type { SemanticTokens } from './ThemeContext';
 
 export type SemanticTokenKey = keyof SemanticTokens;
 
 export interface TypographySettings {
   fontFamily?: string; // e.g. "system-ui", "Ariel", "Helvetica"
-  fontSize?: number;   // px
+  fontSize?: number; // px
 }
 
 export type ThemeIdString = string; // "default" or name/id of a saved theme
 
 export interface UiScopeSettings {
-  themeId: ThemeIdString;                       // selected base theme
+  themeId: ThemeIdString; // selected base theme
   overrides?: Partial<Record<SemanticTokenKey, string>>;
   typography?: TypographySettings;
   // layout?: ... // reserved for later
@@ -24,4 +24,4 @@ export interface UiSettings {
 }
 
 // LocalStorage key for this structure
-export const UI_SETTINGS_STORAGE_KEY = "tp_ui_settings_v1";
+export const UI_SETTINGS_STORAGE_KEY = 'tp_ui_settings_v1';

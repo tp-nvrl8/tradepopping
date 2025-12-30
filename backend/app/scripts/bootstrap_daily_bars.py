@@ -7,21 +7,19 @@ You run this *inside* the backend container with:
     docker compose exec backend python -m app.scripts.bootstrap_daily_bars
 """
 
-import os
 import asyncio
+import os
 from datetime import date
 from typing import List, TypedDict
 
 import duckdb  # uses the package from backend requirements.txt
-
 from app.datahub.polygon_client import fetch_polygon_daily_ohlcv
-
 
 # --- Types mirroring polygon_client ------------------------------
 
 
 class PriceBarDTO(TypedDict):
-    time: str   # ISO-8601 (UTC)
+    time: str  # ISO-8601 (UTC)
     open: float
     high: float
     low: float

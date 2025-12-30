@@ -1,8 +1,8 @@
-import React from "react";
-import { useTheme } from "../config/ThemeContext";
-import { useUiScopedTokens } from "../config/useUiScopedTokens";
+import React from 'react';
+import { useTheme } from '../config/ThemeContext';
+import { useUiScopedTokens } from '../config/useUiScopedTokens';
 
-export type LabTab = "scan" | "backtests" | "candidates";
+export type LabTab = 'scan' | 'backtests' | 'candidates';
 
 interface LabBottomPanelProps {
   open: boolean; // like builderOpen
@@ -19,13 +19,9 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
   onChangeTab,
   ideaName,
 }) => {
-  const name = ideaName ?? "no idea selected";
+  const name = ideaName ?? 'no idea selected';
   const { theme } = useTheme(); // currently unused, but keeps hook aligned with engine
-  const tokens = useUiScopedTokens([
-    "global",
-    "page:lab",
-    "region:lab:analysis",
-  ]);
+  const tokens = useUiScopedTokens(['global', 'page:lab', 'region:lab:analysis']);
 
   return (
     <section
@@ -44,7 +40,7 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">
           Analysis Panel
         </span>
-        <span className="text-slate-400 text-sm">{open ? "▾" : "▸"}</span>
+        <span className="text-slate-400 text-sm">{open ? '▾' : '▸'}</span>
       </div>
 
       {/* Body only shows when open */}
@@ -54,31 +50,31 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
           <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800/70">
             <div className="flex gap-2 text-xs">
               <button
-                onClick={() => onChangeTab("scan")}
+                onClick={() => onChangeTab('scan')}
                 className={`px-3 py-1 rounded-md border ${
-                  activeTab === "scan"
-                    ? "border-sky-500 bg-sky-500/10 text-sky-100"
-                    : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                  activeTab === 'scan'
+                    ? 'border-sky-500 bg-sky-500/10 text-sky-100'
+                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
                 }`}
               >
                 Scan
               </button>
               <button
-                onClick={() => onChangeTab("backtests")}
+                onClick={() => onChangeTab('backtests')}
                 className={`px-3 py-1 rounded-md border ${
-                  activeTab === "backtests"
-                    ? "border-sky-500 bg-sky-500/10 text-sky-100"
-                    : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                  activeTab === 'backtests'
+                    ? 'border-sky-500 bg-sky-500/10 text-sky-100'
+                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
                 }`}
               >
                 Backtests
               </button>
               <button
-                onClick={() => onChangeTab("candidates")}
+                onClick={() => onChangeTab('candidates')}
                 className={`px-3 py-1 rounded-md border ${
-                  activeTab === "candidates"
-                    ? "border-sky-500 bg-sky-500/10 text-sky-100"
-                    : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                  activeTab === 'candidates'
+                    ? 'border-sky-500 bg-sky-500/10 text-sky-100'
+                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
                 }`}
               >
                 Candidates
@@ -91,40 +87,36 @@ const LabBottomPanel: React.FC<LabBottomPanelProps> = ({
 
           {/* Content area */}
           <div className="flex-1 min-h-[10rem] px-4 py-2 text-xs overflow-y-auto rounded-b-md">
-            {activeTab === "scan" && (
+            {activeTab === 'scan' && (
               <div>
                 <p className="text-slate-300 mb-2">
-                  Scan panel for{" "}
-                  <span className="font-semibold">{name}</span>.
+                  Scan panel for <span className="font-semibold">{name}</span>.
                 </p>
                 <p className="text-slate-400">
-                  This will show the latest candidate list for this idea and a
-                  button to run a scan. For now, it&apos;s just a placeholder.
+                  This will show the latest candidate list for this idea and a button to run a scan.
+                  For now, it&apos;s just a placeholder.
                 </p>
               </div>
             )}
-            {activeTab === "backtests" && (
+            {activeTab === 'backtests' && (
               <div>
                 <p className="text-slate-300 mb-2">
-                  Backtests panel for{" "}
-                  <span className="font-semibold">{name}</span>.
+                  Backtests panel for <span className="font-semibold">{name}</span>.
                 </p>
                 <p className="text-slate-400">
-                  This will show backtest runs, key metrics, and allow launching
-                  new backtests for this idea.
+                  This will show backtest runs, key metrics, and allow launching new backtests for
+                  this idea.
                 </p>
               </div>
             )}
-            {activeTab === "candidates" && (
+            {activeTab === 'candidates' && (
               <div>
                 <p className="text-slate-300 mb-2">
-                  Candidates panel for{" "}
-                  <span className="font-semibold">{name}</span>.
+                  Candidates panel for <span className="font-semibold">{name}</span>.
                 </p>
                 <p className="text-slate-400">
-                  This will pull candidate rows for this idea from the global
-                  candidates pool and let you manage or promote them to the test
-                  stand.
+                  This will pull candidate rows for this idea from the global candidates pool and
+                  let you manage or promote them to the test stand.
                 </p>
               </div>
             )}

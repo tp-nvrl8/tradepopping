@@ -1,7 +1,7 @@
 // src/indicators/indicatorRuntime.ts
 
-import type { IndicatorInstance } from "../lab/types";
-import { INDICATOR_CATALOG, type IndicatorOutputType } from "../lab/indicatorCatalog";
+import type { IndicatorInstance } from '../lab/types';
+import { INDICATOR_CATALOG, type IndicatorOutputType } from '../lab/indicatorCatalog';
 
 /**
  * Single OHLCV bar used by indicators.
@@ -37,9 +37,9 @@ export interface IndicatorResult {
 }
 
 /** Helper: find outputType from catalog (fallback to "numeric"). */
-function getOutputTypeForId(id: IndicatorInstance["id"]): IndicatorOutputType {
+function getOutputTypeForId(id: IndicatorInstance['id']): IndicatorOutputType {
   const def = INDICATOR_CATALOG.find((d) => d.id === id);
-  return def?.outputType ?? "numeric";
+  return def?.outputType ?? 'numeric';
 }
 
 /**
@@ -56,7 +56,7 @@ function getOutputTypeForId(id: IndicatorInstance["id"]): IndicatorOutputType {
 export function computeIndicatorSeries(
   inst: IndicatorInstance,
   bars: PriceBar[],
-  _ctx: IndicatorRuntimeContext
+  _ctx: IndicatorRuntimeContext,
 ): IndicatorResult {
   const outputType = getOutputTypeForId(inst.id);
 
@@ -64,21 +64,21 @@ export function computeIndicatorSeries(
     return {
       outputType,
       values: [],
-      meta: { reason: "no-bars" },
+      meta: { reason: 'no-bars' },
     };
   }
 
   switch (inst.id) {
-    case "sobv_trend":
+    case 'sobv_trend':
       return computeSobvTrend(inst, bars, outputType);
 
-    case "kama_regime":
+    case 'kama_regime':
       return computeKamaRegime(inst, bars, outputType);
 
-    case "darkflow_bias":
+    case 'darkflow_bias':
       return computeDarkflowBias(inst, bars, outputType);
 
-    case "zscore_price_lookback":
+    case 'zscore_price_lookback':
       return computeZscorePrice(inst, bars, outputType);
 
     default:
@@ -86,7 +86,7 @@ export function computeIndicatorSeries(
       return {
         outputType,
         values: bars.map(() => null),
-        meta: { reason: "unknown-indicator-id", id: inst.id },
+        meta: { reason: 'unknown-indicator-id', id: inst.id },
       };
   }
 }
@@ -98,7 +98,7 @@ export function computeIndicatorSeries(
 function computeSobvTrend(
   inst: IndicatorInstance,
   bars: PriceBar[],
-  outputType: IndicatorOutputType
+  outputType: IndicatorOutputType,
 ): IndicatorResult {
   // Lookback isn't strictly required for OBV, but you may want to
   // smooth or normalize later. Kept here for future usage.
@@ -131,7 +131,7 @@ function computeSobvTrend(
     outputType,
     values,
     meta: {
-      rawType: "obv-like",
+      rawType: 'obv-like',
       usesShortVolume: true,
       lookback,
     },
@@ -145,7 +145,7 @@ function computeSobvTrend(
 function computeKamaRegime(
   inst: IndicatorInstance,
   bars: PriceBar[],
-  outputType: IndicatorOutputType
+  outputType: IndicatorOutputType,
 ): IndicatorResult {
   const fast = Number(inst.params?.fast ?? 2);
   const slow = Number(inst.params?.slow ?? 30);
@@ -160,7 +160,7 @@ function computeKamaRegime(
     return {
       outputType,
       values: regimes,
-      meta: { reason: "not-enough-bars", erPeriod },
+      meta: { reason: 'not-enough-bars', erPeriod },
     };
   }
 
@@ -212,7 +212,7 @@ function computeKamaRegime(
       erPeriod,
       fast,
       slow,
-      interpretation: "0=quiet, 1=normal, 2=expanding, 3=crisis",
+      interpretation: '0=quiet, 1=normal, 2=expanding, 3=crisis',
     },
   };
 }
@@ -224,13 +224,13 @@ function computeKamaRegime(
 function computeDarkflowBias(
   inst: IndicatorInstance,
   bars: PriceBar[],
-  outputType: IndicatorOutputType
+  outputType: IndicatorOutputType,
 ): IndicatorResult {
   const n = bars.length;
   const values: (number | null)[] = Array(n).fill(null);
 
   const baseline = 0.2; // "normal" dark share baseline (20%)
-  const alpha = 0.25;   // EMA smoothing for bias
+  const alpha = 0.25; // EMA smoothing for bias
   let emaBias = 0;
 
   for (let i = 0; i < n; i++) {
@@ -262,7 +262,7 @@ function computeDarkflowBias(
     meta: {
       baseline,
       alpha,
-      interpretation: "Negative = distribution, Positive = accumulation-like",
+      interpretation: 'Negative = distribution, Positive = accumulation-like',
     },
   };
 }
@@ -274,14 +274,11 @@ function computeDarkflowBias(
 function computeZscorePrice(
   inst: IndicatorInstance,
   bars: PriceBar[],
-  outputType: IndicatorOutputType
+  outputType: IndicatorOutputType,
 ): IndicatorResult {
   const closes = bars.map((b) => b.close);
   const defaultLookback = 10;
-  const lookback = Math.max(
-    2,
-    Number(inst.params?.lookback ?? defaultLookback)
-  );
+  const lookback = Math.max(2, Number(inst.params?.lookback ?? defaultLookback));
 
   const n = closes.length;
   const values: (number | null)[] = Array(n).fill(null);
@@ -290,7 +287,7 @@ function computeZscorePrice(
     return {
       outputType,
       values,
-      meta: { reason: "not-enough-bars", lookback },
+      meta: { reason: 'not-enough-bars', lookback },
     };
   }
 
@@ -298,12 +295,9 @@ function computeZscorePrice(
     const start = i - lookback + 1;
     const window = closes.slice(start, i + 1);
 
-    const mean =
-      window.reduce((sum, v) => sum + v, 0) / window.length;
+    const mean = window.reduce((sum, v) => sum + v, 0) / window.length;
 
-    const variance =
-      window.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) /
-      window.length;
+    const variance = window.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / window.length;
 
     const std = Math.sqrt(variance);
 

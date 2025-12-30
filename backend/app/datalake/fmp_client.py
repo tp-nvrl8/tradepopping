@@ -1,7 +1,7 @@
 # backend/app/datalake/fmp_client.py
 
 import os
-from typing import List, TypedDict, Optional
+from typing import List, Optional, TypedDict
 
 import httpx
 
@@ -11,6 +11,7 @@ ALLOWED_EXCHANGES = {"NYSE", "NASDAQ"}
 
 class FmpClientError(Exception):
     """Custom error type for FMP client failures."""
+
     pass
 
 
@@ -19,6 +20,7 @@ class FmpSymbolDTO(TypedDict):
     Normalized symbol row coming from FMP stock screener.
     Only keep the fields we actually care about.
     """
+
     symbol: str
     name: str
     exchange: str
@@ -43,7 +45,7 @@ def _ensure_api_key() -> str:
 
 
 async def fetch_fmp_symbol_universe(
-    min_market_cap: int = 50_000_000,   # 50M default floor
+    min_market_cap: int = 50_000_000,  # 50M default floor
     max_market_cap: Optional[int] = None,
     # Default to pure NYSE + NASDAQ
     exchanges: str = "NYSE,NASDAQ",
@@ -103,11 +105,7 @@ async def fetch_fmp_symbol_universe(
         name = (row.get("companyName") or row.get("company_name") or "").strip()
 
         # FMP can use either "exchangeShortName" or "exchange"
-        exchange_raw = (
-            row.get("exchangeShortName")
-            or row.get("exchange")
-            or ""
-        )
+        exchange_raw = row.get("exchangeShortName") or row.get("exchange") or ""
         exchange = exchange_raw.strip().upper()
 
         # 🔒 Hard filter: keep only pure NYSE / NASDAQ rows

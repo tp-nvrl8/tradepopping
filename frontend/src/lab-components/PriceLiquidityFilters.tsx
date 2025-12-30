@@ -1,17 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { LabIdea } from "../lab/types";
+import React, { useEffect, useState } from 'react';
+import { LabIdea } from '../lab/types';
 
 interface PriceLiquidityFiltersProps {
   idea: LabIdea;
-  onChangeRange: (field: string, bound: "min" | "max", raw: string) => void;
+  onChangeRange: (field: string, bound: 'min' | 'max', raw: string) => void;
 }
 
-const STORAGE_KEY = "tp_lab_filter_priceLiquidity_open";
+const STORAGE_KEY = 'tp_lab_filter_priceLiquidity_open';
 
-const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
-  idea,
-  onChangeRange,
-}) => {
+const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({ idea, onChangeRange }) => {
   const [open, setOpen] = useState(true);
   const cfg = idea.priceLiquidity;
 
@@ -20,7 +17,7 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw !== null) {
-        setOpen(raw === "1"); // "1" = open, "0" = closed
+        setOpen(raw === '1'); // "1" = open, "0" = closed
       }
     } catch {
       // ignore if localStorage not available (SSR, private mode, etc.)
@@ -30,7 +27,7 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
   // Save state whenever it changes
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, open ? "1" : "0");
+      localStorage.setItem(STORAGE_KEY, open ? '1' : '0');
     } catch {
       // ignore write errors
     }
@@ -43,10 +40,8 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-3 py-2 text-xs uppercase tracking-wide border-b border-slate-800 bg-slate-900/70 hover:bg-slate-800/80"
       >
-        <span className="font-semibold text-slate-200">
-          Price &amp; Liquidity Filters
-        </span>
-        <span className="text-slate-400 text-sm">{open ? "▾" : "▸"}</span>
+        <span className="font-semibold text-slate-200">Price &amp; Liquidity Filters</span>
+        <span className="text-slate-400 text-sm">{open ? '▾' : '▸'}</span>
       </button>
 
       {open && (
@@ -60,15 +55,15 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
                   type="number"
                   className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Min"
-                  value={cfg.price?.min ?? ""}
-                  onChange={(e) => onChangeRange("price", "min", e.target.value)}
+                  value={cfg.price?.min ?? ''}
+                  onChange={(e) => onChangeRange('price', 'min', e.target.value)}
                 />
                 <input
                   type="number"
                   className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Max"
-                  value={cfg.price?.max ?? ""}
-                  onChange={(e) => onChangeRange("price", "max", e.target.value)}
+                  value={cfg.price?.max ?? ''}
+                  onChange={(e) => onChangeRange('price', 'max', e.target.value)}
                 />
               </div>
             </div>
@@ -81,27 +76,15 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
                   type="number"
                   className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Min"
-                  value={cfg.averageDailyDollarVolume?.min ?? ""}
-                  onChange={(e) =>
-                    onChangeRange(
-                      "averageDailyDollarVolume",
-                      "min",
-                      e.target.value
-                    )
-                  }
+                  value={cfg.averageDailyDollarVolume?.min ?? ''}
+                  onChange={(e) => onChangeRange('averageDailyDollarVolume', 'min', e.target.value)}
                 />
                 <input
                   type="number"
                   className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Max"
-                  value={cfg.averageDailyDollarVolume?.max ?? ""}
-                  onChange={(e) =>
-                    onChangeRange(
-                      "averageDailyDollarVolume",
-                      "max",
-                      e.target.value
-                    )
-                  }
+                  value={cfg.averageDailyDollarVolume?.max ?? ''}
+                  onChange={(e) => onChangeRange('averageDailyDollarVolume', 'max', e.target.value)}
                 />
               </div>
             </div>
@@ -114,27 +97,15 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
                   type="number"
                   className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Min"
-                  value={cfg.averageDailyShareVolume?.min ?? ""}
-                  onChange={(e) =>
-                    onChangeRange(
-                      "averageDailyShareVolume",
-                      "min",
-                      e.target.value
-                    )
-                  }
+                  value={cfg.averageDailyShareVolume?.min ?? ''}
+                  onChange={(e) => onChangeRange('averageDailyShareVolume', 'min', e.target.value)}
                 />
                 <input
                   type="number"
                   className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Max"
-                  value={cfg.averageDailyShareVolume?.max ?? ""}
-                  onChange={(e) =>
-                    onChangeRange(
-                      "averageDailyShareVolume",
-                      "max",
-                      e.target.value
-                    )
-                  }
+                  value={cfg.averageDailyShareVolume?.max ?? ''}
+                  onChange={(e) => onChangeRange('averageDailyShareVolume', 'max', e.target.value)}
                 />
               </div>
             </div>
@@ -147,19 +118,15 @@ const PriceLiquidityFilters: React.FC<PriceLiquidityFiltersProps> = ({
                   type="number"
                   className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Min"
-                  value={cfg.floatShares?.min ?? ""}
-                  onChange={(e) =>
-                    onChangeRange("floatShares", "min", e.target.value)
-                  }
+                  value={cfg.floatShares?.min ?? ''}
+                  onChange={(e) => onChangeRange('floatShares', 'min', e.target.value)}
                 />
                 <input
                   type="number"
                   className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"
                   placeholder="Max"
-                  value={cfg.floatShares?.max ?? ""}
-                  onChange={(e) =>
-                    onChangeRange("floatShares", "max", e.target.value)
-                  }
+                  value={cfg.floatShares?.max ?? ''}
+                  onChange={(e) => onChangeRange('floatShares', 'max', e.target.value)}
                 />
               </div>
             </div>

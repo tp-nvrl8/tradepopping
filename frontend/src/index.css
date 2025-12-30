@@ -36,7 +36,7 @@
 /*  SLATE THEME (Baseline)                                     */
 /* =========================================================== */
 
-:root[data-tp-theme="slate"] {
+:root[data-tp-theme='slate'] {
   --tp-surface: #0b1220;
   --tp-surface-muted: #111827;
   --tp-border: #1f2937;
@@ -66,7 +66,7 @@
 /*  TREK INDUSTRIAL (Engineering LCARS)                        */
 /* =========================================================== */
 
-:root[data-tp-theme="trek-industrial"] {
+:root[data-tp-theme='trek-industrial'] {
   --tp-surface: #0a0d12;
   --tp-surface-muted: #12171f;
   --tp-border: #a78b6a;
@@ -96,7 +96,7 @@
 /*  DELTA FLYER (Sleek Cool Shuttle UI)                        */
 /* =========================================================== */
 
-:root[data-tp-theme="delta-flyer"] {
+:root[data-tp-theme='delta-flyer'] {
   --tp-surface: #030b18;
   --tp-surface-muted: #0b1726;
   --tp-border: #7dd3fc;
@@ -126,7 +126,7 @@
 /*  CUSTOM THEME (fallback matches slate until overridden)     */
 /* =========================================================== */
 
-:root[data-tp-theme="custom"] {
+:root[data-tp-theme='custom'] {
   --tp-settings-card-bg: var(--tp-surface-muted);
   --tp-settings-card-border: var(--tp-border);
 

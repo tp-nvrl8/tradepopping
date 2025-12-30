@@ -5,7 +5,7 @@ import axios, {
   AxiosError,
   AxiosResponse,
   InternalAxiosRequestConfig,
-} from "axios";
+} from 'axios';
 
 // ========================================================================
 // API LOGGING
@@ -60,7 +60,7 @@ function emit(entry: ApiLogEntry) {
  *   { email: string; token: string }
  */
 const api: AxiosInstance = axios.create({
-  baseURL: "/api",
+  baseURL: '/api',
   withCredentials: false, // bearer tokens, not cookies
 });
 
@@ -71,9 +71,7 @@ api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // ---- Auth token from AuthContext ("tp_auth") ----
     try {
-      const raw = typeof window !== "undefined"
-        ? window.localStorage.getItem("tp_auth")
-        : null;
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('tp_auth') : null;
 
       if (raw) {
         const parsed = JSON.parse(raw) as { token?: string | null };
@@ -81,32 +79,26 @@ api.interceptors.request.use(
 
         if (token) {
           config.headers = config.headers ?? {};
-          (config.headers as Record<string, string>)["Authorization"] =
-            `Bearer ${token}`;
+          (config.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         }
       }
     } catch {
       // If parsing fails, just continue without a token
     }
 
-    const start =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
+    const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
-    const method = (config.method || "GET").toUpperCase();
-    const url = config.baseURL
-      ? config.baseURL + (config.url || "")
-      : config.url || "";
+    const method = (config.method || 'GET').toUpperCase();
+    const url = config.baseURL ? config.baseURL + (config.url || '') : config.url || '';
 
     const fullUrl =
       url +
       (config.params
-        ? "?" +
+        ? '?' +
           new URLSearchParams(
-            Object.fromEntries(
-              Object.entries(config.params).map(([k, v]) => [k, String(v)])
-            )
+            Object.fromEntries(Object.entries(config.params).map(([k, v]) => [k, String(v)])),
           ).toString()
-        : "");
+        : '');
 
     const entry: ApiLogEntry = {
       id: String(nextId++),
@@ -126,8 +118,8 @@ api.interceptors.request.use(
     const entry: ApiLogEntry = {
       id: String(nextId++),
       timestamp: Date.now(),
-      method: "ERROR",
-      url: "",
+      method: 'ERROR',
+      url: '',
       status: null,
       durationMs: 0,
       error: error.message,
@@ -135,7 +127,7 @@ api.interceptors.request.use(
 
     emit(entry);
     return Promise.reject(error);
-  }
+  },
 );
 
 // ----------------------------------------------------
@@ -146,8 +138,7 @@ api.interceptors.response.use(
     const meta = (response.config as any).__tpLogMeta;
 
     if (meta) {
-      const end =
-        typeof performance !== "undefined" ? performance.now() : Date.now();
+      const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
       const entry: ApiLogEntry = {
         ...meta.entry,
@@ -165,8 +156,7 @@ api.interceptors.response.use(
     const cfg = error.config as any;
     const meta = cfg?.__tpLogMeta;
 
-    const end =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
+    const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     let entry: ApiLogEntry;
 
@@ -182,8 +172,8 @@ api.interceptors.response.use(
       entry = {
         id: String(nextId++),
         timestamp: Date.now(),
-        method: cfg?.method || "GET",
-        url: cfg?.url || "",
+        method: cfg?.method || 'GET',
+        url: cfg?.url || '',
         status: error.response?.status || null,
         durationMs: 0,
         error: error.message,
@@ -192,7 +182,7 @@ api.interceptors.response.use(
 
     emit(entry);
     return Promise.reject(error);
-  }
+  },
 );
 
 // ========================================================================
@@ -204,11 +194,7 @@ export const apiClient = {
     return api.get<T>(url, config).then((r) => r.data as T);
   },
 
-  post<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
+  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     return api.post<T>(url, data, config).then((r) => r.data as T);
   },
 
@@ -218,10 +204,10 @@ export const apiClient = {
 
 // --- Login wrapper using apiClient ---
 export async function loginRequest(email: string, code: string) {
-  const data = await apiClient.post<{ token: string; email: string }>(
-    "/auth/login",
-    { email, code }
-  );
+  const data = await apiClient.post<{ token: string; email: string }>('/auth/login', {
+    email,
+    code,
+  });
   return data;
 }
 

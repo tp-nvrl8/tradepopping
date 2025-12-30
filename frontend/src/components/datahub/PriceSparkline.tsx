@@ -1,6 +1,6 @@
 // frontend/src/components/datahub/PriceSparkline.tsx
-import React from "react";
-import { PriceBarDTO } from "./types";
+import React from 'react';
+import { PriceBarDTO } from './types';
 
 interface PriceSparklineProps {
   bars: PriceBarDTO[];
@@ -8,9 +8,7 @@ interface PriceSparklineProps {
 
 const PriceSparkline: React.FC<PriceSparklineProps> = ({ bars }) => {
   if (!bars.length) {
-    return (
-      <div className="text-[10px] text-slate-500">No data to preview.</div>
-    );
+    return <div className="text-[10px] text-slate-500">No data to preview.</div>;
   }
 
   const width = 220;
@@ -30,9 +28,7 @@ const PriceSparkline: React.FC<PriceSparklineProps> = ({ bars }) => {
   const usableHeight = height - padding * 2;
 
   const scaleX = (index: number, length: number) =>
-    length <= 1
-      ? padding + usableWidth / 2
-      : padding + (index / (length - 1)) * usableWidth;
+    length <= 1 ? padding + usableWidth / 2 : padding + (index / (length - 1)) * usableWidth;
 
   const scaleY = (value: number) => {
     const t = (value - min) / (max - min);
@@ -40,7 +36,7 @@ const PriceSparkline: React.FC<PriceSparklineProps> = ({ bars }) => {
     return padding + (1 - clamped) * usableHeight;
   };
 
-  let d = "";
+  let d = '';
   for (let i = 0; i < closes.length; i++) {
     const x = scaleX(i, closes.length);
     const y = scaleY(closes[i]);

@@ -1,20 +1,11 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   UI_SETTINGS_STORAGE_KEY,
   type UiSettings,
   type UiScopeSettings,
   type ScopeId,
-} from "./UiSettingsTypes";
-import {
-  DEFAULT_THEME_TOKENS,
-  type ThemeProfile,
-} from "./uiThemeCore";
+} from './UiSettingsTypes';
+import { DEFAULT_THEME_TOKENS, type ThemeProfile } from './uiThemeCore';
 
 /**
  * v1: canonical UI settings + theme engine context.
@@ -26,33 +17,33 @@ import {
  * - Persist everything to localStorage
  */
 
-const THEME_PROFILES_STORAGE_KEY = "tp_theme_profiles_v2";
-const ACTIVE_THEME_ID_STORAGE_KEY = "tp_theme_active_id_v1";
+const THEME_PROFILES_STORAGE_KEY = 'tp_theme_profiles_v2';
+const ACTIVE_THEME_ID_STORAGE_KEY = 'tp_theme_active_id_v1';
 
-const DEFAULT_THEME_PROFILE_ID = "default-slate";
-const PASTEL_THEME_PROFILE_ID = "pastel-lab";
+const DEFAULT_THEME_PROFILE_ID = 'default-slate';
+const PASTEL_THEME_PROFILE_ID = 'pastel-lab';
 
 const DEFAULT_THEME_PROFILE: ThemeProfile = {
   id: DEFAULT_THEME_PROFILE_ID,
-  name: "Default Slate",
-  description: "Built-in slate baseline theme",
+  name: 'Default Slate',
+  description: 'Built-in slate baseline theme',
   tokens: { ...DEFAULT_THEME_TOKENS },
 };
 
 const PASTEL_THEME_PROFILE: ThemeProfile = {
   id: PASTEL_THEME_PROFILE_ID,
-  name: "Pastel Lab",
-  description: "Soft pastel variant for lab panels",
+  name: 'Pastel Lab',
+  description: 'Soft pastel variant for lab panels',
   tokens: {
     ...DEFAULT_THEME_TOKENS,
     // Make this visibly different so we can see it in the Lab
-    surface: "#020617",
-    surfaceMuted: "#0b1120",
-    border: "#f97316",        // bright orange border
-    accent: "#a5b4fc",        // indigo accent
-    accentMuted: "#f97316",
-    textPrimary: "#f9fafb",
-    textSecondary: "#e5e7eb",
+    surface: '#020617',
+    surfaceMuted: '#0b1120',
+    border: '#f97316', // bright orange border
+    accent: '#a5b4fc', // indigo accent
+    accentMuted: '#f97316',
+    textPrimary: '#f9fafb',
+    textSecondary: '#e5e7eb',
   },
 };
 
@@ -85,7 +76,7 @@ export interface UiSettingsContextValue {
    */
   updateScopeSettings: (
     scopeId: ScopeId,
-    updater: (prev: UiScopeSettings | undefined) => UiScopeSettings | undefined
+    updater: (prev: UiScopeSettings | undefined) => UiScopeSettings | undefined,
   ) => void;
 
   /**
@@ -101,25 +92,17 @@ export interface UiSettingsContextValue {
   setActiveTheme: (id: string) => void;
 }
 
-const UiSettingsContext = createContext<UiSettingsContextValue | undefined>(
-  undefined
-);
+const UiSettingsContext = createContext<UiSettingsContextValue | undefined>(undefined);
 
-export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [uiSettings, setUiSettings] = useState<UiSettings>(DEFAULT_UI_SETTINGS);
 
-  const [themeProfiles, setThemeProfiles] = useState<
-    Record<string, ThemeProfile>
-  >({
+  const [themeProfiles, setThemeProfiles] = useState<Record<string, ThemeProfile>>({
     [DEFAULT_THEME_PROFILE_ID]: DEFAULT_THEME_PROFILE,
     [PASTEL_THEME_PROFILE_ID]: PASTEL_THEME_PROFILE,
   });
 
-  const [activeThemeId, setActiveThemeId] = useState<string>(
-    DEFAULT_THEME_PROFILE_ID
-  );
+  const [activeThemeId, setActiveThemeId] = useState<string>(DEFAULT_THEME_PROFILE_ID);
 
   // ---- Hydrate from localStorage on first mount ----
   useEffect(() => {
@@ -130,10 +113,10 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
         const parsed = JSON.parse(raw) as UiSettings;
         if (
           parsed &&
-          typeof parsed === "object" &&
+          typeof parsed === 'object' &&
           parsed.version === 1 &&
           parsed.scopes &&
-          typeof parsed.scopes === "object"
+          typeof parsed.scopes === 'object'
         ) {
           setUiSettings(parsed);
         }
@@ -144,14 +127,12 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
 
     // Theme profiles + active theme
     try {
-      const themeRaw = window.localStorage.getItem(
-        THEME_PROFILES_STORAGE_KEY
-      );
+      const themeRaw = window.localStorage.getItem(THEME_PROFILES_STORAGE_KEY);
       let userProfiles: Record<string, ThemeProfile> = {};
 
       if (themeRaw) {
         const parsed = JSON.parse(themeRaw) as Record<string, ThemeProfile>;
-        if (parsed && typeof parsed === "object") {
+        if (parsed && typeof parsed === 'object') {
           // Only keep user-defined profiles (don’t override built-ins)
           const cleaned: Record<string, ThemeProfile> = {};
           for (const [id, profile] of Object.entries(parsed)) {
@@ -159,10 +140,10 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
               id !== DEFAULT_THEME_PROFILE_ID &&
               id !== PASTEL_THEME_PROFILE_ID &&
               profile &&
-              typeof profile.id === "string" &&
-              typeof profile.name === "string" &&
+              typeof profile.id === 'string' &&
+              typeof profile.name === 'string' &&
               profile.tokens &&
-              typeof profile.tokens === "object"
+              typeof profile.tokens === 'object'
             ) {
               cleaned[id] = profile;
             }
@@ -181,13 +162,9 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
         ...userProfiles,
       };
 
-      const activeRaw = window.localStorage.getItem(
-        ACTIVE_THEME_ID_STORAGE_KEY
-      );
+      const activeRaw = window.localStorage.getItem(ACTIVE_THEME_ID_STORAGE_KEY);
       const nextActive =
-        activeRaw && loadedProfiles[activeRaw]
-          ? activeRaw
-          : DEFAULT_THEME_PROFILE_ID;
+        activeRaw && loadedProfiles[activeRaw] ? activeRaw : DEFAULT_THEME_PROFILE_ID;
 
       setThemeProfiles(loadedProfiles);
       setActiveThemeId(nextActive);
@@ -199,10 +176,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
   // ---- Persist UI settings when scopes change ----
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        UI_SETTINGS_STORAGE_KEY,
-        JSON.stringify(uiSettings)
-      );
+      window.localStorage.setItem(UI_SETTINGS_STORAGE_KEY, JSON.stringify(uiSettings));
     } catch {
       // ignore failures (private mode, quota, etc.)
     }
@@ -211,14 +185,8 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
   // ---- Persist theme profiles + active theme ----
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        THEME_PROFILES_STORAGE_KEY,
-        JSON.stringify(themeProfiles)
-      );
-      window.localStorage.setItem(
-        ACTIVE_THEME_ID_STORAGE_KEY,
-        activeThemeId
-      );
+      window.localStorage.setItem(THEME_PROFILES_STORAGE_KEY, JSON.stringify(themeProfiles));
+      window.localStorage.setItem(ACTIVE_THEME_ID_STORAGE_KEY, activeThemeId);
     } catch {
       // ignore
     }
@@ -226,15 +194,13 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
 
   // ---- Scope helpers ----
 
-  const getScopeSettings = (
-    scopeId: ScopeId
-  ): UiScopeSettings | undefined => {
+  const getScopeSettings = (scopeId: ScopeId): UiScopeSettings | undefined => {
     return uiSettings.scopes[scopeId];
   };
 
   const updateScopeSettings = (
     scopeId: ScopeId,
-    updater: (prev: UiScopeSettings | undefined) => UiScopeSettings | undefined
+    updater: (prev: UiScopeSettings | undefined) => UiScopeSettings | undefined,
   ) => {
     setUiSettings((prev) => {
       const prevScope = prev.scopes[scopeId];
@@ -265,12 +231,9 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
 
   // ---- Theme profile helpers for Theme Lab ----
 
-  const createThemeProfile = (input: {
-    name: string;
-    baseFromId?: string;
-  }): string => {
-    const trimmedName = input.name.trim() || "Untitled Theme";
-    const baseProfile = themeProfiles[input.baseFromId ?? ""];
+  const createThemeProfile = (input: { name: string; baseFromId?: string }): string => {
+    const trimmedName = input.name.trim() || 'Untitled Theme';
+    const baseProfile = themeProfiles[input.baseFromId ?? ''];
 
     const id = `theme-${Date.now()}`;
 
@@ -282,9 +245,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
         ...DEFAULT_THEME_TOKENS,
         ...(baseProfile?.tokens ?? {}),
       },
-      typography: baseProfile?.typography
-        ? { ...baseProfile.typography }
-        : undefined,
+      typography: baseProfile?.typography ? { ...baseProfile.typography } : undefined,
     };
 
     setThemeProfiles((prev) => ({
@@ -305,9 +266,7 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
       const next: ThemeProfile = {
         ...existing,
         ...patch,
-        tokens: patch.tokens
-          ? { ...existing.tokens, ...patch.tokens }
-          : existing.tokens,
+        tokens: patch.tokens ? { ...existing.tokens, ...patch.tokens } : existing.tokens,
         typography: patch.typography
           ? { ...existing.typography, ...patch.typography }
           : existing.typography,
@@ -364,17 +323,13 @@ export const UiSettingsProvider: React.FC<{ children: ReactNode }> = ({
     setActiveTheme,
   };
 
-  return (
-    <UiSettingsContext.Provider value={value}>
-      {children}
-    </UiSettingsContext.Provider>
-  );
+  return <UiSettingsContext.Provider value={value}>{children}</UiSettingsContext.Provider>;
 };
 
 export const useUiSettings = (): UiSettingsContextValue => {
   const ctx = useContext(UiSettingsContext);
   if (!ctx) {
-    throw new Error("useUiSettings must be used within a UiSettingsProvider");
+    throw new Error('useUiSettings must be used within a UiSettingsProvider');
   }
   return ctx;
 };

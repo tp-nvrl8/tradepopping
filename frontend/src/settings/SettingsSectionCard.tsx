@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode } from 'react';
 
 interface SettingsSectionCardProps {
   id?: string; // used as data-settings-card for CSS hooks
@@ -24,9 +24,7 @@ const SettingsSectionCard: React.FC<SettingsSectionCardProps> = ({
             {title}
           </h2>
           {description && (
-            <p className="text-[11px] text-[var(--tp-text-secondary)] mt-0.5">
-              {description}
-            </p>
+            <p className="text-[11px] text-[var(--tp-text-secondary)] mt-0.5">{description}</p>
           )}
         </div>
       </header>

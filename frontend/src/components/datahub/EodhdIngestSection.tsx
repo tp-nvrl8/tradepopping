@@ -353,157 +353,117 @@ const EodhdIngestSection: React.FC = () => {
             </button>
           </div>
         </div>
-      </CollapsibleSection>
-      {/* Errors */}
-      {error && (
-        <div className="mt-3 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
-          {error}
-        </div>
-      )}
 
-      {/* Result summary */}
-      {result && (
-        <div className="mt-3 grid gap-2 text-xs text-slate-100 sm:grid-cols-3">
-          <div>
-            <div className="text-slate-400">Requested window</div>
-            <div className="font-semibold">
-              {result.requested_start} → {result.requested_end}
-            </div>
+        {/* Errors */}
+        {error && (
+          <div className="mt-3 rounded-md border border-red-500/60 bg-red-900/40 px-3 py-2 text-xs text-red-100">
+            {error}
           </div>
-          <div>
-            <div className="text-slate-400">Symbols attempted</div>
-            <div className="font-semibold">{result.symbols_attempted.toLocaleString()}</div>
-          </div>
-          <div>
-            <div className="text-slate-400">Rows observed in lake</div>
-            <div className="font-semibold">
-              {result.rows_observed_after_ingest.toLocaleString()}
-            </div>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Latest job status */}
-      {jobStatus && (
-        <div className="mt-4 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-100">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-semibold">Latest ingest job</span>
-            <span
-              className={
-                jobStatus.state === 'succeeded'
-                  ? 'text-emerald-300'
-                  : jobStatus.state === 'running'
-                    ? 'text-yellow-300'
-                    : 'text-red-300'
-              }
-            >
-              {jobStatus.state.toUpperCase()}
-            </span>
-          </div>
-
-          <div className="grid gap-1 sm:grid-cols-2">
+        {/* Result summary */}
+        {result && (
+          <div className="mt-3 grid gap-2 text-xs text-slate-100 sm:grid-cols-3">
             <div>
-              <span className="text-slate-400">Window: </span>
-              <span className="font-semibold">
-                {jobStatus.requested_start} → {jobStatus.requested_end}
-              </span>
+              <div className="text-slate-400">Requested window</div>
+              <div className="font-semibold">
+                {result.requested_start} → {result.requested_end}
+              </div>
             </div>
             <div>
-              <span className="text-slate-400">Attempted: </span>
-              <span className="font-semibold">{jobStatus.symbols_attempted.toLocaleString()}</span>
+              <div className="text-slate-400">Symbols attempted</div>
+              <div className="font-semibold">{result.symbols_attempted.toLocaleString()}</div>
             </div>
             <div>
-              <span className="text-slate-400">Succeeded: </span>
-              <span className="font-semibold">{jobStatus.symbols_succeeded.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-slate-400">Failed: </span>
-              <span className="font-semibold">{jobStatus.symbols_failed.toLocaleString()}</span>
-            </div>
-            {jobStatus.last_error && (
-              <div className="sm:col-span-2 text-red-300">Last error: {jobStatus.last_error}</div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Gas gauge */}
-      {jobStatus && progress && (
-        <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-100">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-semibold">Job progress</span>
-            <span className="text-[11px] text-slate-300">{progressPolling ? 'LIVE' : '—'}</span>
-          </div>
-
-          <div className="text-[11px] text-slate-300">
-            {progress.succeeded + progress.failed} / {progress.total} (
-            {progress.pct_complete.toFixed(1)}%)
-          </div>
-
-          <div className="mt-2 h-2 w-full rounded bg-slate-800">
-            <div
-              className="h-2 rounded bg-emerald-500"
-              style={{
-                width: `${Math.max(0, Math.min(100, progress.pct_complete))}%`,
-              }}
-            />
-          </div>
-
-          <div className="mt-2 text-[10px] text-slate-400">
-            pending {progress.pending} • running {progress.running} • succeeded {progress.succeeded}{' '}
-            • failed {progress.failed}
-          </div>
-        </div>
-      )}
-
-      {(loadingWindow || loadingFull) && (
-        <Spinner label="Ingest in progress… watch backend logs for details." />
-      )}
-
-      <div className="mt-4">
-        <CollapsibleSection
-          storageKey="tp_datahub_eodhd_ingest_test_open"
-          title="Daily Bar Ingest Test"
-          defaultOpen
-        >
-          {/* =========================
-          WINDOW TEST BLOCK
-         ========================= */}
-          <div className="rounded-md border border-slate-800 bg-slate-950/40 border-l-orange-400/80 p-3">
-            <div className="grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-4">
-              <label className="flex flex-col gap-1">
-                <span className="text-emerald-100">Window start (YYYY-MM-DD)</span>
-                <input
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1">
-                <span className="text-emerald-100">Window end (YYYY-MM-DD)</span>
-                <input
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-                />
-              </label>
-
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleIngestWindow}
-                  disabled={loadingWindow || loadingFull}
-                  className="w-full rounded-md bg-emerald-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
-                  title="Ingest only the window dates above."
-                >
-                  {loadingWindow ? 'Ingesting window…' : 'Test Ingest'}
-                </button>
+              <div className="text-slate-400">Rows observed in lake</div>
+              <div className="font-semibold">
+                {result.rows_observed_after_ingest.toLocaleString()}
               </div>
             </div>
           </div>
-        </CollapsibleSection>
-      </div>
+        )}
+
+        {/* Latest job status */}
+        {jobStatus && (
+          <div className="mt-4 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-100">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-semibold">Latest ingest job</span>
+              <span
+                className={
+                  jobStatus.state === 'succeeded'
+                    ? 'text-emerald-300'
+                    : jobStatus.state === 'running'
+                      ? 'text-yellow-300'
+                      : 'text-red-300'
+                }
+              >
+                {jobStatus.state.toUpperCase()}
+              </span>
+            </div>
+
+            <div className="grid gap-1 sm:grid-cols-2">
+              <div>
+                <span className="text-slate-400">Window: </span>
+                <span className="font-semibold">
+                  {jobStatus.requested_start} → {jobStatus.requested_end}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400">Attempted: </span>
+                <span className="font-semibold">
+                  {jobStatus.symbols_attempted.toLocaleString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400">Succeeded: </span>
+                <span className="font-semibold">
+                  {jobStatus.symbols_succeeded.toLocaleString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400">Failed: </span>
+                <span className="font-semibold">{jobStatus.symbols_failed.toLocaleString()}</span>
+              </div>
+              {jobStatus.last_error && (
+                <div className="sm:col-span-2 text-red-300">Last error: {jobStatus.last_error}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Gas gauge */}
+        {jobStatus && progress && (
+          <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-100">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-semibold">Job progress</span>
+              <span className="text-[11px] text-slate-300">{progressPolling ? 'LIVE' : '—'}</span>
+            </div>
+
+            <div className="text-[11px] text-slate-300">
+              {progress.succeeded + progress.failed} / {progress.total} (
+              {progress.pct_complete.toFixed(1)}%)
+            </div>
+
+            <div className="mt-2 h-2 w-full rounded bg-slate-800">
+              <div
+                className="h-2 rounded bg-emerald-500"
+                style={{
+                  width: `${Math.max(0, Math.min(100, progress.pct_complete))}%`,
+                }}
+              />
+            </div>
+
+            <div className="mt-2 text-[10px] text-slate-400">
+              pending {progress.pending} • running {progress.running} • succeeded{' '}
+              {progress.succeeded} • failed {progress.failed}
+            </div>
+          </div>
+        )}
+
+        {(loadingWindow || loadingFull) && (
+          <Spinner label="Ingest in progress… watch backend logs for details." />
+        )}
+      </CollapsibleSection>
       <DataLakeBarsSection />
     </CollapsibleSection>
   );
